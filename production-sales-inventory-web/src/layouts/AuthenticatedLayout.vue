@@ -24,6 +24,18 @@
           <TagIcon class="nav-icon" />
           <span class="nav-text">产品管理</span>
         </RouterLink>
+        <RouterLink to="/purchase" class="nav-item" :class="{ active: isActive('purchase') }">
+          <ShoppingCartIcon class="nav-icon" />
+          <span class="nav-text">采购管理</span>
+        </RouterLink>
+        <RouterLink to="/suppliers" class="nav-item" :class="{ active: isActive('suppliers') }">
+          <TruckIcon class="nav-icon" />
+          <span class="nav-text">供应商管理</span>
+        </RouterLink>
+        <RouterLink to="/production-config" class="nav-item" :class="{ active: isActive('production-config') }">
+          <ClipboardDocumentListIcon class="nav-icon" />
+          <span class="nav-text">生产配置</span>
+        </RouterLink>
         <a href="#" class="nav-item">
           <ChartBarIcon class="nav-icon" />
           <span class="nav-text">销售统计</span>
@@ -136,6 +148,9 @@ import {
   HomeIcon,
   CubeIcon,
   TagIcon,
+  ShoppingCartIcon,
+  TruckIcon,
+  ClipboardDocumentListIcon,
   ChartBarIcon,
   CogIcon,
   MagnifyingGlassIcon,
@@ -168,6 +183,27 @@ const breadcrumb = computed(() => {
     return {
       main: '产品管理',
       sub: '产品列表'
+    }
+  }
+
+  if (route.name === 'purchase') {
+    return {
+      main: '采购管理',
+      sub: '手动采购'
+    }
+  }
+
+  if (route.name === 'suppliers') {
+    return {
+      main: '供应商管理',
+      sub: '供货规则'
+    }
+  }
+
+  if (route.name === 'production-config') {
+    return {
+      main: '生产配置',
+      sub: '成品配方'
     }
   }
 

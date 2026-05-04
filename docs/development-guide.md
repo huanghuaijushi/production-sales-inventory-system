@@ -154,6 +154,67 @@ role_permission
 - 查询采购单
 - 采购入库
 
+当前第一版手动采购闭环已实现：
+
+```text
+GET    /api/v1/suppliers
+POST   /api/v1/suppliers
+PUT    /api/v1/suppliers/{supplierId}
+DELETE /api/v1/suppliers/{supplierId}
+
+GET    /api/v1/purchase-orders
+POST   /api/v1/purchase-orders
+PUT    /api/v1/purchase-orders/{orderId}
+POST   /api/v1/purchase-orders/{orderId}/inbound
+POST   /api/v1/purchase-orders/{orderId}/cancel
+```
+
+第一版采购流程：
+
+1. 维护供应商资料。
+2. 手动创建采购单，选择供应商、商品、数量、采购单价和预计到货日期。
+3. 采购单状态为 `草稿` 或 `待入库`。
+4. 到货后点击确认入库，系统在同一事务中增加库存并写入采购入库流水。
+5. 已入库采购单不能继续修改或取消。
+
+前端页面：
+
+```text
+GET /purchase
+```
+
+页面包含采购单列表、供应商资料、库存采购建议和确认入库操作。
+
+当前采购逻辑已经按粽子产销存场景优化为“原材料采购”：
+
+- 采购单只能选择 `RAW_MATERIAL` 原材料。
+- 成品粽子不允许直接采购，后续应通过生产单完成成品入库。
+- 已新增成品配方、供货规则、生产建议和按供应商分组的智能采购建议。
+
+相关文档：
+
+```text
+docs/production-purchasing-design.md
+docs/production-purchasing-operation-guide.md
+```
+
+新增生产采购计划接口：
+
+```text
+GET    /api/v1/production/bom
+POST   /api/v1/production/bom
+DELETE /api/v1/production/bom/{bomItemId}
+
+GET    /api/v1/production/supplier-materials
+POST   /api/v1/production/supplier-materials
+PUT    /api/v1/production/supplier-materials/{supplierMaterialId}
+DELETE /api/v1/production/supplier-materials/{supplierMaterialId}
+
+GET    /api/v1/production/capacity
+GET    /api/v1/production/suggestions
+GET    /api/v1/production/purchase-suggestions
+```
+
 ### 4.4 销售管理
 
 销售管理用于记录客户下单、销售出库和销售金额。

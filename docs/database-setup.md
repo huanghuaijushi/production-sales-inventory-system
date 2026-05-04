@@ -53,6 +53,11 @@ production-sales-inventory-api/src/main/resources/db/migration
 ```text
 V1__create_admin_user.sql
 V2__create_role_permission_tables.sql
+V3__create_inventory_tables.sql
+V4__create_supplier_purchase_tables.sql
+V5__create_bom_supplier_material_tables.sql
 ```
 
 `V2` 会创建 RBAC 相关表：`role`、`permission`、`admin_user_role`、`role_permission`，并将历史 `admin_user` 数据迁移绑定到 `SUPER_ADMIN` 角色。
+
+`V5` 会创建生产采购计划相关表：`bom_item`、`supplier_material`，用于成品配方、原材料供货规则、生产建议和智能采购建议。

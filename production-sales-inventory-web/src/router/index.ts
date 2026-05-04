@@ -5,6 +5,9 @@ import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue'
 import DashboardView from '@/views/DashboardView.vue'
 import InventoryView from '@/views/InventoryView.vue'
 import ProductManagementView from '@/views/ProductManagementView.vue'
+import PurchaseManagementView from '@/views/PurchaseManagementView.vue'
+import SupplierManagementView from '@/views/SupplierManagementView.vue'
+import ProductionConfigView from '@/views/ProductionConfigView.vue'
 import LoginView from '@/views/LoginView.vue'
 import RegisterView from '@/views/RegisterView.vue'
 
@@ -52,6 +55,21 @@ const router = createRouter({
           path: 'products',
           name: 'products',
           component: ProductManagementView
+        },
+        {
+          path: 'purchase',
+          name: 'purchase',
+          component: PurchaseManagementView
+        },
+        {
+          path: 'suppliers',
+          name: 'suppliers',
+          component: SupplierManagementView
+        },
+        {
+          path: 'production-config',
+          name: 'production-config',
+          component: ProductionConfigView
         }
       ]
     }
