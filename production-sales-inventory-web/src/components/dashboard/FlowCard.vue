@@ -50,8 +50,8 @@ function formatNumber(value: number | null | undefined) {
   border-radius: 12px;
   border: 1px solid #E5E7EB;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  padding: 20px;
-  min-height: 220px;
+  padding: 16px;
+  min-height: 190px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -62,7 +62,7 @@ function formatNumber(value: number | null | undefined) {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .card-title {
@@ -82,7 +82,7 @@ function formatNumber(value: number | null | undefined) {
 .overview-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 12px;
   align-content: start;
 }
 
@@ -90,11 +90,11 @@ function formatNumber(value: number | null | undefined) {
   background: #F9FAFB;
   border: 1px solid #E5E7EB;
   border-radius: 8px;
-  padding: 16px 18px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 100px;
+  min-height: 82px;
 }
 
 .overview-item--inbound {
@@ -123,7 +123,7 @@ function formatNumber(value: number | null | undefined) {
 }
 
 .overview-value {
-  font-size: 32px;
+  font-size: 26px;
   font-weight: 700;
   color: #1F2937;
   line-height: 1;

@@ -39,7 +39,7 @@
     <div class="filter-actions">
       <button type="button" class="btn btn-primary" @click="handleInbound">新增入库</button>
       <button type="button" class="btn btn-outline" @click="handleOutbound">新增出库</button>
-      <button type="button" class="btn btn-secondary">导出报表</button>
+      <button type="button" class="btn btn-secondary" @click="handleExport">导出报表</button>
     </div>
   </section>
 </template>
@@ -65,6 +65,7 @@ const emit = defineEmits<{
   (e: 'search'): void
   (e: 'inbound'): void
   (e: 'outbound'): void
+  (e: 'export'): void
 }>()
 
 const localFilters = reactive({
@@ -107,17 +108,22 @@ function handleInbound() {
 function handleOutbound() {
   emit('outbound')
 }
+
+function handleExport() {
+  emit('export')
+}
 </script>
 
 <style scoped>
 .inventory-filter-card {
   display: grid;
-  gap: 18px;
-  padding: 22px;
-  margin-bottom: 18px;
+  gap: 14px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
   background: #ffffff;
-  border-radius: 18px;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
 .filter-section {
@@ -128,9 +134,9 @@ function handleOutbound() {
 
 .filter-field {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   color: #475569;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .filter-field span {
@@ -145,19 +151,20 @@ function handleOutbound() {
 .filter-input-group input,
 .filter-field select {
   flex: 1;
-  min-height: 44px;
-  padding: 0 14px;
-  border: 1px solid #d1d5db;
-  border-radius: 12px;
-  background: #f8fafc;
+  min-height: 38px;
+  padding: 0 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
   color: #0f172a;
+  font-size: 14px;
 }
 
 .filter-button {
-  min-width: 96px;
-  padding: 0 16px;
+  min-width: 78px;
+  padding: 0 13px;
   border: none;
-  border-radius: 12px;
+  border-radius: 8px;
   background: #2563eb;
   color: #ffffff;
   cursor: pointer;
@@ -166,15 +173,16 @@ function handleOutbound() {
 .filter-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
   justify-content: flex-end;
 }
 
 .btn {
-  min-width: 140px;
-  height: 44px;
-  border-radius: 12px;
-  font-weight: 600;
+  min-width: 108px;
+  height: 38px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
   transition: background-color 0.2s ease;
 }

@@ -63,11 +63,11 @@ function formatTime(value: string) {
   border-radius: 12px;
   border: 1px solid #E5E7EB;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  padding: 20px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
   height: 100%;
-  min-height: 300px;
+  min-height: 260px;
 }
 
 .card-header {
@@ -75,7 +75,7 @@ function formatTime(value: string) {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .card-title {
@@ -111,7 +111,7 @@ function formatTime(value: string) {
 
 .timeline-item {
   position: relative;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   display: flex;
   align-items: flex-start;
 }
@@ -149,7 +149,7 @@ function formatTime(value: string) {
 }
 
 .timeline-text {
-  font-size: 14px;
+  font-size: 13px;
   color: #1F2937;
   line-height: 1.4;
 }

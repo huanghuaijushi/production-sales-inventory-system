@@ -47,16 +47,16 @@ const iconComponent = computed(() => {
   border-radius: 12px;
   border: 1px solid #E5E7EB;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  padding: 20px;
+  padding: 16px;
   display: flex;
   align-items: center;
-  gap: 16px;
-  height: 150px;
+  gap: 14px;
+  height: 120px;
 }
 
 .card-icon {
-  width: 48px;
-  height: 48px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -65,8 +65,8 @@ const iconComponent = computed(() => {
 }
 
 .icon-svg {
-  width: 24px;
-  height: 24px;
+  width: 21px;
+  height: 21px;
   color: white;
 }
 
@@ -75,13 +75,13 @@ const iconComponent = computed(() => {
 }
 
 .card-title {
-  font-size: 14px;
+  font-size: 13px;
   color: #6B7280;
   margin-bottom: 4px;
 }
 
 .card-value {
-  font-size: 32px;
+  font-size: 26px;
   font-weight: 600;
   color: #1F2937;
   margin-bottom: 4px;

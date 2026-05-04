@@ -21,6 +21,7 @@
       @update:filters="updateFilters"
       @inbound="openInboundModal"
       @outbound="openOutboundModal"
+      @export="exportInventoryReport"
     />
 
     <InventoryTableCard
@@ -111,6 +112,7 @@
 <script setup lang="ts">
 import { reactive, ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import * as XLSX from 'xlsx'
 import InventoryFilterBar from '@/components/inventory/InventoryFilterBar.vue'
 import InventoryTableCard from '@/components/inventory/InventoryTableCard.vue'
 import InventoryPagination from '@/components/inventory/InventoryPagination.vue'
@@ -123,6 +125,7 @@ const page = ref(0)
 const pageSize = ref(8)
 const loading = ref(false)
 const recordsLoading = ref(false)
+const exporting = ref(false)
 const modalOpen = ref(false)
 const isInbound = ref(true)
 const stockEditModalOpen = ref(false)
@@ -213,6 +216,20 @@ function onStockEditSuccess() {
   loadRecords()
 }
 
+async function exportInventoryReport() {
+  if (exporting.value) return
+
+  exporting.value = true
+  try {
+    const result = await inventoryApi.getAllStocks(0, Math.max(totalElements.value, 1), filters)
+    exportInventoryWorkbook(result.content, `库存报表-${formatDateForFile(new Date())}.xlsx`)
+  } catch (error) {
+    console.error('导出库存报表失败:', error)
+  } finally {
+    exporting.value = false
+  }
+}
+
 function routeSearchKeyword() {
   return typeof route.query.q === 'string' ? route.query.q : ''
 }
@@ -246,6 +263,61 @@ function recordTypeLabel(type: StockRecord['type'], subType: StockRecord['subTyp
   return `${type === 'IN' ? '入库' : type === 'OUT' ? '出库' : '调整'} · ${subTypeMap[subType]}`
 }
 
+function exportInventoryWorkbook(items: StockItem[], fileName: string) {
+  const rows = items.map(item => ({
+    商品编码: item.productCode,
+    商品名称: item.productName,
+    类型: productTypeLabel(item.productType),
+    分类: item.category || '-',
+    规格: item.specification || '-',
+    单位: item.unit,
+    库存数量: item.quantity,
+    可用库存: item.availableQuantity,
+    锁定库存: item.lockedQuantity,
+    预警库存: item.alertQuantity,
+    库存状态: stockStatusLabel(item),
+    成本价: Number(item.costPrice || 0),
+    销售价: Number(item.salePrice || 0)
+  }))
+  const worksheet = XLSX.utils.json_to_sheet(rows)
+  worksheet['!cols'] = [
+    { wch: 14 },
+    { wch: 20 },
+    { wch: 10 },
+    { wch: 12 },
+    { wch: 14 },
+    { wch: 8 },
+    { wch: 10 },
+    { wch: 10 },
+    { wch: 10 },
+    { wch: 10 },
+    { wch: 10 },
+    { wch: 10 },
+    { wch: 10 }
+  ]
+
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, worksheet, '库存报表')
+  XLSX.writeFile(workbook, fileName)
+}
+
+function productTypeLabel(type: StockItem['productType']) {
+  return type === 'RAW_MATERIAL' ? '原材料' : '成品'
+}
+
+function stockStatusLabel(item: StockItem) {
+  if (item.quantity === 0) return '缺货'
+  if (item.isLowStock) return '预警'
+  return '正常'
+}
+
+function formatDateForFile(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat('zh-CN', {
     month: '2-digit',
@@ -259,7 +331,7 @@ function formatDateTime(value: string) {
 <style scoped>
 .inventory-page {
   min-height: 100vh;
-  padding: 24px;
+  padding: 0;
   background: #F1F5F9;
 }
 
@@ -268,25 +340,26 @@ function formatDateTime(value: string) {
   align-items: flex-end;
   justify-content: space-between;
   gap: 18px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .page-eyebrow {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   color: #475569;
   font-size: 13px;
   font-weight: 700;
 }
 
 .page-header h1 {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   color: #0F172A;
-  font-size: 28px;
+  font-size: 20px;
 }
 
 .page-header p {
   margin: 0;
   color: #64748B;
+  font-size: 13px;
   line-height: 1.6;
 }
 
@@ -297,8 +370,8 @@ function formatDateTime(value: string) {
 }
 
 .page-action {
-  min-height: 42px;
-  padding: 0 18px;
+  min-height: 38px;
+  padding: 0 14px;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 700;
@@ -326,11 +399,12 @@ function formatDateTime(value: string) {
 }
 
 .stock-record-card {
-  margin-top: 20px;
-  padding: 22px;
+  margin-top: 16px;
+  padding: 16px;
   background: #ffffff;
-  border-radius: 18px;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
 .stock-record-header {
@@ -338,18 +412,18 @@ function formatDateTime(value: string) {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 .stock-record-header h2 {
   margin: 0;
   color: #0f172a;
-  font-size: 20px;
+  font-size: 16px;
 }
 
 .record-refresh {
-  min-height: 40px;
-  padding: 0 14px;
+  min-height: 36px;
+  padding: 0 12px;
   border: 1px solid #cbd5e1;
   border-radius: 10px;
   background: #ffffff;
@@ -375,7 +449,7 @@ function formatDateTime(value: string) {
 
 .record-table th,
 .record-table td {
-  padding: 13px 12px;
+  padding: 12px;
   border-bottom: 1px solid #e2e8f0;
   color: #0f172a;
   font-size: 13px;

@@ -55,6 +55,7 @@
             </span>
           </button>
         </div>
+        <div v-if="suppliers.length > 3" class="supplier-scroll-hint">向下滚动查看更多供应商</div>
       </aside>
 
       <main class="supplier-main">
@@ -97,72 +98,11 @@
           </div>
         </section>
 
-        <section ref="supplierRuleSection" class="panel rule-form-panel">
-          <div class="section-header">
-            <div>
-              <h2>{{ supplierMaterialForm.id ? '编辑供货规则' : '添加供货规则' }}</h2>
-              <p>绑定后，采购建议会自动按供应商分组，并计算金额和预计到货。</p>
-            </div>
-            <button v-if="supplierMaterialForm.id" type="button" class="small-button" @click="resetSupplierMaterialForm">
-              取消编辑
-            </button>
-          </div>
-
-          <div class="material-filter">
-            <label>
-              <span>原材料筛选</span>
-              <input v-model="materialQuery" type="search" placeholder="输入编号或名称，过滤下面的原材料下拉框" />
-            </label>
-          </div>
-
-          <div class="rule-form-layout">
-            <label>
-              <span>供应商</span>
-              <select v-model.number="supplierMaterialForm.supplierId">
-                <option :value="0" disabled>选择供应商</option>
-                <option v-for="supplier in suppliers" :key="supplier.id" :value="supplier.id">
-                  {{ supplier.name }}
-                </option>
-              </select>
-            </label>
-            <label class="material-picker">
-              <span>原材料</span>
-              <select v-model.number="supplierMaterialForm.productId" @change="syncSupplierMaterialPrice">
-                <option :value="0" disabled>选择原材料</option>
-                <option v-for="product in filteredRawMaterials" :key="product.id" :value="product.id">
-                  {{ product.sku }} · {{ product.name }}
-                </option>
-              </select>
-            </label>
-            <label>
-              <span>默认单价</span>
-              <input v-model.number="supplierMaterialForm.defaultUnitPrice" type="number" min="0" step="0.01" placeholder="0.00" />
-            </label>
-            <label>
-              <span>起订量</span>
-              <input v-model.number="supplierMaterialForm.minOrderQuantity" type="number" min="1" placeholder="1" />
-            </label>
-            <label>
-              <span>采购倍数</span>
-              <input v-model.number="supplierMaterialForm.orderMultiple" type="number" min="1" placeholder="1" />
-            </label>
-            <label>
-              <span>交期天数</span>
-              <input v-model.number="supplierMaterialForm.leadTimeDays" type="number" min="0" placeholder="0" />
-            </label>
-          </div>
-          <div class="form-actions">
-            <button type="button" class="primary-button" :disabled="supplierMaterialSubmitting" @click="submitSupplierMaterial">
-              {{ supplierMaterialForm.id ? '保存修改' : '添加规则' }}
-            </button>
-          </div>
-        </section>
-
         <section class="panel rule-list-panel">
           <div class="rule-list-toolbar">
             <div>
               <h2>{{ ruleScopeTitle }}</h2>
-              <p>共 {{ visibleSupplierMaterials.length }} 条，长名称会自动换行，不会挤掉操作按钮。</p>
+              <p>共 {{ visibleSupplierMaterials.length }} 条，新增规则从右侧按钮打开。</p>
             </div>
             <div class="rule-tools">
               <label class="search-field compact-search">
@@ -175,6 +115,7 @@
                 </button>
                 <button type="button" :class="{ active: showAllRules }" @click="showAllRules = true">全部</button>
               </div>
+              <button type="button" class="primary-button" @click="openSupplierMaterialModal()">新增供货规则</button>
             </div>
           </div>
 
@@ -245,6 +186,68 @@
         </div>
       </div>
     </div>
+
+    <div v-if="supplierMaterialModalOpen" class="modal-backdrop">
+      <div class="modal-content supplier-material-modal">
+        <div class="modal-header">
+          <h2>{{ supplierMaterialForm.id ? '编辑供货规则' : '新增供货规则' }}</h2>
+          <button type="button" class="icon-button" @click="closeSupplierMaterialModal">×</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-help">绑定供应商和原材料后，采购建议会自动按供应商分组，并计算金额和预计到货。</p>
+
+          <div class="material-filter">
+            <label>
+              <span>原材料筛选</span>
+              <input v-model="materialQuery" type="search" placeholder="输入编号或名称，过滤下面的原材料下拉框" />
+            </label>
+          </div>
+
+          <div class="rule-form-layout">
+            <label>
+              <span>供应商</span>
+              <select v-model.number="supplierMaterialForm.supplierId">
+                <option :value="0" disabled>选择供应商</option>
+                <option v-for="supplier in suppliers" :key="supplier.id" :value="supplier.id">
+                  {{ supplier.name }}
+                </option>
+              </select>
+            </label>
+            <label class="material-picker">
+              <span>原材料</span>
+              <select v-model.number="supplierMaterialForm.productId" @change="syncSupplierMaterialPrice">
+                <option :value="0" disabled>选择原材料</option>
+                <option v-for="product in filteredRawMaterials" :key="product.id" :value="product.id">
+                  {{ product.sku }} · {{ product.name }}
+                </option>
+              </select>
+            </label>
+            <label>
+              <span>默认单价</span>
+              <input v-model.number="supplierMaterialForm.defaultUnitPrice" type="number" min="0" step="0.01" placeholder="0.00" />
+            </label>
+            <label>
+              <span>起订量</span>
+              <input v-model.number="supplierMaterialForm.minOrderQuantity" type="number" min="1" placeholder="1" />
+            </label>
+            <label>
+              <span>采购倍数</span>
+              <input v-model.number="supplierMaterialForm.orderMultiple" type="number" min="1" placeholder="1" />
+            </label>
+            <label>
+              <span>交期天数</span>
+              <input v-model.number="supplierMaterialForm.leadTimeDays" type="number" min="0" placeholder="0" />
+            </label>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="secondary-button" @click="closeSupplierMaterialModal">取消</button>
+          <button type="button" class="primary-button" :disabled="supplierMaterialSubmitting" @click="submitSupplierMaterial">
+            {{ supplierMaterialSubmitting ? '保存中...' : supplierMaterialForm.id ? '保存修改' : '添加规则' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -262,6 +265,7 @@ const products = ref<Product[]>([])
 const supplierMaterials = ref<SupplierMaterial[]>([])
 const suppliersLoading = ref(false)
 const supplierModalOpen = ref(false)
+const supplierMaterialModalOpen = ref(false)
 const supplierSubmitting = ref(false)
 const supplierMaterialSubmitting = ref(false)
 const selectedSupplierId = ref<number | null>(null)
@@ -270,7 +274,6 @@ const supplierQuery = ref('')
 const materialQuery = ref('')
 const ruleQuery = ref('')
 const message = ref('')
-const supplierRuleSection = ref<HTMLElement | null>(null)
 const supplierForm = reactive({
   id: null as number | null,
   name: '',
@@ -388,7 +391,7 @@ async function prefillFromQuery() {
     selectedSupplierId.value = suppliers.value[0]?.id ?? null
   }
   await nextTick()
-  supplierRuleSection.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  supplierMaterialModalOpen.value = true
   showMessage('已带出原材料，请选择供应商后保存供货规则。')
 }
 
@@ -441,6 +444,16 @@ function openSupplierModal(supplier?: Supplier) {
 
 function closeSupplierModal() {
   supplierModalOpen.value = false
+}
+
+function openSupplierMaterialModal() {
+  resetSupplierMaterialForm()
+  supplierMaterialModalOpen.value = true
+}
+
+function closeSupplierMaterialModal() {
+  supplierMaterialModalOpen.value = false
+  resetSupplierMaterialForm()
 }
 
 async function submitSupplier() {
@@ -536,6 +549,7 @@ async function submitSupplierMaterial() {
       showMessage('供货规则已添加。')
     }
     selectedSupplierId.value = payload.supplierId
+    supplierMaterialModalOpen.value = false
     resetSupplierMaterialForm()
     await loadSupplierMaterials()
   } catch (error) {
@@ -557,7 +571,7 @@ function editSupplierMaterial(item: SupplierMaterial) {
   supplierMaterialForm.remark = item.remark ?? ''
   selectedSupplierId.value = item.supplierId
   materialQuery.value = `${item.productCode} ${item.productName}`
-  supplierRuleSection.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  supplierMaterialModalOpen.value = true
 }
 
 async function deleteSupplierMaterial(item: SupplierMaterial) {
@@ -607,10 +621,7 @@ function filterProducts(productList: Product[], query: string) {
   if (!normalizedQuery) return productList
   return productList.filter(product => [
     product.sku,
-    product.name,
-    product.category ?? '',
-    product.specification ?? '',
-    product.unit
+    product.name
   ].some(value => value.toLowerCase().includes(normalizedQuery)))
 }
 
@@ -658,7 +669,7 @@ function showMessage(value: string) {
   align-items: flex-start;
   justify-content: space-between;
   gap: 24px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .page-eyebrow,
@@ -672,7 +683,7 @@ function showMessage(value: string) {
 .page-header h1 {
   margin: 0;
   color: #0f172a;
-  font-size: 28px;
+  font-size: 20px;
   line-height: 1.25;
 }
 
@@ -680,8 +691,9 @@ function showMessage(value: string) {
 .section-header p,
 .rule-list-toolbar p,
 .empty-selected-panel p {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   color: #64748b;
+  font-size: 13px;
   line-height: 1.6;
 }
 
@@ -696,7 +708,7 @@ function showMessage(value: string) {
 
 .primary-button {
   border: 0;
-  padding: 11px 18px;
+  padding: 10px 16px;
   background: #2563eb;
   color: #fff;
 }
@@ -709,11 +721,11 @@ function showMessage(value: string) {
 }
 
 .secondary-button {
-  padding: 10px 14px;
+  padding: 9px 13px;
 }
 
 .small-button {
-  padding: 8px 12px;
+  padding: 7px 11px;
 }
 
 .primary-button:disabled,
@@ -753,6 +765,11 @@ function showMessage(value: string) {
 .supplier-directory {
   position: sticky;
   top: 18px;
+  display: flex;
+  flex-direction: column;
+  height: min(860px, calc(100vh - 140px));
+  min-height: 720px;
+  max-height: 900px;
   overflow: hidden;
 }
 
@@ -771,6 +788,7 @@ function showMessage(value: string) {
 }
 
 .section-header {
+  flex: 0 0 auto;
   border-bottom: 1px solid #edf2f7;
 }
 
@@ -779,11 +797,12 @@ function showMessage(value: string) {
 .selected-supplier-title h2 {
   margin: 0;
   color: #0f172a;
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.3;
 }
 
 .search-field {
+  flex: 0 0 auto;
   display: block;
   padding: 14px 18px;
 }
@@ -803,8 +822,9 @@ textarea {
   width: 100%;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: 9px 11px;
   color: #0f172a;
+  font-size: 14px;
   font: inherit;
   outline: none;
   background: #fff;
@@ -818,19 +838,64 @@ textarea:focus {
 }
 
 .supplier-list {
-  max-height: calc(100vh - 360px);
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
   overflow-y: auto;
-  padding: 0 10px 12px;
+  padding: 0 10px 18px;
+  scrollbar-color: #94a3b8 #f1f5f9;
+  scrollbar-width: thin;
+}
+
+.supplier-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.supplier-list::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: #f1f5f9;
+}
+
+.supplier-list::-webkit-scrollbar-thumb {
+  border: 2px solid #f1f5f9;
+  border-radius: 999px;
+  background: #94a3b8;
+}
+
+.supplier-list::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+.supplier-directory::after {
+  position: absolute;
+  right: 8px;
+  bottom: 34px;
+  left: 8px;
+  height: 28px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0), #ffffff);
+  content: '';
+}
+
+.supplier-scroll-hint {
+  flex: 0 0 auto;
+  border-top: 1px solid #edf2f7;
+  padding: 8px 12px;
+  background: #ffffff;
+  color: #64748b;
+  font-size: 12px;
+  text-align: center;
 }
 
 .supplier-card {
   display: grid;
   grid-template-columns: 42px minmax(0, 1fr);
   gap: 12px;
+  align-items: start;
   width: 100%;
   border: 1px solid transparent;
   border-radius: 8px;
-  padding: 12px;
+  padding: 10px;
   background: transparent;
   color: inherit;
   text-align: left;
@@ -867,6 +932,7 @@ textarea:focus {
 .cell-main strong {
   display: block;
   color: #0f172a;
+  font-size: 14px;
   line-height: 1.45;
 }
 
@@ -884,6 +950,13 @@ textarea:focus {
   display: flex;
   gap: 12px;
   margin-top: 2px;
+  opacity: 0.72;
+  transition: opacity 0.16s ease;
+}
+
+.supplier-card:hover .supplier-card-actions,
+.supplier-card.active .supplier-card-actions {
+  opacity: 1;
 }
 
 .supplier-main {
@@ -894,7 +967,7 @@ textarea:focus {
 
 .selected-supplier-panel {
   display: grid;
-  gap: 18px;
+  gap: 12px;
 }
 
 .selected-supplier-actions {
@@ -914,7 +987,7 @@ textarea:focus {
   min-width: 0;
   border: 1px solid #edf2f7;
   border-radius: 8px;
-  padding: 12px;
+  padding: 10px 12px;
   background: #f8fafc;
 }
 
@@ -928,6 +1001,7 @@ textarea:focus {
 .supplier-profile-grid strong {
   display: block;
   color: #0f172a;
+  font-size: 14px;
   line-height: 1.45;
 }
 
@@ -936,20 +1010,20 @@ textarea:focus {
 }
 
 .rule-form-panel {
-  padding: 18px;
+  flex: 0 0 auto;
+  padding: 16px;
 }
 
 .rule-form-panel .section-header {
-  padding: 0 0 16px;
+  padding: 0 0 10px;
   border-bottom: 0;
 }
 
 .material-filter {
-  max-width: 520px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
   border: 1px solid #edf2f7;
   border-radius: 8px;
-  padding: 12px;
+  padding: 8px 10px;
   background: #f8fafc;
 }
 
@@ -961,7 +1035,7 @@ textarea:focus {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  align-items: start;
+  align-items: end;
 }
 
 .rule-form-layout > label {
@@ -974,7 +1048,7 @@ textarea:focus {
 
 label span {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   color: #334155;
   font-size: 13px;
   font-weight: 700;
@@ -991,30 +1065,47 @@ label span {
 }
 
 .form-actions {
-  margin-top: 16px;
+  margin-top: 10px;
 }
 
 .rule-list-panel {
+  display: flex;
+  flex-direction: column;
+  max-height: min(520px, calc(100vh - 280px));
   overflow: hidden;
 }
 
 .rule-list-toolbar {
-  padding: 18px;
+  flex: 0 0 auto;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 14px 16px;
   border-bottom: 1px solid #edf2f7;
+}
+
+.rule-list-toolbar > div:first-child {
+  flex: 1 1 280px;
+  min-width: 260px;
 }
 
 .rule-tools {
   display: flex;
   align-items: center;
+  flex: 2 1 560px;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px;
-  min-width: min(520px, 100%);
+  min-width: 0;
 }
 
 .compact-search {
-  flex: 1;
-  min-width: 220px;
+  flex: 1 1 240px;
+  min-width: min(240px, 100%);
   padding: 0;
+}
+
+.rule-tools > .primary-button {
+  flex: 0 0 auto;
 }
 
 .segmented-control {
@@ -1027,7 +1118,7 @@ label span {
 
 .segmented-control button {
   border: 0;
-  padding: 10px 12px;
+  padding: 9px 11px;
   background: transparent;
   color: #64748b;
   font-weight: 700;
@@ -1040,20 +1131,25 @@ label span {
 }
 
 .rule-table {
+  max-height: 420px;
+  overflow: auto;
   width: 100%;
 }
 
 .rule-table-head,
 .rule-table-row {
   display: grid;
-  grid-template-columns: minmax(220px, 1.7fr) minmax(150px, 1fr) minmax(110px, 0.75fr) minmax(140px, 0.95fr) minmax(90px, 0.65fr) minmax(120px, 0.7fr);
-  gap: 14px;
+  grid-template-columns: minmax(180px, 1.55fr) minmax(130px, 1fr) minmax(92px, 0.72fr) minmax(120px, 0.9fr) minmax(76px, 0.58fr) minmax(96px, 0.62fr);
+  gap: 12px;
   align-items: center;
-  min-width: 0;
-  padding: 14px 18px;
+  min-width: 760px;
+  padding: 12px 16px;
 }
 
 .rule-table-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   background: #f8fafc;
   color: #64748b;
   font-size: 12px;
@@ -1063,11 +1159,22 @@ label span {
 .rule-table-row {
   border-top: 1px solid #edf2f7;
   color: #334155;
+  font-size: 13px;
 }
 
 .rule-table-row > div {
   min-width: 0;
   line-height: 1.5;
+}
+
+.rule-table-head > span:last-child,
+.rule-table-row > div:last-child {
+  text-align: right;
+}
+
+.rule-table-row .row-actions {
+  justify-content: flex-end;
+  flex-wrap: nowrap;
 }
 
 .money-cell {
@@ -1122,6 +1229,16 @@ label span {
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
 }
 
+.supplier-material-modal {
+  width: min(920px, 100%);
+}
+
+.modal-help {
+  margin: 0;
+  color: #64748b;
+  line-height: 1.6;
+}
+
 .modal-header {
   display: flex;
   align-items: center;
@@ -1166,14 +1283,25 @@ label span {
 
   .supplier-directory {
     position: static;
+    height: auto;
+    min-height: 0;
+    max-height: none;
   }
 
   .supplier-list {
-    max-height: none;
+    max-height: 360px;
   }
 
   .rule-tools {
     min-width: 0;
+  }
+
+  .rule-list-panel {
+    min-height: 0;
+  }
+
+  .rule-table {
+    overflow-x: auto;
   }
 }
 
@@ -1199,10 +1327,15 @@ label span {
   .rule-table-row {
     grid-template-columns: 1fr;
     gap: 8px;
+    min-width: 0;
   }
 
   .row-actions {
     justify-content: flex-start;
+  }
+
+  .rule-table-row > div:last-child {
+    text-align: left;
   }
 }
 

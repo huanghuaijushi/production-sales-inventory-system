@@ -349,7 +349,7 @@ function showMessage(value: string) {
 }
 
 .page-header {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .page-eyebrow {
@@ -362,13 +362,14 @@ function showMessage(value: string) {
 .page-header h1 {
   margin: 0;
   color: #0f172a;
-  font-size: 28px;
+  font-size: 20px;
 }
 
 .page-header p,
 .panel-header p {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   color: #64748b;
+  font-size: 13px;
 }
 
 .filter-panel,
@@ -383,8 +384,8 @@ function showMessage(value: string) {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) 240px 160px;
   gap: 12px;
-  margin-bottom: 16px;
-  padding: 16px;
+  margin-bottom: 14px;
+  padding: 14px;
 }
 
 .config-workspace {
@@ -396,11 +397,11 @@ function showMessage(value: string) {
 
 .panel {
   min-width: 0;
-  padding: 16px;
+  padding: 14px;
 }
 
 .panel-header {
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .panel-header h2 {
@@ -414,8 +415,9 @@ select {
   width: 100%;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: 9px 11px;
   color: #0f172a;
+  font-size: 14px;
   font: inherit;
   outline: none;
 }
@@ -439,7 +441,7 @@ select:focus {
 
 label span {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   color: #334155;
   font-size: 13px;
   font-weight: 700;
@@ -456,13 +458,13 @@ label span {
 }
 
 .form-actions {
-  margin-top: 16px;
+  margin-top: 12px;
 }
 
 .primary-button,
 .secondary-button {
   border-radius: 8px;
-  padding: 10px 16px;
+  padding: 9px 14px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -495,12 +497,12 @@ label span {
 .recipe-card {
   border: 1px solid #dbe3ef;
   border-radius: 10px;
-  padding: 14px;
+  padding: 12px;
   background: #fbfdff;
 }
 
 .recipe-card + .recipe-card {
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 .recipe-card-head,
@@ -538,9 +540,9 @@ label span {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  margin-top: 10px;
+  margin-top: 8px;
   border-top: 1px solid #e8eef6;
-  padding-top: 10px;
+  padding-top: 8px;
 }
 
 .recipe-metrics {

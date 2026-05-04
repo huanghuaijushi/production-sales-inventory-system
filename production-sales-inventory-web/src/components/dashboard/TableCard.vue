@@ -63,11 +63,11 @@ function statusText(item: StockItem) {
   border-radius: 12px;
   border: 1px solid #E5E7EB;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  padding: 20px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
   height: 100%;
-  min-height: 300px;
+  min-height: 260px;
 }
 
 .card-header {
@@ -75,7 +75,7 @@ function statusText(item: StockItem) {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .card-title {
@@ -104,10 +104,10 @@ function statusText(item: StockItem) {
 
 .data-table th,
 .data-table td {
-  padding: 12px 8px;
+  padding: 10px 8px;
   text-align: left;
   border-bottom: 1px solid #F3F4F6;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .data-table th {

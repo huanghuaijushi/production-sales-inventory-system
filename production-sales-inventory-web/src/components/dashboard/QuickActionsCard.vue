@@ -64,8 +64,8 @@ function handleAction(type: QuickActionType) {
   border-radius: 12px;
   border: 1px solid #E5E7EB;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  padding: 20px;
-  min-height: 220px;
+  padding: 16px;
+  min-height: 190px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -75,12 +75,12 @@ function handleAction(type: QuickActionType) {
   font-size: 16px;
   font-weight: 600;
   color: #1F2937;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .actions-grid {
   display: flex;
-  gap: 20px;
+  gap: 14px;
   justify-content: space-around;
   flex: 1;
   align-items: center;
@@ -94,7 +94,7 @@ function handleAction(type: QuickActionType) {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 16px;
+  padding: 12px;
   border-radius: 8px;
   transition: background-color 0.2s;
 }
@@ -104,13 +104,13 @@ function handleAction(type: QuickActionType) {
 }
 
 .action-icon {
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   color: #6B7280;
 }
 
 .action-text {
-  font-size: 14px;
+  font-size: 13px;
   color: #6B7280;
 }
 </style>

@@ -36,6 +36,10 @@
           <ClipboardDocumentListIcon class="nav-icon" />
           <span class="nav-text">生产配置</span>
         </RouterLink>
+        <RouterLink to="/users" class="nav-item" :class="{ active: isActive('users') }">
+          <UserGroupIcon class="nav-icon" />
+          <span class="nav-text">用户管理</span>
+        </RouterLink>
         <a href="#" class="nav-item">
           <ChartBarIcon class="nav-icon" />
           <span class="nav-text">销售统计</span>
@@ -154,7 +158,8 @@ import {
   ChartBarIcon,
   CogIcon,
   MagnifyingGlassIcon,
-  ChevronDownIcon
+  ChevronDownIcon,
+  UserGroupIcon
 } from '@heroicons/vue/24/outline'
 
 const authStore = useAuthStore()
@@ -204,6 +209,13 @@ const breadcrumb = computed(() => {
     return {
       main: '生产配置',
       sub: '成品配方'
+    }
+  }
+
+  if (route.name === 'users') {
+    return {
+      main: '系统设置',
+      sub: '用户管理'
     }
   }
 

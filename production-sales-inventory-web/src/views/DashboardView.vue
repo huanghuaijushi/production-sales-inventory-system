@@ -282,13 +282,13 @@ onUnmounted(() => {
 
 .grid-container {
   display: grid;
-  gap: 20px;
+  gap: 16px;
 }
 
 .grid-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 20px;
+  gap: 16px;
 }
 
 .grid-row:nth-child(2),

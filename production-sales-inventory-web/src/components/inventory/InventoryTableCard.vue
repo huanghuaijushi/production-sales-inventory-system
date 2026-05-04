@@ -87,17 +87,18 @@ function statusLabel(item: StockItem) {
 <style scoped>
 .inventory-table-card {
   background: #ffffff;
-  border-radius: 18px;
-  padding: 24px;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.07);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
 .table-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 20px;
+  gap: 14px;
+  margin-bottom: 14px;
 }
 
 .subtle-label {
@@ -116,10 +117,10 @@ function statusLabel(item: StockItem) {
 
 .inventory-table th,
 .inventory-table td {
-  padding: 16px 14px;
+  padding: 12px 14px;
   text-align: left;
   color: #0f172a;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .inventory-table th {
@@ -142,15 +143,15 @@ function statusLabel(item: StockItem) {
 .product-cell {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .product-thumb {
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
+  border-radius: 8px;
   background: #e0f2fe;
   color: #0c4a6e;
   font-weight: 700;
@@ -164,14 +165,14 @@ function statusLabel(item: StockItem) {
 .product-meta {
   margin: 0;
   color: #64748b;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .actions-column {
   position: sticky;
   right: 0;
   background: #ffffff;
-  min-width: 170px;
+  min-width: 150px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -182,8 +183,8 @@ function statusLabel(item: StockItem) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 72px;
-  padding: 6px 10px;
+  min-width: 64px;
+  padding: 5px 9px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
@@ -205,9 +206,9 @@ function statusLabel(item: StockItem) {
 }
 
 .action-link {
-  padding: 8px 14px;
+  padding: 6px 10px;
   border: 1px solid #cbd5e1;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #ffffff;
   color: #0f172a;
   cursor: pointer;

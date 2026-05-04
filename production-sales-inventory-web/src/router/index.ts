@@ -8,6 +8,7 @@ import ProductManagementView from '@/views/ProductManagementView.vue'
 import PurchaseManagementView from '@/views/PurchaseManagementView.vue'
 import SupplierManagementView from '@/views/SupplierManagementView.vue'
 import ProductionConfigView from '@/views/ProductionConfigView.vue'
+import UserManagementView from '@/views/UserManagementView.vue'
 import LoginView from '@/views/LoginView.vue'
 import RegisterView from '@/views/RegisterView.vue'
 
@@ -70,6 +71,11 @@ const router = createRouter({
           path: 'production-config',
           name: 'production-config',
           component: ProductionConfigView
+        },
+        {
+          path: 'users',
+          name: 'users',
+          component: UserManagementView
         }
       ]
     }

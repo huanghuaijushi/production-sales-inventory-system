@@ -92,6 +92,21 @@ public class AdminUser {
         this.tokenVersion = this.tokenVersion + 1;
     }
 
+    public void updatePasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+        increaseTokenVersion();
+    }
+
+    public void activate() {
+        this.status = AdminStatus.ACTIVE;
+        increaseTokenVersion();
+    }
+
+    public void disable() {
+        this.status = AdminStatus.DISABLED;
+        increaseTokenVersion();
+    }
+
     public void addRole(Role role) {
         this.roles.add(role);
     }

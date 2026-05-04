@@ -93,22 +93,23 @@ function changePage(nextPage: number) {
 
 <style scoped>
 .inventory-pagination-card {
-  margin-top: 18px;
+  margin-top: 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 16px;
-  padding: 18px 22px;
-  border-radius: 18px;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
   background: #ffffff;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
 .pagination-summary p {
   margin: 0;
   color: #475569;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .pagination-controls {
@@ -118,9 +119,9 @@ function changePage(nextPage: number) {
 }
 
 .page-btn {
-  min-width: 100px;
-  padding: 10px 14px;
-  border-radius: 12px;
+  min-width: 76px;
+  padding: 7px 11px;
+  border-radius: 8px;
   border: 1px solid #cbd5e1;
   background: #ffffff;
   color: #0f172a;
