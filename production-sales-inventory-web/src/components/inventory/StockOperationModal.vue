@@ -28,6 +28,7 @@
                   {{ type.label }}
                 </option>
               </select>
+              <small v-if="isInbound" class="field-hint">入库会自动生成批次，生产领料时可直接使用。</small>
             </label>
 
             <label class="form-field">
@@ -42,12 +43,25 @@
               />
             </label>
 
+            <label v-if="!isInbound" class="form-field">
+              <span>出库批次</span>
+              <select v-model.number="form.batchId" required :disabled="!form.productId || batchesLoading">
+                <option :value="0" disabled>
+                  {{ batchesLoading ? '正在加载批次' : '请选择批次' }}
+                </option>
+                <option v-for="batch in batches" :key="batch.id" :value="batch.id">
+                  {{ batch.batchNo }} - 可用 {{ batch.availableQuantity }}{{ batch.productUnit }}
+                  {{ batch.productionDate ? ` / ${batch.productionDate}` : '' }}
+                </option>
+              </select>
+            </label>
+
             <label v-if="isInbound" class="form-field">
               <span>批次号</span>
               <input
                 type="text"
                 v-model="form.batchNo"
-                placeholder="可选，批次号"
+                placeholder="可选，不填则自动生成"
               />
             </label>
 
@@ -59,11 +73,19 @@
               />
             </label>
 
+            <label v-if="isInbound" class="form-field">
+              <span>到期日期</span>
+              <input
+                type="date"
+                v-model="form.expiryDate"
+              />
+            </label>
+
             <label class="form-field">
               <span>{{ isInbound ? '供应商 / 备注' : '用途 / 备注' }}</span>
               <textarea
                 v-model="form.remark"
-                :placeholder="isInbound ? '可填写供应商、进货说明等' : '可填写销售、领用、损耗说明等'"
+                :placeholder="isInbound ? '可填写供应商、进货说明等' : '可填写销售或盘亏说明等'"
                 rows="3"
               ></textarea>
             </label>
@@ -100,11 +122,18 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted } from 'vue'
 import { XMarkIcon } from '@heroicons/vue/24/outline'
-import { inventoryApi, type StockItem, type StockOperationRequest } from '@/api/inventory'
+import {
+  inventoryApi,
+  type StockBatch,
+  type StockItem,
+  type StockOperationRequest,
+  type StockRecordSubType
+} from '@/api/inventory'
 
 interface Props {
   isOpen: boolean
   isInbound: boolean
+  initialSubType?: StockRecordSubType
 }
 
 const props = defineProps<Props>()
@@ -115,24 +144,26 @@ const emit = defineEmits<{
 }>()
 
 const loading = ref(false)
+const batchesLoading = ref(false)
 const errorMessage = ref('')
 const stocks = ref<StockItem[]>([])
+const batches = ref<StockBatch[]>([])
 
 const form = ref<StockOperationRequest>({
   productId: 0,
   type: 'IN',
   subType: 'PURCHASE',
   quantity: 0,
+  batchId: 0,
   batchNo: '',
   productionDate: '',
+  expiryDate: '',
   remark: ''
 })
 
-const operationTypes = ref([
+const operationTypes = ref<{ value: StockRecordSubType; label: string }[]>([
   { value: 'PURCHASE', label: '采购入库' },
-  { value: 'PRODUCTION', label: '生产入库' },
   { value: 'SALES', label: '销售出库' },
-  { value: 'LOSS', label: '损耗出库' },
   { value: 'INVENTORY', label: '盘点调整' }
 ])
 
@@ -144,10 +175,21 @@ const submitDisabled = computed(() => {
   if (!form.value.productId || form.value.quantity <= 0) {
     return true
   }
+  if (!props.isInbound && !form.value.batchId) {
+    return true
+  }
+  const batch = selectedBatch.value
+  if (!props.isInbound && batch !== null && form.value.quantity > batch.availableQuantity) {
+    return true
+  }
   const stock = selectedStock.value
   return !props.isInbound
     && stock !== null
     && form.value.quantity > stock.availableQuantity
+})
+
+const selectedBatch = computed(() => {
+  return batches.value.find((batch) => batch.id === form.value.batchId) || null
 })
 
 watch(() => props.isOpen, (isOpen) => {
@@ -159,24 +201,38 @@ watch(() => props.isOpen, (isOpen) => {
 
 watch(() => props.isInbound, () => {
   form.value.type = props.isInbound ? 'IN' : 'OUT'
+  form.value.batchId = 0
+  batches.value = []
   updateOperationTypes()
+})
+
+watch(() => form.value.productId, (productId) => {
+  form.value.batchId = 0
+  if (props.isOpen && !props.isInbound && productId) {
+    loadBatches(productId)
+  } else {
+    batches.value = []
+  }
 })
 
 function updateOperationTypes() {
   if (props.isInbound) {
     operationTypes.value = [
       { value: 'PURCHASE', label: '采购入库' },
-      { value: 'PRODUCTION', label: '生产入库' }
+      { value: 'PRODUCTION', label: '生产入库' },
+      { value: 'INVENTORY', label: '盘点入库' }
     ]
-    form.value.subType = 'PURCHASE'
   } else {
     operationTypes.value = [
       { value: 'SALES', label: '销售出库' },
-      { value: 'LOSS', label: '领用 / 损耗出库' },
+      { value: 'PRODUCTION_USAGE', label: '生产领料' },
+      { value: 'PRODUCTION_LOSS', label: '生产报损' },
+      { value: 'PACKAGING_LOSS', label: '包装报损' },
+      { value: 'SHIPPING_LOSS', label: '运输报损' },
       { value: 'INVENTORY', label: '盘亏出库' }
     ]
-    form.value.subType = 'SALES'
   }
+  form.value.subType = getInitialSubType()
 }
 
 async function loadStocks() {
@@ -189,18 +245,40 @@ async function loadStocks() {
   }
 }
 
+async function loadBatches(productId: number) {
+  batchesLoading.value = true
+  try {
+    batches.value = await inventoryApi.getBatchesByProductId(productId)
+  } catch (error) {
+    console.error('加载批次失败:', error)
+    errorMessage.value = '批次加载失败，请稍后重试'
+  } finally {
+    batchesLoading.value = false
+  }
+}
+
+function getInitialSubType(): StockRecordSubType {
+  const fallback: StockRecordSubType = props.isInbound ? 'PURCHASE' : 'SALES'
+  const initial = props.initialSubType ?? fallback
+  const validValues = operationTypes.value.map(type => type.value)
+  return validValues.includes(initial) ? initial : fallback
+}
+
 function resetForm() {
   errorMessage.value = ''
+  batches.value = []
+  updateOperationTypes()
   form.value = {
     productId: 0,
     type: props.isInbound ? 'IN' : 'OUT',
-    subType: props.isInbound ? 'PURCHASE' : 'SALES',
+    subType: getInitialSubType(),
     quantity: 0,
+    batchId: 0,
     batchNo: '',
     productionDate: '',
+    expiryDate: '',
     remark: ''
   }
-  updateOperationTypes()
 }
 
 async function handleSubmit() {
@@ -209,8 +287,14 @@ async function handleSubmit() {
     errorMessage.value = '请选择商品并填写正确数量'
     return
   }
+  if (!props.isInbound && !form.value.batchId) {
+    errorMessage.value = '请选择要出库或损耗的批次'
+    return
+  }
   if (submitDisabled.value) {
-    errorMessage.value = '出库数量不能超过可用库存'
+    errorMessage.value = selectedBatch.value
+      ? '出库数量不能超过批次可用库存'
+      : '出库数量不能超过可用库存'
     return
   }
 
@@ -245,6 +329,12 @@ function normalizePayload(): StockOperationRequest {
   }
   if (props.isInbound && form.value.productionDate) {
     payload.productionDate = form.value.productionDate
+  }
+  if (props.isInbound && form.value.expiryDate) {
+    payload.expiryDate = form.value.expiryDate
+  }
+  if (!props.isInbound && form.value.batchId) {
+    payload.batchId = form.value.batchId
   }
   if (form.value.remark?.trim()) {
     payload.remark = form.value.remark.trim()
@@ -343,6 +433,12 @@ onMounted(() => {
   font-size: 14px;
   font-weight: 500;
   color: #374151;
+}
+
+.field-hint {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .form-field input,

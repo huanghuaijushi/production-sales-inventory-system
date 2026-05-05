@@ -4,6 +4,12 @@ import com.hhjs.psi.common.dto.ApiResponse;
 import com.hhjs.psi.production.dto.BomItemRequest;
 import com.hhjs.psi.production.dto.BomItemResponse;
 import com.hhjs.psi.production.dto.ProductionCapacityResponse;
+import com.hhjs.psi.production.dto.ProductionInboundRequest;
+import com.hhjs.psi.production.dto.ProductionMaterialIssueRequest;
+import com.hhjs.psi.production.dto.ProductionOrderCreateRequest;
+import com.hhjs.psi.production.dto.ProductionOrderDetailResponse;
+import com.hhjs.psi.production.dto.ProductionOrderSummaryResponse;
+import com.hhjs.psi.production.dto.ProductionStepRecordRequest;
 import com.hhjs.psi.production.dto.ProductionSuggestionResponse;
 import com.hhjs.psi.production.dto.PurchaseSuggestionGroupResponse;
 import com.hhjs.psi.production.dto.SupplierMaterialRequest;
@@ -29,6 +35,57 @@ public class ProductionPlanningController {
 
     public ProductionPlanningController(ProductionPlanningService productionPlanningService) {
         this.productionPlanningService = productionPlanningService;
+    }
+
+    @GetMapping("/orders")
+    public ApiResponse<List<ProductionOrderSummaryResponse>> getProductionOrders() {
+        return ApiResponse.ok(productionPlanningService.getProductionOrders());
+    }
+
+    @GetMapping("/orders/{productionOrderId}")
+    public ApiResponse<ProductionOrderDetailResponse> getProductionOrder(@PathVariable Long productionOrderId) {
+        return ApiResponse.ok(productionPlanningService.getProductionOrder(productionOrderId));
+    }
+
+    @PostMapping("/orders")
+    public ApiResponse<ProductionOrderDetailResponse> createProductionOrder(
+            @Valid @RequestBody ProductionOrderCreateRequest request
+    ) {
+        return ApiResponse.ok(productionPlanningService.createProductionOrder(request));
+    }
+
+    @PostMapping("/orders/{productionOrderId}/start")
+    public ApiResponse<ProductionOrderDetailResponse> startProductionOrder(@PathVariable Long productionOrderId) {
+        return ApiResponse.ok(productionPlanningService.startProductionOrder(productionOrderId));
+    }
+
+    @PostMapping("/orders/{productionOrderId}/materials/issue")
+    public ApiResponse<ProductionOrderDetailResponse> issueProductionMaterial(
+            @PathVariable Long productionOrderId,
+            @Valid @RequestBody ProductionMaterialIssueRequest request
+    ) {
+        return ApiResponse.ok(productionPlanningService.issueProductionMaterial(productionOrderId, request));
+    }
+
+    @PostMapping("/orders/{productionOrderId}/steps")
+    public ApiResponse<ProductionOrderDetailResponse> recordProductionStep(
+            @PathVariable Long productionOrderId,
+            @Valid @RequestBody ProductionStepRecordRequest request
+    ) {
+        return ApiResponse.ok(productionPlanningService.recordProductionStep(productionOrderId, request));
+    }
+
+    @PostMapping("/orders/{productionOrderId}/inbound")
+    public ApiResponse<ProductionOrderDetailResponse> inboundProduction(
+            @PathVariable Long productionOrderId,
+            @Valid @RequestBody ProductionInboundRequest request
+    ) {
+        return ApiResponse.ok(productionPlanningService.inboundProduction(productionOrderId, request));
+    }
+
+    @PostMapping("/orders/{productionOrderId}/cancel")
+    public ApiResponse<ProductionOrderDetailResponse> cancelProductionOrder(@PathVariable Long productionOrderId) {
+        return ApiResponse.ok(productionPlanningService.cancelProductionOrder(productionOrderId));
     }
 
     @GetMapping("/bom")

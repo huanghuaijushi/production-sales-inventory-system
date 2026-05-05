@@ -127,7 +127,141 @@ export interface PurchaseSuggestionGroup {
   items: PurchaseSuggestionItem[]
 }
 
+export type ProductionOrderStatus = 'PLANNED' | 'IN_PROGRESS' | 'WAIT_INBOUND' | 'COMPLETED' | 'CANCELLED'
+export type ProductionStepType = 'PREPARATION' | 'WRAPPING' | 'COOKING' | 'PACKAGING' | 'STERILIZATION' | 'BOXING'
+
+export interface ProductionOrderSummary {
+  id: number
+  orderNo: string
+  batchNo: string
+  productId: number
+  productCode: string
+  productName: string
+  productUnit: string
+  plannedQuantity: number
+  completedQuantity: number
+  inboundQuantity: number
+  lossQuantity: number
+  currentStep: ProductionStepType | null
+  status: ProductionOrderStatus
+  plannedDate: string | null
+  startedAt: string | null
+  completedAt: string | null
+  operatorName: string
+  remark: string | null
+  createdAt: string
+}
+
+export interface ProductionMaterialPlan {
+  id: number
+  materialProductId: number
+  materialProductCode: string
+  materialProductName: string
+  materialProductUnit: string
+  requiredQuantity: number
+  issuedQuantity: number
+}
+
+export interface ProductionMaterialIssue {
+  id: number
+  materialPlanId: number
+  materialProductId: number
+  materialProductCode: string
+  materialProductName: string
+  materialProductUnit: string
+  stockBatchId: number
+  batchNo: string
+  issuedQuantity: number
+  stockRecordId: number | null
+  operatorName: string
+  remark: string | null
+  createdAt: string
+}
+
+export interface ProductionStepRecord {
+  id: number
+  stepType: ProductionStepType
+  completedQuantity: number
+  lossQuantity: number
+  lossReason: string | null
+  operatorName: string
+  createdAt: string
+}
+
+export interface ProductionOrderDetail {
+  order: ProductionOrderSummary
+  materialPlans: ProductionMaterialPlan[]
+  materialIssues: ProductionMaterialIssue[]
+  stepRecords: ProductionStepRecord[]
+}
+
+export interface ProductionOrderCreateRequest {
+  productId: number
+  plannedQuantity: number
+  batchNo?: string | undefined
+  plannedDate?: string | undefined
+  remark?: string | undefined
+}
+
+export interface ProductionMaterialIssueRequest {
+  materialPlanId: number
+  batchId: number
+  quantity: number
+  remark?: string | undefined
+}
+
+export interface ProductionStepRecordRequest {
+  lossQuantity: number
+  lossReason?: string | undefined
+}
+
+export interface ProductionInboundRequest {
+  quantity: number
+  productionDate?: string | undefined
+  expiryDate?: string | undefined
+  remark?: string | undefined
+}
+
 export const productionApi = {
+  getOrders: () => request<ProductionOrderSummary[]>('/production/orders'),
+
+  getOrder: (productionOrderId: number) =>
+    request<ProductionOrderDetail>(`/production/orders/${productionOrderId}`),
+
+  createOrder: (item: ProductionOrderCreateRequest) =>
+    request<ProductionOrderDetail>('/production/orders', {
+      method: 'POST',
+      body: item
+    }),
+
+  startOrder: (productionOrderId: number) =>
+    request<ProductionOrderDetail>(`/production/orders/${productionOrderId}/start`, {
+      method: 'POST'
+    }),
+
+  issueMaterial: (productionOrderId: number, item: ProductionMaterialIssueRequest) =>
+    request<ProductionOrderDetail>(`/production/orders/${productionOrderId}/materials/issue`, {
+      method: 'POST',
+      body: item
+    }),
+
+  recordStep: (productionOrderId: number, item: ProductionStepRecordRequest) =>
+    request<ProductionOrderDetail>(`/production/orders/${productionOrderId}/steps`, {
+      method: 'POST',
+      body: item
+    }),
+
+  inboundProduction: (productionOrderId: number, item: ProductionInboundRequest) =>
+    request<ProductionOrderDetail>(`/production/orders/${productionOrderId}/inbound`, {
+      method: 'POST',
+      body: item
+    }),
+
+  cancelOrder: (productionOrderId: number) =>
+    request<ProductionOrderDetail>(`/production/orders/${productionOrderId}/cancel`, {
+      method: 'POST'
+    }),
+
   getBomItems: () => request<BomItem[]>('/production/bom'),
 
   createBomItem: (item: BomItemRequest) =>

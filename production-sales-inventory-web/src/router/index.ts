@@ -7,6 +7,7 @@ import InventoryView from '@/views/InventoryView.vue'
 import ProductManagementView from '@/views/ProductManagementView.vue'
 import PurchaseManagementView from '@/views/PurchaseManagementView.vue'
 import SupplierManagementView from '@/views/SupplierManagementView.vue'
+import ProductionPlanView from '@/views/ProductionPlanView.vue'
 import ProductionConfigView from '@/views/ProductionConfigView.vue'
 import UserManagementView from '@/views/UserManagementView.vue'
 import LoginView from '@/views/LoginView.vue'
@@ -66,6 +67,11 @@ const router = createRouter({
           path: 'suppliers',
           name: 'suppliers',
           component: SupplierManagementView
+        },
+        {
+          path: 'production',
+          name: 'production',
+          component: ProductionPlanView
         },
         {
           path: 'production-config',

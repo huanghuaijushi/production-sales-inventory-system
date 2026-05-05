@@ -2,7 +2,10 @@ package com.hhjs.psi.inventory.controller;
 
 import com.hhjs.psi.common.dto.ApiResponse;
 import com.hhjs.psi.common.dto.PageResponse;
+import com.hhjs.psi.inventory.dto.BusinessFlowTrendItemResponse;
 import com.hhjs.psi.inventory.dto.InventoryDashboardResponse;
+import com.hhjs.psi.inventory.dto.InventoryValueTrendItemResponse;
+import com.hhjs.psi.inventory.dto.StockBatchResponse;
 import com.hhjs.psi.inventory.dto.StockItemResponse;
 import com.hhjs.psi.inventory.dto.StockOperationRequest;
 import com.hhjs.psi.inventory.dto.StockRecordResponse;
@@ -43,6 +46,20 @@ public class InventoryController {
         return ApiResponse.ok(inventoryService.getStockTrend(days));
     }
 
+    @GetMapping("/business-flow-trends")
+    public ApiResponse<List<BusinessFlowTrendItemResponse>> getBusinessFlowTrend(
+            @RequestParam(defaultValue = "7") int days
+    ) {
+        return ApiResponse.ok(inventoryService.getBusinessFlowTrend(days));
+    }
+
+    @GetMapping("/value-trends")
+    public ApiResponse<List<InventoryValueTrendItemResponse>> getInventoryValueTrend(
+            @RequestParam(defaultValue = "7") int days
+    ) {
+        return ApiResponse.ok(inventoryService.getInventoryValueTrend(days));
+    }
+
     @GetMapping("/stocks")
     public ApiResponse<PageResponse<StockItemResponse>> getAllStocks(
             @RequestParam(defaultValue = "0") int page,
@@ -57,6 +74,16 @@ public class InventoryController {
     @GetMapping("/stocks/product/{productId}")
     public ApiResponse<StockItemResponse> getStockByProductId(@PathVariable Long productId) {
         return ApiResponse.ok(inventoryService.getStockByProductId(productId));
+    }
+
+    @GetMapping("/batches/product/{productId}")
+    public ApiResponse<List<StockBatchResponse>> getBatchesByProductId(@PathVariable Long productId) {
+        return ApiResponse.ok(inventoryService.getBatchesByProductId(productId));
+    }
+
+    @PostMapping("/batches/backfill")
+    public ApiResponse<Integer> backfillInboundBatches() {
+        return ApiResponse.ok(inventoryService.backfillInboundBatches());
     }
 
     @PutMapping("/stocks/{stockId}")

@@ -12,6 +12,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.CreationTimestamp;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 
@@ -43,6 +44,12 @@ public class StockRecord {
     @Column(nullable = false)
     private Integer quantity;
 
+    @Column(name = "unit_price", precision = 12, scale = 2)
+    private BigDecimal unitPrice;
+
+    @Column(name = "amount", precision = 14, scale = 2)
+    private BigDecimal amount;
+
     @Column(name = "before_quantity", nullable = false)
     private Integer beforeQuantity;
 
@@ -51,6 +58,16 @@ public class StockRecord {
 
     @Column(name = "related_order_id")
     private Long relatedOrderId;
+
+    @Column(name = "related_order_type", length = 30)
+    private String relatedOrderType;
+
+    @Column(name = "related_order_no", length = 64)
+    private String relatedOrderNo;
+
+    @ManyToOne(fetch = LAZY)
+    @JoinColumn(name = "batch_id")
+    private StockBatch batch;
 
     @Column(name = "batch_no", length = 64)
     private String batchNo;
@@ -109,8 +126,28 @@ public class StockRecord {
         this.expiryDate = expiryDate;
     }
 
+    public void setBatch(StockBatch batch) {
+        this.batch = batch;
+        this.batchNo = batch.getBatchNo();
+        this.productionDate = batch.getProductionDate();
+        this.expiryDate = batch.getExpiryDate();
+    }
+
     public void setRelatedOrderId(Long relatedOrderId) {
         this.relatedOrderId = relatedOrderId;
+    }
+
+    public void setRelatedOrder(String relatedOrderType, Long relatedOrderId, String relatedOrderNo) {
+        this.relatedOrderType = relatedOrderType;
+        this.relatedOrderId = relatedOrderId;
+        this.relatedOrderNo = relatedOrderNo;
+    }
+
+    public void setAmountSnapshot(BigDecimal unitPrice) {
+        this.unitPrice = unitPrice;
+        this.amount = unitPrice == null
+                ? BigDecimal.ZERO
+                : unitPrice.multiply(BigDecimal.valueOf(Math.abs(this.quantity)));
     }
 
     public Long getId() {
@@ -137,6 +174,14 @@ public class StockRecord {
         return quantity;
     }
 
+    public BigDecimal getUnitPrice() {
+        return unitPrice;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
     public Integer getBeforeQuantity() {
         return beforeQuantity;
     }
@@ -147,6 +192,18 @@ public class StockRecord {
 
     public Long getRelatedOrderId() {
         return relatedOrderId;
+    }
+
+    public String getRelatedOrderType() {
+        return relatedOrderType;
+    }
+
+    public String getRelatedOrderNo() {
+        return relatedOrderNo;
+    }
+
+    public StockBatch getBatch() {
+        return batch;
     }
 
     public String getBatchNo() {

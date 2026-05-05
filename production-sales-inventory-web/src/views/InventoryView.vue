@@ -7,10 +7,10 @@
         <p>按商品名称、SKU、分类和状态筛选库存数据，快速查看当前库存健康状况。</p>
       </div>
       <div class="page-actions">
-        <button type="button" class="page-action page-action--primary" @click="openInboundModal">
+        <button type="button" class="page-action page-action--primary" @click="openInboundModal()">
           新增入库
         </button>
-        <button type="button" class="page-action page-action--outline" @click="openOutboundModal">
+        <button type="button" class="page-action page-action--outline" @click="openOutboundModal()">
           新增出库
         </button>
       </div>
@@ -56,6 +56,7 @@
               <th>单据号</th>
               <th>类型</th>
               <th>商品</th>
+              <th>批次</th>
               <th>数量</th>
               <th>变更前</th>
               <th>变更后</th>
@@ -66,10 +67,10 @@
           </thead>
           <tbody>
             <tr v-if="recordsLoading">
-              <td colspan="9">正在加载库存流水...</td>
+              <td colspan="10">正在加载库存流水...</td>
             </tr>
             <tr v-else-if="stockRecords.length === 0">
-              <td colspan="9">暂无出入库记录。</td>
+              <td colspan="10">暂无出入库记录。</td>
             </tr>
             <tr v-for="record in stockRecords" v-else :key="record.id">
               <td>{{ record.recordNo }}</td>
@@ -79,6 +80,7 @@
                 </span>
               </td>
               <td>{{ record.productName }}</td>
+              <td>{{ record.batchNo || '-' }}</td>
               <td :class="record.quantity >= 0 ? 'quantity-in' : 'quantity-out'">
                 {{ record.quantity > 0 ? '+' : '' }}{{ record.quantity }}{{ record.productUnit }}
               </td>
@@ -96,6 +98,7 @@
     <StockOperationModal
       :is-open="modalOpen"
       :is-inbound="isInbound"
+      v-bind="initialOperationSubType ? { initialSubType: initialOperationSubType } : {}"
       @close="closeModal"
       @success="onOperationSuccess"
     />
@@ -118,7 +121,7 @@ import InventoryTableCard from '@/components/inventory/InventoryTableCard.vue'
 import InventoryPagination from '@/components/inventory/InventoryPagination.vue'
 import StockOperationModal from '@/components/inventory/StockOperationModal.vue'
 import StockEditModal from '@/components/inventory/StockEditModal.vue'
-import { inventoryApi, type StockItem, type StockRecord, type PageResponse } from '@/api/inventory'
+import { inventoryApi, type StockItem, type StockRecord, type PageResponse, type StockRecordSubType } from '@/api/inventory'
 
 const route = useRoute()
 const page = ref(0)
@@ -128,6 +131,7 @@ const recordsLoading = ref(false)
 const exporting = ref(false)
 const modalOpen = ref(false)
 const isInbound = ref(true)
+const initialOperationSubType = ref<StockRecordSubType | undefined>()
 const stockEditModalOpen = ref(false)
 const selectedStockItem = ref<StockItem | null>(null)
 const totalElements = ref(0)
@@ -180,18 +184,21 @@ function setPage(nextPage: number) {
   loadData()
 }
 
-function openInboundModal() {
+function openInboundModal(subType?: StockRecordSubType) {
   isInbound.value = true
+  initialOperationSubType.value = subType
   modalOpen.value = true
 }
 
-function openOutboundModal() {
+function openOutboundModal(subType?: StockRecordSubType) {
   isInbound.value = false
+  initialOperationSubType.value = subType
   modalOpen.value = true
 }
 
 function closeModal() {
   modalOpen.value = false
+  initialOperationSubType.value = undefined
 }
 
 function onOperationSuccess() {
@@ -247,17 +254,54 @@ watch(
   }
 )
 
+watch(
+  () => route.query.action,
+  () => {
+    applyRouteAction()
+  }
+)
+
 onMounted(() => {
   applyRouteSearch()
+  applyRouteAction()
   loadRecords()
 })
+
+function routeSubType(): StockRecordSubType | undefined {
+  const value = route.query.subType
+  const allowed: StockRecordSubType[] = [
+    'PRODUCTION',
+    'PURCHASE',
+    'SALES',
+    'PRODUCTION_USAGE',
+    'PRODUCTION_LOSS',
+    'PACKAGING_LOSS',
+    'SHIPPING_LOSS',
+    'INVENTORY'
+  ]
+  return typeof value === 'string' && allowed.includes(value as StockRecordSubType)
+    ? value as StockRecordSubType
+    : undefined
+}
+
+function applyRouteAction() {
+  const action = route.query.action
+  if (action === 'inbound') {
+    openInboundModal(routeSubType())
+  } else if (action === 'outbound') {
+    openOutboundModal(routeSubType())
+  }
+}
 
 function recordTypeLabel(type: StockRecord['type'], subType: StockRecord['subType']) {
   const subTypeMap: Record<StockRecord['subType'], string> = {
     PURCHASE: '采购',
     PRODUCTION: '生产',
     SALES: '销售',
-    LOSS: '领用/损耗',
+    PRODUCTION_USAGE: '生产领用',
+    PRODUCTION_LOSS: '生产损耗',
+    PACKAGING_LOSS: '包装损耗',
+    SHIPPING_LOSS: '运输损耗',
     INVENTORY: '盘点'
   }
   return `${type === 'IN' ? '入库' : type === 'OUT' ? '出库' : '调整'} · ${subTypeMap[subType]}`

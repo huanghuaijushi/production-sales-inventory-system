@@ -18,6 +18,7 @@ public record StockRecordResponse(
         Integer quantity,
         Integer beforeQuantity,
         Integer afterQuantity,
+        Long batchId,
         String batchNo,
         LocalDate productionDate,
         LocalDate expiryDate,

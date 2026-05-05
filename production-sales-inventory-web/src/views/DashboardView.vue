@@ -1,333 +1,1229 @@
 <template>
   <div class="dashboard-page">
-    <div class="grid-container">
-      <!-- 第一行：数据概览卡片 -->
-      <div class="grid-row">
-        <DataCard
-          title="总商品数"
-          :value="formatNumber(dashboardStats.totalProducts)"
-          :subtitle="dashboardLoading ? '正在加载' : '已启用商品数量'"
-          icon="cube"
-          color="#1890ff"
-        />
-        <DataCard
-          title="库存预警"
-          :value="formatNumber(dashboardStats.lowStockCount)"
-          :subtitle="hasPositiveValue(dashboardStats.lowStockCount) ? '需要及时补货' : '库存状态良好'"
-          icon="warning"
-          color="#52C41A"
-        />
-        <DataCard
-          title="缺货商品"
-          :value="formatNumber(dashboardStats.outOfStockCount)"
-          :subtitle="hasPositiveValue(dashboardStats.outOfStockCount) ? '紧急补货' : '暂无缺货'"
-          icon="danger"
-          color="#FAAD14"
-        />
-        <DataCard
-          title="可用库存"
-          :value="formatNumber(dashboardStats.availableStockQuantity)"
-          :subtitle="hasPositiveValue(dashboardStats.availableStockQuantity) ? '全部商品可用库存合计' : '暂无可用库存'"
-          icon="success"
-          color="#722ED1"
-        />
-      </div>
+    <div class="dashboard-shell">
+      <header class="dashboard-hero card-surface">
+        <div class="hero-copy">
+          <div class="hero-badge-row">
+            <span class="hero-badge hero-badge--primary">控制台首页</span>
+            <span class="hero-badge">静态预览</span>
+          </div>
+          <p class="eyebrow">生产销售库存一体化管理平台</p>
+          <h1 class="page-title">运营中心总览</h1>
+          <p class="page-description">
+            用统一的视觉风格呈现库存、生产、采购与销售的核心信息，便于快速扫描重点指标、查看预警和进入高频操作。
+          </p>
+        </div>
+      </header>
 
-      <!-- 第二行：快捷操作 + 订单流向 -->
-      <div class="grid-row">
-        <QuickActionsCard
-          @inbound="openInboundModal"
-          @outbound="openOutboundModal"
-          @stocktake="goInventory"
-          @report="goInventory"
-        />
-        <FlowCard
-          :overview="todayBusinessOverview"
-          :loading="dashboardLoading"
-        />
-      </div>
+      <section class="top-panels">
+        <article class="card-surface panel-card panel-card--overview">
+          <div class="panel-header">
+            <div>
+              <h2>今日业务概览</h2>
+            </div>
+          </div>
 
-      <!-- 第三行：图表区域 -->
-      <div class="grid-row">
-        <ChartCard
-          type="line"
-          :trend="inventoryTrend"
-          :trend-days="trendDays"
-          :loading="trendLoading"
-          @trend-days-change="handleTrendDaysChange"
-        />
-        <ChartCard type="pie" :distribution="inventoryDistribution" />
-      </div>
+          <div class="overview-grid">
+            <div v-for="item in overviewMetrics" :key="item.title" class="overview-card" :class="item.themeClass">
+              <div class="overview-card__title">{{ item.title }}</div>
+              <div class="overview-card__value">{{ item.value }}</div>
+              <div class="overview-card__subtitle">{{ item.subtitle }}</div>
+              <div class="overview-card__change">
+                较昨日
+                <strong :class="item.trendClass">{{ item.change }}</strong>
+              </div>
+            </div>
+          </div>
+        </article>
 
-      <!-- 第四行：表格 + 时间线 -->
-      <div class="grid-row">
-        <TableCard
-          :items="lowStockItems"
-          :loading="dashboardLoading"
-        />
-        <TimelineCard
-          :records="recentStockRecords"
-          :loading="recordsLoading"
-        />
-      </div>
+        <article class="card-surface panel-card panel-card--quick">
+          <div class="panel-header">
+            <div>
+              <h2>快捷操作</h2>
+            </div>
+          </div>
+
+          <div class="quick-grid">
+            <button v-for="action in quickActions" :key="action.label" type="button" class="quick-action" @click="handleQuickAction(action.action)">
+              <span class="quick-action__icon" :class="action.iconClass">
+                <component :is="action.icon" />
+              </span>
+              <span class="quick-action__label">{{ action.label }}</span>
+            </button>
+          </div>
+        </article>
+      </section>
+
+      <section class="metric-grid">
+        <article v-for="item in topMetrics" :key="item.title" class="metric-card card-surface">
+          <div class="metric-title-row">
+            <div class="metric-title">{{ item.title }}</div>
+            <div class="metric-mini-icon" :style="{ color: item.accentColor }">{{ item.icon }}</div>
+          </div>
+          <div class="metric-value-row">
+            <div class="metric-value">{{ item.value }}</div>
+            <div class="metric-change-chip" :class="item.trendClass">{{ item.change }}</div>
+          </div>
+          <div class="metric-subtitle">{{ item.subtitle }}</div>
+          <div class="metric-progress">
+            <i :style="{ width: item.progress, background: item.progressColor }"></i>
+          </div>
+        </article>
+      </section>
+
+      <section class="split-grid split-grid--charts">
+        <article class="card-surface section-card section-card--chart">
+          <div class="section-card__header section-card__header--tight">
+            <div>
+              <h2>原料监控</h2>
+              <p>原料收发存趋势</p>
+            </div>
+            <div class="segmented-control">
+              <button class="is-active" type="button">金额</button>
+              <button type="button">单品数量</button>
+            </div>
+          </div>
+
+          <div class="chart-placeholder chart-placeholder--large">
+            <div class="chart-legend chart-legend--top">
+              <span><i class="legend-dot legend-dot--blue"></i>采购金额（元）</span>
+              <span><i class="legend-dot legend-dot--orange"></i>领料成本（元）</span>
+              <span><i class="legend-dot legend-dot--green"></i>库存金额（元）</span>
+            </div>
+            <div class="chart-panel">
+              <div class="chart-axis">
+                <span v-for="tick in amountAxisTicks" :key="tick">{{ tick }}</span>
+              </div>
+              <div class="chart-bars">
+                <span v-for="bar in rawMaterialBars" :key="bar.label" class="bar-item">
+                  <span class="bar-item__column">
+                    <i class="bar-item__blue" :style="{ height: bar.inbound ?? '0%' }"></i>
+                    <i class="bar-item__orange" :style="{ height: bar.outbound ?? '0%' }"></i>
+                    <i class="bar-item__green line-dot" :style="{ bottom: bar.stock ?? '0%' }"></i>
+                  </span>
+                  <span class="bar-item__label">{{ bar.label }}</span>
+                </span>
+                <div class="chart-line chart-line--raw"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="detail-grid">
+            <div class="table-card">
+              <div class="table-card__title">原料预警排行</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>名称</th>
+                    <th>当前库存</th>
+                    <th>安全库存</th>
+                    <th>可用天数</th>
+                    <th>状态</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in rawMaterialWarnings" :key="row.name">
+                    <td>{{ row.name }}</td>
+                    <td>{{ row.current }}</td>
+                    <td>{{ row.safety }}</td>
+                    <td>{{ row.days }}</td>
+                    <td><span class="status-badge" :class="row.statusClass">{{ row.status }}</span></td>
+                  </tr>
+                </tbody>
+              </table>
+              <RouterLink to="/inventory" class="table-link">查看全部原料预警</RouterLink>
+            </div>
+
+            <div class="summary-stack">
+              <div v-for="item in rawSummaryCards" :key="item.label" class="summary-mini-card">
+                <span class="summary-mini-card__label">{{ item.label }}</span>
+                <strong class="summary-mini-card__value">{{ item.value }}</strong>
+                <small class="summary-mini-card__meta">{{ item.meta }}</small>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="card-surface section-card section-card--chart">
+          <div class="section-card__header section-card__header--tight">
+            <div>
+              <h2>成品监控</h2>
+              <p>成品产销趋势</p>
+            </div>
+            <div class="segmented-control">
+              <button class="is-active" type="button">件数</button>
+              <button type="button">库存金额</button>
+            </div>
+          </div>
+
+          <div class="chart-placeholder chart-placeholder--large">
+            <div class="chart-legend chart-legend--top">
+              <span><i class="legend-dot legend-dot--blue"></i>生产入库（件）</span>
+              <span><i class="legend-dot legend-dot--orange"></i>销售出库（件）</span>
+              <span><i class="legend-dot legend-dot--green"></i>成品库存（件）</span>
+            </div>
+            <div class="chart-panel">
+              <div class="chart-axis">
+                <span v-for="tick in countAxisTicks" :key="tick">{{ tick }}</span>
+              </div>
+              <div class="chart-bars">
+                <span v-for="bar in finishedProductBars" :key="bar.label" class="bar-item">
+                  <span class="bar-item__column">
+                    <i class="bar-item__blue" :style="{ height: bar.production ?? '0%' }"></i>
+                    <i class="bar-item__orange" :style="{ height: bar.sales ?? '0%' }"></i>
+                    <i class="bar-item__green line-dot" :style="{ bottom: bar.stock ?? '0%' }"></i>
+                  </span>
+                  <span class="bar-item__label">{{ bar.label }}</span>
+                </span>
+                <div class="chart-line chart-line--finished"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="detail-grid">
+            <div class="ranking-card">
+              <div class="table-card__title">热销成品 Top5（按销售出库件数）</div>
+              <div class="ranking-list">
+                <div v-for="item in hotProducts" :key="item.name" class="ranking-item">
+                  <span class="ranking-item__index">{{ item.rank }}</span>
+                  <div class="ranking-item__body">
+                    <div class="ranking-item__title">{{ item.name }}</div>
+                    <div class="ranking-item__track"><i :style="{ width: item.percent }"></i></div>
+                  </div>
+                  <strong class="ranking-item__value">{{ item.value }}</strong>
+                </div>
+              </div>
+              <RouterLink to="/inventory" class="table-link">查看全部成品排行</RouterLink>
+            </div>
+
+            <div class="summary-stack">
+              <div v-for="item in finishedSummaryCards" :key="item.label" class="summary-mini-card">
+                <span class="summary-mini-card__label">{{ item.label }}</span>
+                <strong class="summary-mini-card__value">{{ item.value }}</strong>
+                <small class="summary-mini-card__meta">{{ item.meta }}</small>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="split-grid split-grid--bottom">
+        <article class="card-surface section-card">
+          <div class="section-card__header section-card__header--tight">
+            <div>
+              <h2>原料分类库存占比</h2>
+              <p>按库存金额</p>
+            </div>
+          </div>
+
+          <div class="category-list">
+            <div v-for="item in rawCategoryShares" :key="item.name" class="category-row">
+              <div class="category-row__main">
+                <span class="category-row__dot" :style="{ background: item.color }"></span>
+                <span class="category-row__name">{{ item.name }}</span>
+                <span class="category-row__ratio">{{ item.ratio }}</span>
+              </div>
+              <div class="category-row__track"><i :style="{ width: item.percent, background: item.color }"></i></div>
+              <div class="category-row__footer">
+                <span>库存金额</span>
+                <strong>{{ item.value }}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="category-summary-line">
+            <span>合计库存金额</span>
+            <strong>¥1,286,750</strong>
+            <RouterLink to="/inventory" class="table-link">查看全部分类</RouterLink>
+          </div>
+        </article>
+
+        <article class="card-surface section-card">
+          <div class="section-card__header section-card__header--tight">
+            <div>
+              <h2>成品分类库存占比</h2>
+              <p>按库存件数</p>
+            </div>
+          </div>
+
+          <div class="category-list">
+            <div v-for="item in finishedCategoryShares" :key="item.name" class="category-row">
+              <div class="category-row__main">
+                <span class="category-row__dot" :style="{ background: item.color }"></span>
+                <span class="category-row__name">{{ item.name }}</span>
+                <span class="category-row__ratio">{{ item.ratio }}</span>
+              </div>
+              <div class="category-row__track"><i :style="{ width: item.percent, background: item.color }"></i></div>
+              <div class="category-row__footer">
+                <span>库存件数</span>
+                <strong>{{ item.value }}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="category-summary-line">
+            <span>合计库存件数</span>
+            <strong>9,550 件</strong>
+            <RouterLink to="/inventory" class="table-link">查看全部分类</RouterLink>
+          </div>
+        </article>
+      </section>
     </div>
-
-    <p v-if="operationMessage" class="operation-message">{{ operationMessage }}</p>
-
-    <StockOperationModal
-      :is-open="modalOpen"
-      :is-inbound="isInbound"
-      @close="closeModal"
-      @success="handleOperationSuccess"
-    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import DataCard from '@/components/dashboard/DataCard.vue'
-import QuickActionsCard from '@/components/dashboard/QuickActionsCard.vue'
-import FlowCard from '@/components/dashboard/FlowCard.vue'
-import ChartCard from '@/components/dashboard/ChartCard.vue'
-import TableCard from '@/components/dashboard/TableCard.vue'
-import TimelineCard from '@/components/dashboard/TimelineCard.vue'
-import StockOperationModal from '@/components/inventory/StockOperationModal.vue'
+import { computed, onMounted, ref } from 'vue'
+import { RouterLink, useRouter } from 'vue-router'
+import { inventoryApi, type InventoryDashboard } from '@/api/inventory'
 import {
-  inventoryApi,
-  type InventoryDistributionItem,
-  type StockItem,
-  type StockRecord,
-  type StockTrendItem,
-  type TodayBusinessOverview
-} from '@/api/inventory'
+  ShoppingCartIcon,
+  ArchiveBoxArrowDownIcon,
+  CheckBadgeIcon,
+  TruckIcon,
+  ClipboardDocumentCheckIcon,
+  ExclamationTriangleIcon
+} from '@heroicons/vue/24/solid'
+
+type QuickActionType = 'purchase' | 'materialIssue' | 'productionInbound' | 'salesOutbound' | 'inventoryCheck' | 'stockLoss'
 
 const router = useRouter()
-const modalOpen = ref(false)
-const isInbound = ref(true)
-const operationMessage = ref('')
-const dashboardLoading = ref(false)
-const recordsLoading = ref(false)
-const trendLoading = ref(false)
-const dashboardStats = reactive({
-  totalProducts: null as number | null,
-  lowStockCount: null as number | null,
-  outOfStockCount: null as number | null,
-  availableStockQuantity: null as number | null
+const amountAxisTicks = computed(() => buildAmountAxisTicks(rawMaterialBars.value))
+const countAxisTicks = computed(() => buildCountAxisTicks(finishedProductBars.value))
+const dashboardData = ref<InventoryDashboard | null>(null)
+const overviewLoading = ref(false)
+
+const overviewMetrics = computed(() => {
+  const overview = dashboardData.value?.todayBusinessOverview
+  return [
+    {
+      title: '今日入库',
+      value: overviewLoading.value ? '加载中' : `${formatNumber(overview?.inboundRecordCount)} / ${formatNumber(overview?.inboundQuantity)}`,
+      subtitle: '单数 / 数量',
+      change: overviewLoading.value ? '--' : '实时',
+      themeClass: 'theme-blue',
+      trendClass: 'trend-up'
+    },
+    {
+      title: '今日出库',
+      value: overviewLoading.value ? '加载中' : `${formatNumber(overview?.outboundRecordCount)} / ${formatNumber(overview?.outboundQuantity)}`,
+      subtitle: '单数 / 数量',
+      change: overviewLoading.value ? '--' : '实时',
+      themeClass: 'theme-orange',
+      trendClass: 'trend-up'
+    },
+    {
+      title: '生产损耗',
+      value: overviewLoading.value ? '加载中' : `${formatNumber(overview?.lossRecordCount)} / ${formatNumber(overview?.lossQuantity)}`,
+      subtitle: '笔数 / 数量',
+      change: overviewLoading.value ? '--' : '实时',
+      themeClass: 'theme-green',
+      trendClass: 'trend-up'
+    },
+    {
+      title: '待发货订单',
+      value: overviewLoading.value ? '加载中' : `${formatNumber(overview?.pendingSalesOrderCount)}单`,
+      subtitle: '销售待处理',
+      change: overviewLoading.value ? '--' : '实时',
+      themeClass: 'theme-purple',
+      trendClass: 'trend-up'
+    }
+  ]
 })
-const todayBusinessOverview = ref<TodayBusinessOverview | null>(null)
-const inventoryDistribution = ref<InventoryDistributionItem[]>([])
-const inventoryTrend = ref<StockTrendItem[]>([])
-const lowStockItems = ref<StockItem[]>([])
-const recentStockRecords = ref<StockRecord[]>([])
-const trendDays = ref(7)
-let messageTimer: number | undefined
-let dashboardRefreshTimer: number | undefined
-let dashboardRefreshing = false
-let trendRequestId = 0
-const DASHBOARD_REFRESH_INTERVAL = 15_000
 
-async function loadDashboardStats(showLoading = false) {
-  if (dashboardRefreshing) {
-    return
+const quickActions: Array<{ label: string; icon: typeof ShoppingCartIcon; iconClass: string; action: QuickActionType }> = [
+  { label: '采购入库', icon: ShoppingCartIcon, iconClass: 'is-blue', action: 'purchase' },
+  { label: '生产领料', icon: ArchiveBoxArrowDownIcon, iconClass: 'is-orange', action: 'materialIssue' },
+  { label: '成品入库', icon: CheckBadgeIcon, iconClass: 'is-green', action: 'productionInbound' },
+  { label: '销售出库', icon: TruckIcon, iconClass: 'is-purple', action: 'salesOutbound' },
+  { label: '盘点', icon: ClipboardDocumentCheckIcon, iconClass: 'is-cyan', action: 'inventoryCheck' },
+  { label: '报损', icon: ExclamationTriangleIcon, iconClass: 'is-red', action: 'stockLoss' }
+]
+
+const topMetrics = computed(() => dashboardData.value?.topMetrics ?? [])
+
+const rawMaterialBars = computed(() => dashboardData.value?.rawMaterialBars ?? [])
+const rawMaterialWarnings = computed(() => dashboardData.value?.rawMaterialWarnings ?? [])
+const finishedProductBars = computed(() => dashboardData.value?.finishedProductBars ?? [])
+const hotProducts = computed(() => dashboardData.value?.hotProducts ?? [])
+const rawCategoryShares = computed(() => dashboardData.value?.rawCategoryShares ?? [])
+const finishedCategoryShares = computed(() => dashboardData.value?.finishedCategoryShares ?? [])
+const rawSummaryCards = computed(() => dashboardData.value?.rawSummaryCards ?? [])
+const finishedSummaryCards = computed(() => dashboardData.value?.finishedSummaryCards ?? [])
+
+function formatNumber(value: number | null | undefined) {
+  return value === null || value === undefined
+    ? '--'
+    : new Intl.NumberFormat('zh-CN').format(value)
+}
+
+function parseDisplayNumber(value: string | null | undefined) {
+  if (!value) return 0
+  const normalized = value.replace(/[¥,件kgKG个袋盒\s]/g, '')
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function buildAmountAxisTicks(bars: Array<{ inboundValue: string | null; outboundValue: string | null; stockValue: string | null }>) {
+  const maxValue = Math.max(
+    0,
+    ...bars.flatMap(bar => [bar.inboundValue, bar.outboundValue, bar.stockValue].map(parseDisplayNumber))
+  )
+  const axisMax = getFriendlyAmountAxisMax(maxValue)
+  return [axisMax, axisMax * 0.75, axisMax * 0.5, axisMax * 0.25, 0].map(formatAxisAmount)
+}
+
+function buildCountAxisTicks(bars: Array<{ productionValue: string | null; salesValue: string | null; stockValue: string | null }>) {
+  const maxValue = Math.max(
+    0,
+    ...bars.flatMap(bar => [bar.productionValue, bar.salesValue, bar.stockValue].map(parseDisplayNumber))
+  )
+  const axisMax = getFriendlyQuantityAxisMax(maxValue)
+  return [axisMax, axisMax * 0.75, axisMax * 0.5, axisMax * 0.25, 0].map(value => formatNumber(Math.round(value)))
+}
+
+function getFriendlyAmountAxisMax(value: number) {
+  const steps = [1000, 3000, 5000, 10000, 30000, 50000, 100000, 300000, 500000, 1000000]
+  return steps.find(step => value <= step) ?? Math.ceil(value / 100000) * 100000
+}
+
+function getFriendlyQuantityAxisMax(value: number) {
+  const steps = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000]
+  return steps.find(step => value <= step) ?? Math.ceil(value / 1000) * 1000
+}
+
+function formatAxisAmount(value: number) {
+  if (value >= 10000) {
+    return `${Number((value / 10000).toFixed(1)).toLocaleString('zh-CN')}万`
   }
+  return formatNumber(Math.round(value))
+}
 
-  dashboardRefreshing = true
-  if (showLoading) {
-    dashboardLoading.value = true
-    recordsLoading.value = true
+function handleQuickAction(action: QuickActionType) {
+  const routeMap: Record<QuickActionType, { name: string; query?: Record<string, string> }> = {
+    purchase: { name: 'purchase', query: { action: 'create' } },
+    materialIssue: { name: 'production', query: { action: 'material-issue' } },
+    productionInbound: { name: 'production', query: { action: 'inbound' } },
+    salesOutbound: { name: 'inventory', query: { action: 'outbound', subType: 'SALES' } },
+    inventoryCheck: { name: 'inventory', query: { action: 'inbound', subType: 'INVENTORY' } },
+    stockLoss: { name: 'inventory', query: { action: 'outbound', subType: 'INVENTORY' } }
   }
+  router.push(routeMap[action])
+}
 
+async function loadDashboard() {
+  overviewLoading.value = true
   try {
-    const [dashboardResult, recordsResult] = await Promise.allSettled([
-      inventoryApi.getDashboard(),
-      inventoryApi.getStockRecords(0, 6)
-    ])
-
-    if (dashboardResult.status === 'fulfilled') {
-      dashboardStats.totalProducts = dashboardResult.value.totalProducts
-      dashboardStats.lowStockCount = dashboardResult.value.lowStockCount
-      dashboardStats.outOfStockCount = dashboardResult.value.outOfStockCount
-      dashboardStats.availableStockQuantity = dashboardResult.value.availableStockQuantity
-      todayBusinessOverview.value = dashboardResult.value.todayBusinessOverview
-      inventoryDistribution.value = dashboardResult.value.inventoryDistribution
-      lowStockItems.value = dashboardResult.value.lowStockItems
-    } else {
-      console.error('加载首页统计失败:', dashboardResult.reason)
-    }
-
-    if (recordsResult.status === 'fulfilled') {
-      recentStockRecords.value = recordsResult.value.content
-    } else {
-      console.error('加载操作日志失败:', recordsResult.reason)
-    }
+    dashboardData.value = await inventoryApi.getDashboard()
   } catch (error) {
-    console.error('加载首页统计失败:', error)
+    console.error('加载首页看板失败:', error)
   } finally {
-    dashboardRefreshing = false
-    if (showLoading) {
-      dashboardLoading.value = false
-    }
-    recordsLoading.value = false
+    overviewLoading.value = false
   }
-}
-
-async function loadStockTrend(showLoading = false) {
-  const requestId = ++trendRequestId
-  if (showLoading) {
-    trendLoading.value = true
-  }
-
-  try {
-    const trend = await inventoryApi.getStockTrend(trendDays.value)
-    if (requestId === trendRequestId) {
-      inventoryTrend.value = trend
-    }
-  } catch (error) {
-    console.error('加载库存趋势失败:', error)
-  } finally {
-    if (requestId === trendRequestId) {
-      trendLoading.value = false
-    }
-  }
-}
-
-function startDashboardAutoRefresh() {
-  window.clearInterval(dashboardRefreshTimer)
-  dashboardRefreshTimer = window.setInterval(() => {
-    if (document.visibilityState === 'visible') {
-      loadDashboardStats()
-      loadStockTrend()
-    }
-  }, DASHBOARD_REFRESH_INTERVAL)
-}
-
-function stopDashboardAutoRefresh() {
-  window.clearInterval(dashboardRefreshTimer)
-  dashboardRefreshTimer = undefined
-}
-
-function handleVisibilityChange() {
-  if (document.visibilityState === 'visible') {
-    loadDashboardStats()
-    loadStockTrend()
-  }
-}
-
-function formatNumber(value: number | null) {
-  return value === null ? '--' : new Intl.NumberFormat('zh-CN').format(value)
-}
-
-function hasPositiveValue(value: number | null) {
-  return value !== null && value > 0
-}
-
-function openInboundModal() {
-  isInbound.value = true
-  modalOpen.value = true
-}
-
-function openOutboundModal() {
-  isInbound.value = false
-  modalOpen.value = true
-}
-
-function closeModal() {
-  modalOpen.value = false
-}
-
-function handleOperationSuccess() {
-  closeModal()
-  loadDashboardStats()
-  loadStockTrend()
-  operationMessage.value = isInbound.value ? '入库成功，库存已更新。' : '出库成功，库存已更新。'
-  window.clearTimeout(messageTimer)
-  messageTimer = window.setTimeout(() => {
-    operationMessage.value = ''
-  }, 2600)
-}
-
-function goInventory() {
-  router.push({ name: 'inventory' })
-}
-
-function handleTrendDaysChange(days: number) {
-  if (trendDays.value === days) {
-    return
-  }
-
-  trendDays.value = days
-  loadStockTrend(true)
 }
 
 onMounted(() => {
-  loadDashboardStats(true)
-  loadStockTrend(true)
-  startDashboardAutoRefresh()
-  document.addEventListener('visibilitychange', handleVisibilityChange)
-})
-
-onUnmounted(() => {
-  stopDashboardAutoRefresh()
-  window.clearTimeout(messageTimer)
-  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  loadDashboard()
 })
 </script>
 
 <style scoped>
 .dashboard-page {
   width: 100%;
-  position: relative;
 }
 
-.grid-container {
+.dashboard-shell {
+  width: 100%;
+  max-width: none;
+  min-height: auto;
+  margin: 0;
+  padding: 12px;
   display: grid;
-  gap: 16px;
+  gap: 10px;
+  background: transparent;
 }
 
-.grid-row {
+.card-surface {
+  background: #fff;
+  border: 1px solid #e6ecf5;
+  border-radius: 16px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+}
+
+.dashboard-hero {
+  padding: 14px 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.hero-badge-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hero-badge--primary {
+  background: #e8f1ff;
+  color: #2563eb;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.15;
+  color: #0f172a;
+}
+
+.page-description {
+  margin: 6px 0 0;
+  max-width: 860px;
+  color: #64748b;
+  line-height: 1.55;
+}
+
+.top-panels,
+.metric-grid,
+.split-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.top-panels {
+  grid-template-columns: 1.1fr 0.9fr;
+}
+
+.panel-card,
+.section-card,
+.metric-card {
+  padding: 16px;
+}
+
+.panel-header,
+.section-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.panel-header h2,
+.section-card h2 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.2;
+  color: #1e293b;
+}
+
+.section-card__header p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.overview-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  gap: 12px;
 }
 
-.grid-row:nth-child(2),
-.grid-row:nth-child(3),
-.grid-row:nth-child(4) {
+.overview-card {
+  min-width: 0;
+  min-height: 112px;
+  padding: 14px 12px;
+  border-radius: 12px;
+  border: 1px solid #edf2f7;
+  display: grid;
+  align-content: start;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.theme-blue {
+  background: linear-gradient(180deg, #f4f8ff 0%, #ffffff 100%);
+  border-color: #d7e7ff;
+}
+
+.theme-orange {
+  background: linear-gradient(180deg, #fff8ef 0%, #ffffff 100%);
+  border-color: #fde7c5;
+}
+
+.theme-green {
+  background: linear-gradient(180deg, #f1fff7 0%, #ffffff 100%);
+  border-color: #d3f3df;
+}
+
+.theme-purple {
+  background: linear-gradient(180deg, #faf5ff 0%, #ffffff 100%);
+  border-color: #ead9ff;
+}
+
+.overview-card__title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.overview-card__value {
+  margin-top: 8px;
+  font-size: clamp(20px, 2vw, 28px);
+  line-height: 1.12;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.04em;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.overview-card__subtitle {
+  margin-top: 7px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.overview-card__change {
+  margin-top: 9px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.metric-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.metric-card {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  min-height: 132px;
+  padding: 16px 14px 14px;
+  overflow: hidden;
+}
+
+.metric-title-row,
+.metric-value-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.metric-mini-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.metric-title {
+  min-width: 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metric-value {
+  min-width: 0;
+  flex: 1;
+  font-size: clamp(20px, 1.7vw, 26px);
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metric-subtitle {
+  color: #94a3b8;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metric-change-chip,
+.trend-up,
+.trend-down {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  max-width: 58px;
+  min-height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.metric-progress {
+  height: 6px;
+  background: #eef2f7;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.metric-progress i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.trend-up {
+  color: #16a34a;
+  background: #f0fdf4;
+}
+
+.trend-down {
+  color: #ef4444;
+  background: #fef2f2;
+}
+
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.quick-action {
+  padding: 18px 10px 14px;
+  background: #fff;
+  border: 1px solid #edf2f7;
+  border-radius: 14px;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  transition: all 0.2s ease;
+}
+
+.quick-action:hover {
+  border-color: #dbe5f1;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.08);
+}
+
+.quick-action__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: #f8fafc;
+}
+
+.quick-action__icon :deep(svg) {
+  width: 22px;
+  height: 22px;
+}
+
+.quick-action__label {
+  font-size: 13px;
+  color: #334155;
+  font-weight: 600;
+}
+
+.is-blue {
+  color: #2563eb;
+}
+
+.is-orange {
+  color: #f59e0b;
+}
+
+.is-green {
+  color: #22c55e;
+}
+
+.is-purple {
+  color: #7c3aed;
+}
+
+.is-cyan {
+  color: #06b6d4;
+}
+
+.is-red {
+  color: #ef4444;
+}
+
+.split-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-@media (max-width: 1200px) {
-  .grid-row {
+.section-card--chart {
+  min-height: 640px;
+}
+
+.section-card__header--tight {
+  margin-bottom: 12px;
+}
+
+.segmented-control {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid #dce7f3;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.segmented-control button {
+  height: 30px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.segmented-control .is-active {
+  background: #ffffff;
+  color: #2563eb;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.chart-placeholder {
+  position: relative;
+  border: 1px solid #edf2f7;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  padding: 12px 14px 14px;
+}
+
+.chart-placeholder--large {
+  height: 280px;
+  margin-bottom: 16px;
+}
+
+.chart-legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.legend-dot--blue {
+  background: #2563eb;
+}
+
+.legend-dot--orange {
+  background: #f97316;
+}
+
+.legend-dot--green {
+  background: #22c55e;
+}
+
+.chart-panel {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 10px;
+  height: calc(100% - 32px);
+}
+
+.chart-axis {
+  display: grid;
+  align-content: space-between;
+  justify-items: end;
+  padding: 4px 0 22px;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.chart-bars {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 4px;
+  background-image: linear-gradient(to top, rgba(226, 232, 240, 0.75) 1px, transparent 1px);
+  background-size: 100% 25%;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.8fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.summary-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.summary-mini-card {
+  padding: 14px 14px 12px;
+  border: 1px solid #edf2f7;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fbfdff 0%, #ffffff 100%);
+}
+
+.summary-mini-card__label {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.summary-mini-card__value {
+  display: block;
+  margin-top: 8px;
+  font-size: 22px;
+  color: #0f172a;
+}
+
+.summary-mini-card__meta {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.bar-item {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.bar-item__column {
+  position: relative;
+  display: flex;
+  align-items: end;
+  gap: 6px;
+  height: 188px;
+}
+
+.bar-item__column > i {
+  display: block;
+  width: 12px;
+  border-radius: 999px 999px 0 0;
+}
+
+.bar-item__blue {
+  background: #2f7cf6;
+}
+
+.bar-item__orange {
+  background: #f59e0b;
+}
+
+.bar-item__green.line-dot {
+  position: absolute;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  margin-left: 9px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12);
+}
+
+.chart-line {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: 62px;
+  bottom: 44px;
+  z-index: 1;
+  border-top: 3px solid #22c55e;
+  opacity: 0.65;
+}
+
+.chart-line--raw {
+  clip-path: polygon(0 52%, 14% 48%, 28% 20%, 42% 38%, 56% 40%, 70% 50%, 84% 48%, 100% 46%, 100% 54%, 84% 56%, 70% 58%, 56% 48%, 42% 46%, 28% 28%, 14% 56%, 0 60%);
+}
+
+.chart-line--finished {
+  clip-path: polygon(0 58%, 14% 52%, 28% 78%, 42% 44%, 56% 68%, 70% 38%, 84% 26%, 100% 62%, 100% 70%, 84% 34%, 70% 46%, 56% 74%, 42% 50%, 28% 84%, 14% 58%, 0 64%);
+}
+
+.bar-item__label {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.table-card,
+.ranking-card {
+  display: grid;
+  gap: 10px;
+}
+
+.table-card__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.table-card table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-card th,
+.table-card td {
+  padding: 10px 0;
+  border-bottom: 1px solid #eef2f7;
+  text-align: left;
+  font-size: 13px;
+}
+
+.status-badge {
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.is-danger {
+  color: #dc2626;
+  background: #fef2f2;
+}
+
+.is-warn {
+  color: #d97706;
+  background: #fff7ed;
+}
+
+.ranking-list,
+.category-list {
+  display: grid;
+  gap: 12px;
+}
+
+.ranking-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ranking-item__index {
+  width: 18px;
+  font-size: 14px;
+  color: #f59e0b;
+  font-weight: 800;
+}
+
+.ranking-item__body {
+  flex: 1;
+}
+
+.ranking-item__title {
+  margin-bottom: 6px;
+  color: #1e293b;
+  font-size: 13px;
+}
+
+.ranking-item__track,
+.category-row__track {
+  height: 7px;
+  background: #eef2f7;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.ranking-item__track i,
+.category-row__track i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.ranking-item__track i {
+  background: linear-gradient(90deg, #2f7cf6 0%, #2563eb 100%);
+}
+
+.ranking-item__value {
+  min-width: 72px;
+  text-align: right;
+  color: #475569;
+  font-size: 13px;
+}
+
+.category-row {
+  padding: 12px 14px;
+  border: 1px solid #edf2f7;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fbfdff 0%, #ffffff 100%);
+  display: grid;
+  gap: 10px;
+}
+
+.category-row__main,
+.category-row__footer,
+.category-summary-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.category-row__main {
+  justify-content: flex-start;
+}
+
+.category-row__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.category-row__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.category-row__ratio {
+  margin-left: auto;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.category-row__footer span {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.category-row__footer strong,
+.category-summary-line strong {
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.category-summary-line {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #eef2f7;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.table-link {
+  justify-self: end;
+  color: #2563eb;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.table-link--bottom {
+  margin-top: 6px;
+}
+
+@media (max-width: 1500px) {
+  .top-panels,
+  .split-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1400px) {
+  .metric-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1024px) {
+  .overview-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .grid-row:nth-child(2),
-  .grid-row:nth-child(3),
-  .grid-row:nth-child(4) {
+  .quick-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .detail-grid {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 768px) {
-  .grid-row {
+  .overview-grid,
+  .metric-grid,
+  .quick-grid {
     grid-template-columns: 1fr;
   }
-}
 
-.operation-message {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 50;
-  margin: 0;
-  padding: 12px 16px;
-  border: 1px solid #bbf7d0;
-  border-radius: 10px;
-  background: #f0fdf4;
-  color: #166534;
-  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12);
-  font-size: 14px;
-  font-weight: 700;
+  .panel-header h2,
+  .section-card h2 {
+    font-size: 20px;
+  }
+
+  .page-title {
+    font-size: 24px;
+  }
+
+  .bar-item__column {
+    gap: 4px;
+  }
+
+  .bar-item__column > i {
+    width: 10px;
+  }
 }
 </style>

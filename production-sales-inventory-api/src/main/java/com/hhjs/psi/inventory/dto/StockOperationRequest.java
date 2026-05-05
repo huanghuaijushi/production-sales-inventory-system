@@ -17,9 +17,12 @@ public record StockOperationRequest(
         @NotNull(message = "Quantity is required")
         @Positive(message = "Quantity must be greater than 0")
         Integer quantity,
+        Long relatedOrderId,
+        Long batchId,
         @Size(max = 64, message = "Batch number must be at most 64 characters")
         String batchNo,
         LocalDate productionDate,
+        LocalDate expiryDate,
         @Size(max = 500, message = "Remark must be at most 500 characters")
         String remark
 ) {

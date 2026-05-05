@@ -1,25 +1,50 @@
 package com.hhjs.psi.production.service;
 
+import com.hhjs.psi.auth.security.SecurityUtils;
 import com.hhjs.psi.common.exception.BusinessException;
+import com.hhjs.psi.inventory.dto.StockOperationRequest;
+import com.hhjs.psi.inventory.dto.StockRecordResponse;
 import com.hhjs.psi.inventory.entity.Product;
 import com.hhjs.psi.inventory.entity.ProductType;
 import com.hhjs.psi.inventory.entity.Stock;
+import com.hhjs.psi.inventory.entity.StockRecordSubType;
+import com.hhjs.psi.inventory.entity.StockRecordType;
 import com.hhjs.psi.inventory.repository.ProductRepository;
 import com.hhjs.psi.inventory.repository.StockRepository;
 import com.hhjs.psi.production.dto.BomItemRequest;
 import com.hhjs.psi.production.dto.BomItemResponse;
 import com.hhjs.psi.production.dto.ProductionCapacityResponse;
+import com.hhjs.psi.production.dto.ProductionInboundRequest;
+import com.hhjs.psi.production.dto.ProductionMaterialIssueRequest;
+import com.hhjs.psi.production.dto.ProductionMaterialIssueResponse;
+import com.hhjs.psi.production.dto.ProductionMaterialPlanResponse;
 import com.hhjs.psi.production.dto.ProductionMaterialCapacityResponse;
 import com.hhjs.psi.production.dto.ProductionMaterialRequirementResponse;
+import com.hhjs.psi.production.dto.ProductionOrderCreateRequest;
+import com.hhjs.psi.production.dto.ProductionOrderDetailResponse;
+import com.hhjs.psi.production.dto.ProductionOrderSummaryResponse;
+import com.hhjs.psi.production.dto.ProductionStepRecordRequest;
+import com.hhjs.psi.production.dto.ProductionStepRecordResponse;
 import com.hhjs.psi.production.dto.ProductionSuggestionResponse;
 import com.hhjs.psi.production.dto.PurchaseSuggestionGroupResponse;
 import com.hhjs.psi.production.dto.PurchaseSuggestionItemResponse;
 import com.hhjs.psi.production.dto.SupplierMaterialRequest;
 import com.hhjs.psi.production.dto.SupplierMaterialResponse;
 import com.hhjs.psi.production.entity.BomItem;
+import com.hhjs.psi.production.entity.ProductionMaterialIssue;
+import com.hhjs.psi.production.entity.ProductionMaterialPlan;
+import com.hhjs.psi.production.entity.ProductionOrder;
+import com.hhjs.psi.production.entity.ProductionOrderStatus;
+import com.hhjs.psi.production.entity.ProductionStepRecord;
+import com.hhjs.psi.production.entity.ProductionStepType;
 import com.hhjs.psi.production.entity.SupplierMaterial;
 import com.hhjs.psi.production.repository.BomItemRepository;
+import com.hhjs.psi.production.repository.ProductionMaterialIssueRepository;
+import com.hhjs.psi.production.repository.ProductionMaterialPlanRepository;
+import com.hhjs.psi.production.repository.ProductionOrderRepository;
+import com.hhjs.psi.production.repository.ProductionStepRecordRepository;
 import com.hhjs.psi.production.repository.SupplierMaterialRepository;
+import com.hhjs.psi.inventory.service.InventoryService;
 import com.hhjs.psi.purchase.entity.PurchaseOrderStatus;
 import com.hhjs.psi.purchase.repository.PurchaseOrderRepository;
 import com.hhjs.psi.supplier.entity.Supplier;
@@ -30,6 +55,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -37,6 +63,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 @Service
@@ -48,6 +75,11 @@ public class ProductionPlanningService {
     private final StockRepository stockRepository;
     private final SupplierRepository supplierRepository;
     private final PurchaseOrderRepository purchaseOrderRepository;
+    private final InventoryService inventoryService;
+    private final ProductionOrderRepository productionOrderRepository;
+    private final ProductionMaterialPlanRepository productionMaterialPlanRepository;
+    private final ProductionMaterialIssueRepository productionMaterialIssueRepository;
+    private final ProductionStepRecordRepository productionStepRecordRepository;
 
     public ProductionPlanningService(
             BomItemRepository bomItemRepository,
@@ -55,7 +87,12 @@ public class ProductionPlanningService {
             ProductRepository productRepository,
             StockRepository stockRepository,
             SupplierRepository supplierRepository,
-            PurchaseOrderRepository purchaseOrderRepository
+            PurchaseOrderRepository purchaseOrderRepository,
+            InventoryService inventoryService,
+            ProductionOrderRepository productionOrderRepository,
+            ProductionMaterialPlanRepository productionMaterialPlanRepository,
+            ProductionMaterialIssueRepository productionMaterialIssueRepository,
+            ProductionStepRecordRepository productionStepRecordRepository
     ) {
         this.bomItemRepository = bomItemRepository;
         this.supplierMaterialRepository = supplierMaterialRepository;
@@ -63,6 +100,190 @@ public class ProductionPlanningService {
         this.stockRepository = stockRepository;
         this.supplierRepository = supplierRepository;
         this.purchaseOrderRepository = purchaseOrderRepository;
+        this.inventoryService = inventoryService;
+        this.productionOrderRepository = productionOrderRepository;
+        this.productionMaterialPlanRepository = productionMaterialPlanRepository;
+        this.productionMaterialIssueRepository = productionMaterialIssueRepository;
+        this.productionStepRecordRepository = productionStepRecordRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProductionOrderSummaryResponse> getProductionOrders() {
+        return productionOrderRepository.findAllWithProduct().stream()
+                .map(this::toProductionOrderSummaryResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ProductionOrderDetailResponse getProductionOrder(Long productionOrderId) {
+        ProductionOrder order = productionOrderRepository.findByIdWithProduct(productionOrderId)
+                .orElseThrow(() -> BusinessException.badRequest("生产工单不存在: " + productionOrderId));
+        return toProductionOrderDetailResponse(order);
+    }
+
+    @Transactional
+    public ProductionOrderDetailResponse createProductionOrder(ProductionOrderCreateRequest request) {
+        Product finishedProduct = getEnabledProduct(request.productId(), ProductType.FINISHED_PRODUCT, "成品不存在或已停用");
+        List<BomItem> bomItems = bomItemRepository.findByFinishedProductIdWithProducts(finishedProduct.getId());
+        if (bomItems.isEmpty()) {
+            throw BusinessException.badRequest("请先在生产配置里维护该成品的配方");
+        }
+
+        var currentAdmin = SecurityUtils.requireCurrentAdmin();
+        ProductionOrder order = ProductionOrder.create(
+                generateProductionOrderNo(),
+                normalizeProductionBatchNo(finishedProduct, request.batchNo()),
+                finishedProduct,
+                request.plannedQuantity(),
+                request.plannedDate(),
+                currentAdmin.id(),
+                currentAdmin.username(),
+                normalizeOptional(request.remark())
+        );
+        ProductionOrder savedOrder = productionOrderRepository.save(order);
+
+        List<ProductionMaterialPlan> materialPlans = bomItems.stream()
+                .map(item -> ProductionMaterialPlan.create(
+                        savedOrder,
+                        item.getMaterialProduct(),
+                        ceil(BigDecimal.valueOf(request.plannedQuantity()).multiply(requiredPerUnit(item)))
+                ))
+                .toList();
+        productionMaterialPlanRepository.saveAll(materialPlans);
+
+        return toProductionOrderDetailResponse(savedOrder);
+    }
+
+    @Transactional
+    public ProductionOrderDetailResponse startProductionOrder(Long productionOrderId) {
+        ProductionOrder order = getProductionOrderForUpdate(productionOrderId);
+        ensureOrderCanOperate(order);
+        if (order.getStatus() == ProductionOrderStatus.PLANNED) {
+            order.start();
+        }
+        return toProductionOrderDetailResponse(order);
+    }
+
+    @Transactional
+    public ProductionOrderDetailResponse issueProductionMaterial(Long productionOrderId, ProductionMaterialIssueRequest request) {
+        ProductionOrder order = getProductionOrderForUpdate(productionOrderId);
+        ensureOrderCanOperate(order);
+        if (order.getStatus() == ProductionOrderStatus.PLANNED) {
+            order.start();
+        }
+
+        ProductionMaterialPlan plan = productionMaterialPlanRepository.findByIdForUpdate(request.materialPlanId())
+                .orElseThrow(() -> BusinessException.badRequest("用料计划不存在: " + request.materialPlanId()));
+        if (!plan.getProductionOrder().getId().equals(order.getId())) {
+            throw BusinessException.badRequest("用料计划不属于当前生产工单");
+        }
+        int remainingQuantity = plan.getRequiredQuantity() - plan.getIssuedQuantity();
+        if (request.quantity() > remainingQuantity) {
+            throw BusinessException.badRequest("领料数量不能超过剩余需求: " + remainingQuantity);
+        }
+
+        Product materialProduct = plan.getMaterialProduct();
+        StockRecordResponse stockRecord = inventoryService.outbound(new StockOperationRequest(
+                materialProduct.getId(),
+                StockRecordType.OUT,
+                StockRecordSubType.PRODUCTION_USAGE,
+                request.quantity(),
+                order.getId(),
+                request.batchId(),
+                null,
+                null,
+                null,
+                normalizeOptional(request.remark())
+        ));
+
+        plan.addIssued(request.quantity());
+        var currentAdmin = SecurityUtils.requireCurrentAdmin();
+        productionMaterialIssueRepository.save(ProductionMaterialIssue.create(
+                order,
+                plan,
+                materialProduct,
+                request.batchId(),
+                stockRecord.batchNo(),
+                request.quantity(),
+                stockRecord.id(),
+                currentAdmin.id(),
+                currentAdmin.username(),
+                normalizeOptional(request.remark())
+        ));
+
+        return toProductionOrderDetailResponse(order);
+    }
+
+    @Transactional
+    public ProductionOrderDetailResponse recordProductionStep(Long productionOrderId, ProductionStepRecordRequest request) {
+        ProductionOrder order = getProductionOrderForUpdate(productionOrderId);
+        ensureOrderCanOperate(order);
+        if (order.getStatus() == ProductionOrderStatus.PLANNED) {
+            order.start();
+        }
+        if (order.getStatus() == ProductionOrderStatus.WAIT_INBOUND || order.getCurrentStep() == null) {
+            throw BusinessException.badRequest("所有工序已完成，请进行成品入库");
+        }
+
+        ProductionStepType stepType = order.getCurrentStep();
+        int inputQuantity = getCurrentStepInputQuantity(order, stepType);
+        if (request.lossQuantity() > inputQuantity) {
+            throw BusinessException.badRequest("损耗数量不能超过本步可处理数量: " + inputQuantity);
+        }
+        int completedQuantity = inputQuantity - request.lossQuantity();
+
+        var currentAdmin = SecurityUtils.requireCurrentAdmin();
+        ProductionStepRecord record = ProductionStepRecord.create(
+                order,
+                stepType,
+                completedQuantity,
+                request.lossQuantity(),
+                normalizeOptional(request.lossReason()),
+                currentAdmin.id(),
+                currentAdmin.username()
+        );
+        order.completeStep(completedQuantity, request.lossQuantity(), nextStep(stepType));
+        productionStepRecordRepository.save(record);
+
+        return toProductionOrderDetailResponse(order);
+    }
+
+    @Transactional
+    public ProductionOrderDetailResponse inboundProduction(Long productionOrderId, ProductionInboundRequest request) {
+        ProductionOrder order = getProductionOrderForUpdate(productionOrderId);
+        ensureOrderCanOperate(order);
+        int expectedInbound = Math.max(order.getPlannedQuantity() - order.getLossQuantity(), 0);
+        int remainingInbound = Math.max(expectedInbound - order.getInboundQuantity(), 0);
+        if (request.quantity() > remainingInbound) {
+            throw BusinessException.badRequest("入库数量不能超过待入库数量: " + remainingInbound);
+        }
+
+        LocalDate productionDate = request.productionDate() == null ? LocalDate.now() : request.productionDate();
+        inventoryService.inbound(new StockOperationRequest(
+                order.getProduct().getId(),
+                StockRecordType.IN,
+                StockRecordSubType.PRODUCTION,
+                request.quantity(),
+                order.getId(),
+                null,
+                order.getBatchNo(),
+                productionDate,
+                request.expiryDate(),
+                normalizeOptional(request.remark())
+        ));
+        order.addInbound(request.quantity());
+
+        return toProductionOrderDetailResponse(order);
+    }
+
+    @Transactional
+    public ProductionOrderDetailResponse cancelProductionOrder(Long productionOrderId) {
+        ProductionOrder order = getProductionOrderForUpdate(productionOrderId);
+        if (order.getStatus() == ProductionOrderStatus.COMPLETED) {
+            throw BusinessException.badRequest("已完成工单不能取消");
+        }
+        order.cancel();
+        return toProductionOrderDetailResponse(order);
     }
 
     @Transactional(readOnly = true)
@@ -476,6 +697,137 @@ public class ProductionPlanningService {
                 supplierMaterial.getOrderMultiple(),
                 suggestedPurchaseQuantity
         );
+    }
+
+    private ProductionOrder getProductionOrderForUpdate(Long productionOrderId) {
+        return productionOrderRepository.findByIdForUpdate(productionOrderId)
+                .orElseThrow(() -> BusinessException.badRequest("生产工单不存在: " + productionOrderId));
+    }
+
+    private void ensureOrderCanOperate(ProductionOrder order) {
+        if (order.getStatus() == ProductionOrderStatus.CANCELLED) {
+            throw BusinessException.badRequest("已取消工单不能继续操作");
+        }
+        if (order.getStatus() == ProductionOrderStatus.COMPLETED) {
+            throw BusinessException.badRequest("已完成工单不能继续操作");
+        }
+    }
+
+    private int getCurrentStepInputQuantity(ProductionOrder order, ProductionStepType stepType) {
+        if (stepType == ProductionStepType.PREPARATION) {
+            return order.getPlannedQuantity();
+        }
+        return order.getCompletedQuantity();
+    }
+
+    private ProductionStepType nextStep(ProductionStepType stepType) {
+        return switch (stepType) {
+            case PREPARATION -> ProductionStepType.WRAPPING;
+            case WRAPPING -> ProductionStepType.COOKING;
+            case COOKING -> ProductionStepType.PACKAGING;
+            case PACKAGING -> ProductionStepType.STERILIZATION;
+            case STERILIZATION -> ProductionStepType.BOXING;
+            case BOXING -> null;
+        };
+    }
+
+    private ProductionOrderDetailResponse toProductionOrderDetailResponse(ProductionOrder order) {
+        return new ProductionOrderDetailResponse(
+                toProductionOrderSummaryResponse(order),
+                productionMaterialPlanRepository.findByProductionOrderIdWithProduct(order.getId()).stream()
+                        .map(this::toProductionMaterialPlanResponse)
+                        .toList(),
+                productionMaterialIssueRepository.findByProductionOrderIdWithDetails(order.getId()).stream()
+                        .map(this::toProductionMaterialIssueResponse)
+                        .toList(),
+                productionStepRecordRepository.findByProductionOrderId(order.getId()).stream()
+                        .map(this::toProductionStepRecordResponse)
+                        .toList()
+        );
+    }
+
+    private ProductionOrderSummaryResponse toProductionOrderSummaryResponse(ProductionOrder order) {
+        Product product = order.getProduct();
+        return new ProductionOrderSummaryResponse(
+                order.getId(),
+                order.getOrderNo(),
+                order.getBatchNo(),
+                product.getId(),
+                product.getCode(),
+                product.getName(),
+                product.getUnit(),
+                order.getPlannedQuantity(),
+                order.getCompletedQuantity(),
+                order.getInboundQuantity(),
+                order.getLossQuantity(),
+                order.getCurrentStep(),
+                order.getStatus(),
+                order.getPlannedDate(),
+                order.getStartedAt(),
+                order.getCompletedAt(),
+                order.getOperatorName(),
+                order.getRemark(),
+                order.getCreatedAt()
+        );
+    }
+
+    private ProductionMaterialPlanResponse toProductionMaterialPlanResponse(ProductionMaterialPlan plan) {
+        Product product = plan.getMaterialProduct();
+        return new ProductionMaterialPlanResponse(
+                plan.getId(),
+                product.getId(),
+                product.getCode(),
+                product.getName(),
+                product.getUnit(),
+                plan.getRequiredQuantity(),
+                plan.getIssuedQuantity()
+        );
+    }
+
+    private ProductionMaterialIssueResponse toProductionMaterialIssueResponse(ProductionMaterialIssue issue) {
+        Product product = issue.getMaterialProduct();
+        return new ProductionMaterialIssueResponse(
+                issue.getId(),
+                issue.getMaterialPlan().getId(),
+                product.getId(),
+                product.getCode(),
+                product.getName(),
+                product.getUnit(),
+                issue.getStockBatchId(),
+                issue.getBatchNo(),
+                issue.getIssuedQuantity(),
+                issue.getStockRecordId(),
+                issue.getOperatorName(),
+                issue.getRemark(),
+                issue.getCreatedAt()
+        );
+    }
+
+    private ProductionStepRecordResponse toProductionStepRecordResponse(ProductionStepRecord record) {
+        return new ProductionStepRecordResponse(
+                record.getId(),
+                record.getStepType(),
+                record.getCompletedQuantity(),
+                record.getLossQuantity(),
+                record.getLossReason(),
+                record.getOperatorName(),
+                record.getCreatedAt()
+        );
+    }
+
+    private String generateProductionOrderNo() {
+        String timestamp = java.time.LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS"));
+        int random = ThreadLocalRandom.current().nextInt(1000, 10000);
+        return "MO%s%d".formatted(timestamp, random);
+    }
+
+    private String normalizeProductionBatchNo(Product product, String batchNo) {
+        if (batchNo != null && !batchNo.isBlank()) {
+            return batchNo.trim();
+        }
+        String date = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+        int random = ThreadLocalRandom.current().nextInt(100, 1000);
+        return "%s-%s-%d".formatted(product.getCode(), date, random);
     }
 
     private BomItemResponse toBomItemResponse(BomItem item) {

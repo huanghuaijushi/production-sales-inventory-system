@@ -32,6 +32,10 @@
           <TruckIcon class="nav-icon" />
           <span class="nav-text">供应商管理</span>
         </RouterLink>
+        <RouterLink to="/production" class="nav-item" :class="{ active: isActive('production') }">
+          <ClipboardDocumentCheckIcon class="nav-icon" />
+          <span class="nav-text">生产计划</span>
+        </RouterLink>
         <RouterLink to="/production-config" class="nav-item" :class="{ active: isActive('production-config') }">
           <ClipboardDocumentListIcon class="nav-icon" />
           <span class="nav-text">生产配置</span>
@@ -135,7 +139,7 @@
         </div>
       </header>
 
-      <main class="content-area">
+      <main class="content-area" :class="{ 'content-area--dashboard': route.name === 'dashboard' }">
         <RouterView />
       </main>
     </div>
@@ -154,6 +158,7 @@ import {
   TagIcon,
   ShoppingCartIcon,
   TruckIcon,
+  ClipboardDocumentCheckIcon,
   ClipboardDocumentListIcon,
   ChartBarIcon,
   CogIcon,
@@ -209,6 +214,13 @@ const breadcrumb = computed(() => {
     return {
       main: '生产配置',
       sub: '成品配方'
+    }
+  }
+
+  if (route.name === 'production') {
+    return {
+      main: '生产管理',
+      sub: '生产计划'
     }
   }
 
@@ -665,6 +677,10 @@ watch(globalSearchQuery, () => {
   overflow-y: auto;
 }
 
+.content-area--dashboard {
+  padding: 8px;
+}
+
 @media (max-width: 1200px) {
   .sidebar {
     width: 200px;
@@ -707,6 +723,10 @@ watch(globalSearchQuery, () => {
 
   .content-area {
     padding: 16px;
+  }
+
+  .content-area--dashboard {
+    padding: 6px;
   }
 }
 </style>

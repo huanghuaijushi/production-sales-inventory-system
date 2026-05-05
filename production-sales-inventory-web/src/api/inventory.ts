@@ -18,6 +18,63 @@ export interface StockItem {
   isLowStock: boolean
 }
 
+export interface DashboardMetricItem {
+  key: string
+  title: string
+  value: string
+  subtitle: string
+  icon: string
+  accentColor: string
+  change: string
+  trendClass: string
+  progress: string
+  progressColor: string
+}
+
+export interface DashboardChartBar {
+  label: string
+  inbound: string | null
+  outbound: string | null
+  stock: string | null
+  production: string | null
+  sales: string | null
+  inboundValue: string | null
+  outboundValue: string | null
+  stockValue: string | null
+  productionValue: string | null
+  salesValue: string | null
+}
+
+export interface DashboardWarningItem {
+  name: string
+  current: string
+  safety: string
+  days: string
+  status: string
+  statusClass: string
+}
+
+export interface DashboardRankingItem {
+  rank: number
+  name: string
+  percent: string
+  value: string
+}
+
+export interface DashboardCategoryShare {
+  name: string
+  percent: string
+  value: string
+  ratio: string
+  color: string
+}
+
+export interface DashboardSummaryItem {
+  label: string
+  value: string
+  meta: string
+}
+
 export interface InventoryDashboard {
   totalProducts: number
   lowStockCount: number
@@ -27,6 +84,15 @@ export interface InventoryDashboard {
   inventoryDistribution: InventoryDistributionItem[]
   lowStockItems: StockItem[]
   recentUpdates: StockItem[]
+  topMetrics: DashboardMetricItem[]
+  rawMaterialBars: DashboardChartBar[]
+  finishedProductBars: DashboardChartBar[]
+  rawMaterialWarnings: DashboardWarningItem[]
+  hotProducts: DashboardRankingItem[]
+  rawCategoryShares: DashboardCategoryShare[]
+  finishedCategoryShares: DashboardCategoryShare[]
+  rawSummaryCards: DashboardSummaryItem[]
+  finishedSummaryCards: DashboardSummaryItem[]
 }
 
 export interface StockTrendItem {
@@ -35,6 +101,34 @@ export interface StockTrendItem {
   inboundQuantity: number
   outboundQuantity: number
   netChangeQuantity: number
+  rawMaterialInboundQuantity: number
+  rawMaterialOutboundQuantity: number
+  finishedProductInboundQuantity: number
+  finishedProductOutboundQuantity: number
+  productionLossQuantity: number
+}
+
+export interface TrendChartItem {
+  date: string
+  label: string
+  [key: string]: string | number
+}
+
+export interface BusinessFlowTrendItem extends TrendChartItem {
+  totalCount: number
+  purchaseInboundCount: number
+  productionUsageCount: number
+  finishedProductInboundCount: number
+  salesOutboundCount: number
+  productionLossCount: number
+}
+
+export interface InventoryValueTrendItem extends TrendChartItem {
+  totalAmount: number
+  rawMaterialInboundAmount: number
+  rawMaterialUsageAmount: number
+  finishedProductInboundAmount: number
+  finishedProductSalesAmount: number
 }
 
 export interface InventoryDistributionItem {
@@ -53,13 +147,26 @@ export interface TodayBusinessOverview {
   lossQuantity: number
 }
 
+export type StockRecordSubType =
+  | 'PRODUCTION'
+  | 'PURCHASE'
+  | 'SALES'
+  | 'PRODUCTION_USAGE'
+  | 'PRODUCTION_LOSS'
+  | 'PACKAGING_LOSS'
+  | 'SHIPPING_LOSS'
+  | 'INVENTORY'
+
 export interface StockOperationRequest {
   productId: number
   type: 'IN' | 'OUT' | 'ADJUST'
-  subType: 'PRODUCTION' | 'PURCHASE' | 'SALES' | 'LOSS' | 'INVENTORY'
+  subType: StockRecordSubType
   quantity: number
+  relatedOrderId?: number
+  batchId?: number
   batchNo?: string
   productionDate?: string
+  expiryDate?: string
   remark?: string
 }
 
@@ -77,16 +184,33 @@ export interface StockRecord {
   productName: string
   productUnit: string
   type: 'IN' | 'OUT' | 'ADJUST'
-  subType: 'PRODUCTION' | 'PURCHASE' | 'SALES' | 'LOSS' | 'INVENTORY'
+  subType: StockRecordSubType
   quantity: number
   beforeQuantity: number
   afterQuantity: number
+  batchId: number | null
   batchNo: string
   productionDate: string
   expiryDate: string
   operatorName: string
   remark: string
   createdAt: string
+}
+
+export interface StockBatch {
+  id: number
+  productId: number
+  productCode: string
+  productName: string
+  productUnit: string
+  batchNo: string
+  productionDate: string | null
+  expiryDate: string | null
+  quantity: number
+  availableQuantity: number
+  remark: string | null
+  createdAt: string
+  updatedAt: string
 }
 
 export interface PageResponse<T> {
@@ -108,6 +232,12 @@ export const inventoryApi = {
 
   getStockTrend: (days: number = 7) =>
     request<StockTrendItem[]>(`/inventory/trends?days=${days}`),
+
+  getBusinessFlowTrend: (days: number = 7) =>
+    request<BusinessFlowTrendItem[]>(`/inventory/business-flow-trends?days=${days}`),
+
+  getInventoryValueTrend: (days: number = 7) =>
+    request<InventoryValueTrendItem[]>(`/inventory/value-trends?days=${days}`),
 
   getAllStocks: (page: number = 0, size: number = 20, filters: StockSearchParams = {}) => {
     const params = new URLSearchParams({
@@ -131,6 +261,9 @@ export const inventoryApi = {
   getStockByProductId: (productId: number) =>
     request<StockItem>(`/inventory/stocks/product/${productId}`),
 
+  getBatchesByProductId: (productId: number) =>
+    request<StockBatch[]>(`/inventory/batches/product/${productId}`),
+
   updateStock: (stockId: number, req: StockUpdateRequest) =>
     request<StockItem>(`/inventory/stocks/${stockId}`, { method: 'PUT', body: req }),
 
@@ -140,12 +273,6 @@ export const inventoryApi = {
   outbound: (req: StockOperationRequest) =>
     request<StockRecord>('/inventory/outbound', { method: 'POST', body: req }),
 
-  performStockOperation: (req: StockOperationRequest) =>
-    request<StockRecord>('/inventory/operation', { method: 'POST', body: req }),
-
   getStockRecords: (page: number = 0, size: number = 20) =>
-    request<PageResponse<StockRecord>>(`/inventory/records?page=${page}&size=${size}`),
-
-  getStockRecordsByProduct: (productId: number) =>
-    request<StockRecord[]>(`/inventory/records/product/${productId}`)
+    request<PageResponse<StockRecord>>(`/inventory/records?page=${page}&size=${size}`)
 }

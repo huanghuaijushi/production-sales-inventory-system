@@ -2,15 +2,14 @@ package com.hhjs.psi.purchase.service;
 
 import com.hhjs.psi.auth.security.SecurityUtils;
 import com.hhjs.psi.common.exception.BusinessException;
+import com.hhjs.psi.inventory.dto.StockOperationRequest;
+import com.hhjs.psi.inventory.dto.StockRecordResponse;
 import com.hhjs.psi.inventory.entity.Product;
 import com.hhjs.psi.inventory.entity.ProductType;
-import com.hhjs.psi.inventory.entity.Stock;
-import com.hhjs.psi.inventory.entity.StockRecord;
 import com.hhjs.psi.inventory.entity.StockRecordSubType;
 import com.hhjs.psi.inventory.entity.StockRecordType;
 import com.hhjs.psi.inventory.repository.ProductRepository;
-import com.hhjs.psi.inventory.repository.StockRecordRepository;
-import com.hhjs.psi.inventory.repository.StockRepository;
+import com.hhjs.psi.inventory.service.InventoryService;
 import com.hhjs.psi.purchase.dto.PurchaseOrderItemRequest;
 import com.hhjs.psi.purchase.dto.PurchaseOrderItemResponse;
 import com.hhjs.psi.purchase.dto.PurchaseOrderRequest;
@@ -46,21 +45,18 @@ public class PurchaseOrderService {
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final SupplierRepository supplierRepository;
     private final ProductRepository productRepository;
-    private final StockRepository stockRepository;
-    private final StockRecordRepository stockRecordRepository;
+    private final InventoryService inventoryService;
 
     public PurchaseOrderService(
             PurchaseOrderRepository purchaseOrderRepository,
             SupplierRepository supplierRepository,
             ProductRepository productRepository,
-            StockRepository stockRepository,
-            StockRecordRepository stockRecordRepository
+            InventoryService inventoryService
     ) {
         this.purchaseOrderRepository = purchaseOrderRepository;
         this.supplierRepository = supplierRepository;
         this.productRepository = productRepository;
-        this.stockRepository = stockRepository;
-        this.stockRecordRepository = stockRecordRepository;
+        this.inventoryService = inventoryService;
     }
 
     @Transactional(readOnly = true)
@@ -123,30 +119,22 @@ public class PurchaseOrderService {
             throw BusinessException.badRequest("草稿采购单不能入库，请先保存为待入库");
         }
 
-        var currentAdmin = SecurityUtils.requireCurrentAdmin();
         order.getItems().forEach(item -> {
-            Stock stock = stockRepository.findByProductIdForUpdate(item.getProduct().getId())
-                    .orElseThrow(() -> BusinessException.badRequest("商品库存不存在: " + item.getProductName()));
-            Product product = stock.getProduct();
-            int beforeQuantity = stock.getQuantity();
-            int afterQuantity = beforeQuantity + item.getQuantity();
-            stock.updateQuantity(afterQuantity);
-            stockRepository.save(stock);
-
-            StockRecord record = StockRecord.create(
-                    generateStockRecordNo(),
-                    product,
+            StockRecordResponse record = inventoryService.inbound(new StockOperationRequest(
+                    item.getProduct().getId(),
                     StockRecordType.IN,
                     StockRecordSubType.PURCHASE,
                     item.getQuantity(),
-                    beforeQuantity,
-                    afterQuantity,
-                    currentAdmin.id(),
-                    currentAdmin.username(),
+                    order.getId(),
+                    null,
+                    "%s-%s".formatted(order.getOrderNo(), item.getProductCode()),
+                    order.getExpectedArrivalDate(),
+                    null,
                     "采购入库: %s / %s".formatted(order.getOrderNo(), order.getSupplier().getName())
-            );
-            record.setRelatedOrderId(order.getId());
-            stockRecordRepository.save(record);
+            ));
+            if (record.batchNo() == null) {
+                throw BusinessException.badRequest("采购入库批次生成失败: " + item.getProductName());
+            }
         });
 
         order.markInbound(Instant.now());
@@ -267,13 +255,6 @@ public class PurchaseOrderService {
 
     private String generateOrderNo() {
         return "PO%s%d".formatted(
-                LocalDateTime.now().format(ORDER_NO_FORMATTER),
-                ThreadLocalRandom.current().nextInt(1000, 10000)
-        );
-    }
-
-    private String generateStockRecordNo() {
-        return "IN%s%d".formatted(
                 LocalDateTime.now().format(ORDER_NO_FORMATTER),
                 ThreadLocalRandom.current().nextInt(1000, 10000)
         );

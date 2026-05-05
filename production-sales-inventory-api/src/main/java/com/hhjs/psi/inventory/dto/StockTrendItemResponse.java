@@ -7,6 +7,11 @@ public record StockTrendItemResponse(
         String label,
         int inboundQuantity,
         int outboundQuantity,
-        int netChangeQuantity
+        int netChangeQuantity,
+        int rawMaterialInboundQuantity,
+        int rawMaterialOutboundQuantity,
+        int finishedProductInboundQuantity,
+        int finishedProductOutboundQuantity,
+        int productionLossQuantity
 ) {
 }

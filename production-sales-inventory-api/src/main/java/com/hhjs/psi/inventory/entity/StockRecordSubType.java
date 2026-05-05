@@ -4,6 +4,9 @@ public enum StockRecordSubType {
     PRODUCTION,
     PURCHASE,
     SALES,
-    LOSS,
+    PRODUCTION_USAGE,
+    PRODUCTION_LOSS,
+    PACKAGING_LOSS,
+    SHIPPING_LOSS,
     INVENTORY
 }
