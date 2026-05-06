@@ -1,40 +1,23 @@
 <template>
   <div class="dashboard-page">
     <div class="dashboard-shell">
-      <header class="dashboard-hero card-surface">
-        <div class="hero-copy">
-          <div class="hero-badge-row">
-            <span class="hero-badge hero-badge--primary">控制台首页</span>
-            <span class="hero-badge">静态预览</span>
-          </div>
-          <p class="eyebrow">生产销售库存一体化管理平台</p>
-          <h1 class="page-title">运营中心总览</h1>
-          <p class="page-description">
-            用统一的视觉风格呈现库存、生产、采购与销售的核心信息，便于快速扫描重点指标、查看预警和进入高频操作。
-          </p>
-        </div>
-      </header>
-
       <section class="top-panels">
-        <article class="card-surface panel-card panel-card--overview">
-          <div class="panel-header">
-            <div>
-              <h2>今日业务概览</h2>
+        <section class="metric-grid metric-grid--top">
+          <article v-for="item in topMetrics" :key="item.title" class="metric-card card-surface">
+            <div class="metric-title-row">
+              <div class="metric-title">{{ item.title }}</div>
+              <div class="metric-mini-icon" :style="{ color: item.accentColor }">{{ item.icon }}</div>
             </div>
-          </div>
-
-          <div class="overview-grid">
-            <div v-for="item in overviewMetrics" :key="item.title" class="overview-card" :class="item.themeClass">
-              <div class="overview-card__title">{{ item.title }}</div>
-              <div class="overview-card__value">{{ item.value }}</div>
-              <div class="overview-card__subtitle">{{ item.subtitle }}</div>
-              <div class="overview-card__change">
-                较昨日
-                <strong :class="item.trendClass">{{ item.change }}</strong>
-              </div>
+            <div class="metric-value-row">
+              <div class="metric-value">{{ item.value }}</div>
+              <div class="metric-change-chip" :class="item.trendClass">{{ item.change }}</div>
             </div>
-          </div>
-        </article>
+            <div class="metric-subtitle">{{ item.subtitle }}</div>
+            <div class="metric-progress">
+              <i :style="{ width: item.progress, background: item.progressColor }"></i>
+            </div>
+          </article>
+        </section>
 
         <article class="card-surface panel-card panel-card--quick">
           <div class="panel-header">
@@ -54,23 +37,6 @@
         </article>
       </section>
 
-      <section class="metric-grid">
-        <article v-for="item in topMetrics" :key="item.title" class="metric-card card-surface">
-          <div class="metric-title-row">
-            <div class="metric-title">{{ item.title }}</div>
-            <div class="metric-mini-icon" :style="{ color: item.accentColor }">{{ item.icon }}</div>
-          </div>
-          <div class="metric-value-row">
-            <div class="metric-value">{{ item.value }}</div>
-            <div class="metric-change-chip" :class="item.trendClass">{{ item.change }}</div>
-          </div>
-          <div class="metric-subtitle">{{ item.subtitle }}</div>
-          <div class="metric-progress">
-            <i :style="{ width: item.progress, background: item.progressColor }"></i>
-          </div>
-        </article>
-      </section>
-
       <section class="split-grid split-grid--charts">
         <article class="card-surface section-card section-card--chart">
           <div class="section-card__header section-card__header--tight">
@@ -79,23 +45,30 @@
               <p>原料收发存趋势</p>
             </div>
             <div class="segmented-control">
-              <button class="is-active" type="button">金额</button>
-              <button type="button">单品数量</button>
+              <button :class="{ 'is-active': rawMonitorMode === 'amount' }" type="button" @click="rawMonitorMode = 'amount'">金额</button>
+              <button :class="{ 'is-active': rawMonitorMode === 'quantity' }" type="button" @click="rawMonitorMode = 'quantity'">业务数量</button>
             </div>
           </div>
 
           <div class="chart-placeholder chart-placeholder--large">
             <div class="chart-legend chart-legend--top">
-              <span><i class="legend-dot legend-dot--blue"></i>采购金额（元）</span>
-              <span><i class="legend-dot legend-dot--orange"></i>领料成本（元）</span>
-              <span><i class="legend-dot legend-dot--green"></i>库存金额（元）</span>
+              <span><i class="legend-dot legend-dot--blue"></i>{{ rawLegend.inbound }}</span>
+              <span><i class="legend-dot legend-dot--orange"></i>{{ rawLegend.outbound }}</span>
+              <span><i class="legend-dot legend-dot--green"></i>{{ rawLegend.stock }}</span>
             </div>
             <div class="chart-panel">
               <div class="chart-axis">
-                <span v-for="tick in amountAxisTicks" :key="tick">{{ tick }}</span>
+                <span v-for="tick in rawAxisTicks" :key="tick">{{ tick }}</span>
               </div>
               <div class="chart-bars">
-                <span v-for="bar in rawMaterialBars" :key="bar.label" class="bar-item">
+                <span
+                  v-for="bar in displayedRawMaterialBars"
+                  :key="bar.label"
+                  class="bar-item"
+                  @mouseenter="showChartTooltip($event, 'raw', bar)"
+                  @mousemove="moveChartTooltip"
+                  @mouseleave="hideChartTooltip"
+                >
                   <span class="bar-item__column">
                     <i class="bar-item__blue" :style="{ height: bar.inbound ?? '0%' }"></i>
                     <i class="bar-item__orange" :style="{ height: bar.outbound ?? '0%' }"></i>
@@ -151,23 +124,30 @@
               <p>成品产销趋势</p>
             </div>
             <div class="segmented-control">
-              <button class="is-active" type="button">件数</button>
-              <button type="button">库存金额</button>
+              <button :class="{ 'is-active': finishedMonitorMode === 'quantity' }" type="button" @click="finishedMonitorMode = 'quantity'">件数</button>
+              <button :class="{ 'is-active': finishedMonitorMode === 'amount' }" type="button" @click="finishedMonitorMode = 'amount'">库存金额</button>
             </div>
           </div>
 
           <div class="chart-placeholder chart-placeholder--large">
             <div class="chart-legend chart-legend--top">
-              <span><i class="legend-dot legend-dot--blue"></i>生产入库（件）</span>
-              <span><i class="legend-dot legend-dot--orange"></i>销售出库（件）</span>
-              <span><i class="legend-dot legend-dot--green"></i>成品库存（件）</span>
+              <span><i class="legend-dot legend-dot--blue"></i>{{ finishedLegend.production }}</span>
+              <span><i class="legend-dot legend-dot--orange"></i>{{ finishedLegend.sales }}</span>
+              <span><i class="legend-dot legend-dot--green"></i>{{ finishedLegend.stock }}</span>
             </div>
             <div class="chart-panel">
               <div class="chart-axis">
-                <span v-for="tick in countAxisTicks" :key="tick">{{ tick }}</span>
+                <span v-for="tick in finishedAxisTicks" :key="tick">{{ tick }}</span>
               </div>
               <div class="chart-bars">
-                <span v-for="bar in finishedProductBars" :key="bar.label" class="bar-item">
+                <span
+                  v-for="bar in displayedFinishedProductBars"
+                  :key="bar.label"
+                  class="bar-item"
+                  @mouseenter="showChartTooltip($event, 'finished', bar)"
+                  @mousemove="moveChartTooltip"
+                  @mouseleave="hideChartTooltip"
+                >
                   <span class="bar-item__column">
                     <i class="bar-item__blue" :style="{ height: bar.production ?? '0%' }"></i>
                     <i class="bar-item__orange" :style="{ height: bar.sales ?? '0%' }"></i>
@@ -206,6 +186,94 @@
           </div>
         </article>
       </section>
+
+      <section class="profit-section card-surface section-card">
+        <div class="section-card__header section-card__header--tight">
+          <div>
+            <h2>收益看板 / 利润分析</h2>
+            <p>近 7 天已发货/已完成销售单，按实际成交价计算收入，按成品成本价估算销售成本。</p>
+          </div>
+          <div class="profit-headline" v-if="profitOverview">
+            <span>毛利率</span>
+            <strong>{{ profitOverview.grossMargin }}</strong>
+          </div>
+        </div>
+
+        <div class="profit-metric-grid">
+          <article v-for="item in profitMetrics" :key="item.key" class="profit-metric-card">
+            <span>{{ item.title }}</span>
+            <strong>{{ item.value }}</strong>
+            <small>{{ item.subtitle }} · {{ item.change }}</small>
+            <i :style="{ width: item.progress, background: item.progressColor }"></i>
+          </article>
+        </div>
+
+        <div class="profit-grid">
+          <div class="profit-chart-card">
+            <div class="chart-legend chart-legend--top">
+              <span><i class="legend-dot legend-dot--blue"></i>销售收入</span>
+              <span><i class="legend-dot legend-dot--orange"></i>销售成本</span>
+              <span><i class="legend-dot legend-dot--green"></i>毛利</span>
+            </div>
+            <div class="chart-panel profit-chart-panel">
+              <div class="chart-bars chart-bars--profit">
+                <span
+                  v-for="bar in profitTrendBars"
+                  :key="bar.label"
+                  class="bar-item"
+                  @mouseenter="showChartTooltip($event, 'profit', bar)"
+                  @mousemove="moveChartTooltip"
+                  @mouseleave="hideChartTooltip"
+                >
+                  <span class="bar-item__column">
+                    <i class="bar-item__blue" :style="{ height: bar.production ?? '0%' }"></i>
+                    <i class="bar-item__orange" :style="{ height: bar.sales ?? '0%' }"></i>
+                    <i class="bar-item__green line-dot" :style="{ bottom: bar.stock ?? '0%' }"></i>
+                  </span>
+                  <span class="bar-item__label">{{ bar.label }}</span>
+                </span>
+                <div class="chart-line chart-line--finished"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="ranking-card profit-ranking-card">
+            <div class="table-card__title">渠道收入 Top5</div>
+            <div class="ranking-list">
+              <div v-for="item in profitChannelRanking" :key="item.name" class="ranking-item">
+                <span class="ranking-item__index">{{ item.rank }}</span>
+                <div class="ranking-item__body">
+                  <div class="ranking-item__title">{{ item.name }}</div>
+                  <div class="ranking-item__track"><i :style="{ width: item.percent }"></i></div>
+                </div>
+                <strong class="ranking-item__value">{{ item.value }}</strong>
+              </div>
+              <div v-if="profitChannelRanking.length === 0" class="profit-empty">暂无已发货销售数据</div>
+            </div>
+          </div>
+
+          <div class="summary-stack profit-summary-stack">
+            <div v-for="item in profitSummaries" :key="item.label" class="summary-mini-card">
+              <span class="summary-mini-card__label">{{ item.label }}</span>
+              <strong class="summary-mini-card__value">{{ item.value }}</strong>
+              <small class="summary-mini-card__meta">{{ item.meta }}</small>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div
+        v-if="chartTooltip.visible"
+        class="floating-chart-tooltip"
+        :style="{ left: `${chartTooltip.x}px`, top: `${chartTooltip.y}px` }"
+      >
+        <strong>{{ chartTooltip.title }}</strong>
+        <em v-for="row in chartTooltip.rows" :key="row.label">
+          <i class="legend-dot" :class="row.colorClass"></i>
+          <span>{{ row.label }}</span>
+          <b>{{ row.value }}</b>
+        </em>
+      </div>
 
       <section class="split-grid split-grid--bottom">
         <article class="card-surface section-card">
@@ -273,9 +341,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { inventoryApi, type InventoryDashboard } from '@/api/inventory'
+import { inventoryApi, type DashboardChartBar, type InventoryDashboard } from '@/api/inventory'
 import {
   ShoppingCartIcon,
   ArchiveBoxArrowDownIcon,
@@ -286,12 +354,22 @@ import {
 } from '@heroicons/vue/24/solid'
 
 type QuickActionType = 'purchase' | 'materialIssue' | 'productionInbound' | 'salesOutbound' | 'inventoryCheck' | 'stockLoss'
+type ChartTooltipRow = { label: string; value: string; colorClass: string }
+type ChartTooltipPayload = { title: string; rows: ChartTooltipRow[] }
+type ChartType = 'raw' | 'finished' | 'profit'
 
 const router = useRouter()
-const amountAxisTicks = computed(() => buildAmountAxisTicks(rawMaterialBars.value))
-const countAxisTicks = computed(() => buildCountAxisTicks(finishedProductBars.value))
+const rawMonitorMode = ref<'amount' | 'quantity'>('amount')
+const finishedMonitorMode = ref<'quantity' | 'amount'>('quantity')
 const dashboardData = ref<InventoryDashboard | null>(null)
 const overviewLoading = ref(false)
+const chartTooltip = reactive({
+  visible: false,
+  x: 0,
+  y: 0,
+  title: '',
+  rows: [] as ChartTooltipRow[]
+})
 
 const overviewMetrics = computed(() => {
   const overview = dashboardData.value?.todayBusinessOverview
@@ -345,11 +423,102 @@ const topMetrics = computed(() => dashboardData.value?.topMetrics ?? [])
 const rawMaterialBars = computed(() => dashboardData.value?.rawMaterialBars ?? [])
 const rawMaterialWarnings = computed(() => dashboardData.value?.rawMaterialWarnings ?? [])
 const finishedProductBars = computed(() => dashboardData.value?.finishedProductBars ?? [])
+const displayedRawMaterialBars = computed(() => rawMonitorMode.value === 'amount'
+  ? rawMaterialBars.value
+  : normalizeRawMaterialQuantityBars(rawMaterialBars.value)
+)
+const displayedFinishedProductBars = computed(() => finishedMonitorMode.value === 'quantity'
+  ? finishedProductBars.value
+  : normalizeFinishedProductAmountBars(finishedProductBars.value)
+)
+const rawAxisTicks = computed(() => rawMonitorMode.value === 'amount'
+  ? buildAmountAxisTicks(rawMaterialBars.value)
+  : buildRawQuantityAxisTicks(rawMaterialBars.value)
+)
+const finishedAxisTicks = computed(() => finishedMonitorMode.value === 'quantity'
+  ? buildCountAxisTicks(finishedProductBars.value)
+  : buildFinishedAmountAxisTicks(finishedProductBars.value)
+)
+const rawLegend = computed(() => rawMonitorMode.value === 'amount'
+  ? { inbound: '采购金额（元）', outbound: '领料成本（元）', stock: '库存金额（元）' }
+  : { inbound: '采购入库（数量）', outbound: '生产领料（数量）', stock: '当前库存（数量）' }
+)
+const finishedLegend = computed(() => finishedMonitorMode.value === 'quantity'
+  ? { production: '生产入库（件）', sales: '销售出库（件）', stock: '成品库存（件）' }
+  : { production: '生产入库金额（元）', sales: '销售出库金额（元）', stock: '成品库存金额（元）' }
+)
 const hotProducts = computed(() => dashboardData.value?.hotProducts ?? [])
 const rawCategoryShares = computed(() => dashboardData.value?.rawCategoryShares ?? [])
 const finishedCategoryShares = computed(() => dashboardData.value?.finishedCategoryShares ?? [])
 const rawSummaryCards = computed(() => dashboardData.value?.rawSummaryCards ?? [])
 const finishedSummaryCards = computed(() => dashboardData.value?.finishedSummaryCards ?? [])
+const profitOverview = computed(() => dashboardData.value?.profitOverview)
+const profitMetrics = computed(() => profitOverview.value?.metrics ?? [])
+const profitTrendBars = computed(() => profitOverview.value?.trendBars ?? [])
+const profitChannelRanking = computed(() => profitOverview.value?.channelRanking ?? [])
+const profitSummaries = computed(() => profitOverview.value?.summaries ?? [])
+
+function getRawTooltipRows(bar: DashboardChartBar): ChartTooltipRow[] {
+  if (rawMonitorMode.value === 'amount') {
+    return [
+      { label: rawLegend.value.inbound, value: bar.inboundValue ?? '--', colorClass: 'legend-dot--blue' },
+      { label: rawLegend.value.outbound, value: bar.outboundValue ?? '--', colorClass: 'legend-dot--orange' },
+      { label: rawLegend.value.stock, value: bar.stockValue ?? '--', colorClass: 'legend-dot--green' }
+    ]
+  }
+  return [
+    { label: rawLegend.value.inbound, value: bar.inboundQuantityValue ?? '--', colorClass: 'legend-dot--blue' },
+    { label: rawLegend.value.outbound, value: bar.outboundQuantityValue ?? '--', colorClass: 'legend-dot--orange' },
+    { label: rawLegend.value.stock, value: bar.stockQuantityValue ?? '--', colorClass: 'legend-dot--green' }
+  ]
+}
+
+function getFinishedTooltipRows(bar: DashboardChartBar): ChartTooltipRow[] {
+  if (finishedMonitorMode.value === 'quantity') {
+    return [
+      { label: finishedLegend.value.production, value: bar.productionValue ?? '--', colorClass: 'legend-dot--blue' },
+      { label: finishedLegend.value.sales, value: bar.salesValue ?? '--', colorClass: 'legend-dot--orange' },
+      { label: finishedLegend.value.stock, value: bar.stockValue ?? '--', colorClass: 'legend-dot--green' }
+    ]
+  }
+  return [
+    { label: finishedLegend.value.production, value: bar.productionAmountValue ?? '--', colorClass: 'legend-dot--blue' },
+    { label: finishedLegend.value.sales, value: bar.salesAmountValue ?? '--', colorClass: 'legend-dot--orange' },
+    { label: finishedLegend.value.stock, value: bar.stockAmountValue ?? '--', colorClass: 'legend-dot--green' }
+  ]
+}
+
+function getProfitTooltipRows(bar: DashboardChartBar): ChartTooltipRow[] {
+  return [
+    { label: '销售收入', value: bar.productionValue ?? '--', colorClass: 'legend-dot--blue' },
+    { label: '销售成本', value: bar.salesValue ?? '--', colorClass: 'legend-dot--orange' },
+    { label: '毛利', value: bar.stockValue ?? '--', colorClass: 'legend-dot--green' }
+  ]
+}
+
+function showChartTooltip(event: MouseEvent, chartType: ChartType, bar: DashboardChartBar) {
+  const payload: ChartTooltipPayload = chartType === 'raw'
+    ? { title: bar.label, rows: getRawTooltipRows(bar) }
+    : chartType === 'finished'
+      ? { title: bar.label, rows: getFinishedTooltipRows(bar) }
+      : { title: bar.label, rows: getProfitTooltipRows(bar) }
+
+  chartTooltip.visible = true
+  chartTooltip.x = event.clientX
+  chartTooltip.y = event.clientY
+  chartTooltip.title = payload.title
+  chartTooltip.rows = payload.rows
+}
+
+function moveChartTooltip(event: MouseEvent) {
+  if (!chartTooltip.visible) return
+  chartTooltip.x = event.clientX
+  chartTooltip.y = event.clientY
+}
+
+function hideChartTooltip() {
+  chartTooltip.visible = false
+}
 
 function formatNumber(value: number | null | undefined) {
   return value === null || value === undefined
@@ -359,9 +528,36 @@ function formatNumber(value: number | null | undefined) {
 
 function parseDisplayNumber(value: string | null | undefined) {
   if (!value) return 0
-  const normalized = value.replace(/[¥,件kgKG个袋盒\s]/g, '')
+  const normalized = value.replace(/[¥,件kgKG个袋盒包\s]/g, '')
   const parsed = Number(normalized)
   return Number.isFinite(parsed) ? parsed : 0
+}
+
+function toPercent(value: number, maxValue: number) {
+  if (maxValue <= 0 || value <= 0) return '0%'
+  return `${Math.max(4, Math.min(100, Math.round((value / maxValue) * 100)))}%`
+}
+
+function normalizeRawMaterialQuantityBars(bars: typeof rawMaterialBars.value) {
+  const values = bars.flatMap(bar => [bar.inboundQuantityValue, bar.outboundQuantityValue, bar.stockQuantityValue].map(parseDisplayNumber))
+  const maxValue = Math.max(0, ...values)
+  return bars.map(bar => ({
+    ...bar,
+    inbound: toPercent(parseDisplayNumber(bar.inboundQuantityValue), maxValue),
+    outbound: toPercent(parseDisplayNumber(bar.outboundQuantityValue), maxValue),
+    stock: toPercent(parseDisplayNumber(bar.stockQuantityValue), maxValue)
+  }))
+}
+
+function normalizeFinishedProductAmountBars(bars: typeof finishedProductBars.value) {
+  const values = bars.flatMap(bar => [bar.productionAmountValue, bar.salesAmountValue, bar.stockAmountValue].map(parseDisplayNumber))
+  const maxValue = Math.max(0, ...values)
+  return bars.map(bar => ({
+    ...bar,
+    production: toPercent(parseDisplayNumber(bar.productionAmountValue), maxValue),
+    sales: toPercent(parseDisplayNumber(bar.salesAmountValue), maxValue),
+    stock: toPercent(parseDisplayNumber(bar.stockAmountValue), maxValue)
+  }))
 }
 
 function buildAmountAxisTicks(bars: Array<{ inboundValue: string | null; outboundValue: string | null; stockValue: string | null }>) {
@@ -373,6 +569,15 @@ function buildAmountAxisTicks(bars: Array<{ inboundValue: string | null; outboun
   return [axisMax, axisMax * 0.75, axisMax * 0.5, axisMax * 0.25, 0].map(formatAxisAmount)
 }
 
+function buildRawQuantityAxisTicks(bars: Array<{ inboundQuantityValue: string | null; outboundQuantityValue: string | null; stockQuantityValue: string | null }>) {
+  const maxValue = Math.max(
+    0,
+    ...bars.flatMap(bar => [bar.inboundQuantityValue, bar.outboundQuantityValue, bar.stockQuantityValue].map(parseDisplayNumber))
+  )
+  const axisMax = getFriendlyQuantityAxisMax(maxValue)
+  return [axisMax, axisMax * 0.75, axisMax * 0.5, axisMax * 0.25, 0].map(value => formatNumber(Math.round(value)))
+}
+
 function buildCountAxisTicks(bars: Array<{ productionValue: string | null; salesValue: string | null; stockValue: string | null }>) {
   const maxValue = Math.max(
     0,
@@ -380,6 +585,15 @@ function buildCountAxisTicks(bars: Array<{ productionValue: string | null; sales
   )
   const axisMax = getFriendlyQuantityAxisMax(maxValue)
   return [axisMax, axisMax * 0.75, axisMax * 0.5, axisMax * 0.25, 0].map(value => formatNumber(Math.round(value)))
+}
+
+function buildFinishedAmountAxisTicks(bars: Array<{ productionAmountValue: string | null; salesAmountValue: string | null; stockAmountValue: string | null }>) {
+  const maxValue = Math.max(
+    0,
+    ...bars.flatMap(bar => [bar.productionAmountValue, bar.salesAmountValue, bar.stockAmountValue].map(parseDisplayNumber))
+  )
+  const axisMax = getFriendlyAmountAxisMax(maxValue)
+  return [axisMax, axisMax * 0.75, axisMax * 0.5, axisMax * 0.25, 0].map(formatAxisAmount)
 }
 
 function getFriendlyAmountAxisMax(value: number) {
@@ -506,13 +720,14 @@ onMounted(() => {
 }
 
 .top-panels {
-  grid-template-columns: 1.1fr 0.9fr;
+  grid-template-columns: 1fr;
+  align-items: start;
 }
 
 .panel-card,
 .section-card,
 .metric-card {
-  padding: 16px;
+  padding: 12px;
 }
 
 .panel-header,
@@ -527,7 +742,7 @@ onMounted(() => {
 .panel-header h2,
 .section-card h2 {
   margin: 0;
-  font-size: 22px;
+  font-size: 18px;
   line-height: 1.2;
   color: #1e293b;
 }
@@ -615,12 +830,16 @@ onMounted(() => {
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
+.metric-grid--top {
+  order: 2;
+}
+
 .metric-card {
   min-width: 0;
   display: grid;
   gap: 10px;
-  min-height: 132px;
-  padding: 16px 14px 14px;
+  min-height: 116px;
+  padding: 16px 16px 14px;
   overflow: hidden;
 }
 
@@ -660,7 +879,7 @@ onMounted(() => {
 .metric-value {
   min-width: 0;
   flex: 1;
-  font-size: clamp(20px, 1.7vw, 26px);
+  font-size: clamp(22px, 2vw, 30px);
   font-weight: 700;
   color: #0f172a;
   line-height: 1.08;
@@ -721,17 +940,18 @@ onMounted(() => {
 .quick-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .quick-action {
-  padding: 18px 10px 14px;
+  padding: 12px 10px;
   background: #fff;
   border: 1px solid #edf2f7;
-  border-radius: 14px;
-  display: grid;
-  justify-items: center;
-  gap: 10px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   transition: all 0.2s ease;
 }
 
@@ -741,23 +961,26 @@ onMounted(() => {
 }
 
 .quick-action__icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
   display: grid;
   place-items: center;
   background: #f8fafc;
 }
 
 .quick-action__icon :deep(svg) {
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
 }
 
 .quick-action__label {
-  font-size: 13px;
+  min-width: 0;
+  font-size: 12px;
   color: #334155;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .is-blue {
@@ -813,12 +1036,17 @@ onMounted(() => {
   color: #64748b;
   font-size: 12px;
   font-weight: 700;
+  transition: all 0.22s ease;
+}
+
+.segmented-control button:hover {
+  color: #334155;
 }
 
 .segmented-control .is-active {
-  background: #ffffff;
+  background: linear-gradient(180deg, #ffffff 0%, #f6f9ff 100%);
   color: #2563eb;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12), 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 
 .chart-placeholder {
@@ -952,10 +1180,59 @@ onMounted(() => {
   height: 188px;
 }
 
+.floating-chart-tooltip {
+  position: fixed;
+  transform: translate(14px, -50%);
+  min-width: 210px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.96);
+  color: #fff;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.28);
+  display: grid;
+  gap: 8px;
+  pointer-events: none;
+  z-index: 9999;
+  backdrop-filter: blur(10px);
+}
+
+.floating-chart-tooltip strong {
+  font-size: 14px;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.floating-chart-tooltip em {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 7px;
+  font-style: normal;
+  font-size: 12px;
+  color: #e2e8f0;
+  white-space: nowrap;
+}
+
+.floating-chart-tooltip b {
+  color: #fff;
+  font-weight: 800;
+}
+
+.bar-item:hover .bar-item__column > i {
+  filter: brightness(1.08);
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.16);
+}
+
+.bar-item:hover .bar-item__label {
+  color: #2563eb;
+  font-weight: 800;
+}
+
 .bar-item__column > i {
   display: block;
   width: 12px;
   border-radius: 999px 999px 0 0;
+  transition: height 0.28s ease, bottom 0.28s ease, transform 0.28s ease, box-shadow 0.28s ease;
 }
 
 .bar-item__blue {
@@ -976,6 +1253,11 @@ onMounted(() => {
   border-radius: 50%;
   background: #22c55e;
   box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12);
+}
+
+.bar-item__green.line-dot:hover {
+  transform: translateX(-50%) scale(1.2);
+  box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.16);
 }
 
 .chart-line {
@@ -1006,6 +1288,92 @@ onMounted(() => {
 .ranking-card {
   display: grid;
   gap: 10px;
+}
+
+.profit-section {
+  display: grid;
+  gap: 16px;
+}
+
+.profit-headline {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+
+.profit-headline span {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.profit-headline strong {
+  font-size: 24px;
+  color: #16a34a;
+}
+
+.profit-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.profit-metric-card {
+  padding: 14px;
+  border: 1px solid #e8eef8;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fbfdff 0%, #ffffff 100%);
+  display: grid;
+  gap: 8px;
+}
+
+.profit-metric-card span {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.profit-metric-card strong {
+  font-size: 22px;
+  color: #0f172a;
+}
+
+.profit-metric-card small {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.profit-metric-card i {
+  display: block;
+  width: 0;
+  height: 6px;
+  border-radius: 999px;
+}
+
+.profit-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr) minmax(240px, 300px);
+  gap: 14px;
+}
+
+.profit-chart-card,
+.profit-ranking-card {
+  padding: 14px;
+  border: 1px solid #edf2f7;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.profit-chart-panel {
+  min-height: 260px;
+}
+
+.profit-summary-stack {
+  gap: 12px;
+}
+
+.profit-empty {
+  color: #94a3b8;
+  font-size: 13px;
+  padding: 20px 0;
 }
 
 .table-card__title {
@@ -1184,7 +1552,7 @@ onMounted(() => {
 
 @media (max-width: 1400px) {
   .metric-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }
 
@@ -1193,19 +1561,29 @@ onMounted(() => {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .metric-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .quick-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .detail-grid {
+  .detail-grid,
+  .profit-grid {
     grid-template-columns: 1fr;
+  }
+
+  .profit-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 768px) {
   .overview-grid,
   .metric-grid,
-  .quick-grid {
+  .quick-grid,
+  .profit-metric-grid {
     grid-template-columns: 1fr;
   }
 

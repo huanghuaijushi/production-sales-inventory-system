@@ -8,6 +8,7 @@ import com.hhjs.psi.inventory.repository.ProductRepository;
 import com.hhjs.psi.inventory.repository.StockRepository;
 import com.hhjs.psi.product.dto.ProductRequest;
 import com.hhjs.psi.product.dto.ProductResponse;
+import com.hhjs.psi.product.repository.ProductCategoryRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -22,10 +23,16 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final StockRepository stockRepository;
+    private final ProductCategoryRepository productCategoryRepository;
 
-    public ProductService(ProductRepository productRepository, StockRepository stockRepository) {
+    public ProductService(
+            ProductRepository productRepository,
+            StockRepository stockRepository,
+            ProductCategoryRepository productCategoryRepository
+    ) {
         this.productRepository = productRepository;
         this.stockRepository = stockRepository;
+        this.productCategoryRepository = productCategoryRepository;
     }
 
     @Transactional(readOnly = true)
@@ -42,11 +49,14 @@ public class ProductService {
             throw BusinessException.conflict("产品编码已存在: " + code);
         }
 
+        ProductType productType = parseProductType(request.getType());
+        String category = validateCategory(request.getCategory(), productType);
+
         Product product = Product.create(
                 code,
                 request.getName().trim(),
-                parseProductType(request.getType()),
-                normalizeOptional(request.getCategory()),
+                productType,
+                category,
                 normalizeOptional(request.getSpecification()),
                 request.getUnit().trim(),
                 toBigDecimal(request.getCostPrice()),
@@ -74,11 +84,14 @@ public class ProductService {
             throw BusinessException.conflict("产品编码已存在: " + code);
         }
 
+        ProductType productType = parseProductType(request.getType());
+        String category = validateCategory(request.getCategory(), productType);
+
         product.updateBasicInfo(
                 code,
                 request.getName().trim(),
-                parseProductType(request.getType()),
-                normalizeOptional(request.getCategory()),
+                productType,
+                category,
                 normalizeOptional(request.getSpecification()),
                 request.getUnit().trim(),
                 toBigDecimal(request.getCostPrice()),
@@ -137,6 +150,19 @@ public class ProductService {
             case "RAW_MATERIAL", "原料", "包装" -> ProductType.RAW_MATERIAL;
             default -> throw BusinessException.badRequest("不支持的产品类型: " + type);
         };
+    }
+
+    private String validateCategory(String category, ProductType productType) {
+        String normalizedCategory = normalizeOptional(category);
+        if (normalizedCategory == null) {
+            return null;
+        }
+        boolean exists = productCategoryRepository.findEnabledByOptionalType(productType).stream()
+                .anyMatch(item -> item.getName().equals(normalizedCategory));
+        if (!exists) {
+            throw BusinessException.badRequest("分类不存在或未启用: " + normalizedCategory);
+        }
+        return normalizedCategory;
     }
 
     private BigDecimal toBigDecimal(Double value) {

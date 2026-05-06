@@ -108,4 +108,22 @@ public interface StockRecordRepository extends JpaRepository<StockRecord, Long> 
 
     @Query(value = "SELECT COUNT(*) FROM sales_order WHERE status = 'PENDING'", nativeQuery = true)
     long countPendingSalesOrders();
+
+    @Query(value = """
+            SELECT sc.name,
+                   COALESCE(SUM(soi.quantity * soi.unit_price), 0) AS revenue,
+                   COALESCE(SUM(soi.quantity * COALESCE(p.cost_price, 0)), 0) AS cost,
+                   COUNT(DISTINCT so.id) AS order_count
+            FROM sales_order so
+            JOIN sales_order_item soi ON soi.order_id = so.id
+            JOIN product p ON p.id = soi.product_id
+            LEFT JOIN sales_channel_config sc ON sc.id = so.channel_id
+            WHERE so.status IN ('SHIPPED', 'COMPLETED')
+              AND so.ship_date IS NOT NULL
+              AND so.ship_date >= :start
+              AND so.ship_date < :end
+            GROUP BY sc.id, sc.name
+            ORDER BY revenue DESC, sc.name ASC
+            """, nativeQuery = true)
+    List<Object[]> findProfitChannelRows(Instant start, Instant end);
 }

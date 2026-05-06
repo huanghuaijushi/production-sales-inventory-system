@@ -44,10 +44,10 @@
           <UserGroupIcon class="nav-icon" />
           <span class="nav-text">用户管理</span>
         </RouterLink>
-        <a href="#" class="nav-item">
+        <RouterLink to="/sales" class="nav-item" :class="{ active: isActive('sales') }">
           <ChartBarIcon class="nav-icon" />
-          <span class="nav-text">销售统计</span>
-        </a>
+          <span class="nav-text">销售管理</span>
+        </RouterLink>
         <a href="#" class="nav-item">
           <CogIcon class="nav-icon" />
           <span class="nav-text">系统设置</span>
@@ -196,6 +196,13 @@ const breadcrumb = computed(() => {
     }
   }
 
+  if (route.name === 'product-categories') {
+    return {
+      main: '分类管理',
+      sub: '分类字典'
+    }
+  }
+
   if (route.name === 'purchase') {
     return {
       main: '采购管理',
@@ -221,6 +228,13 @@ const breadcrumb = computed(() => {
     return {
       main: '生产管理',
       sub: '生产计划'
+    }
+  }
+
+  if (route.name === 'sales') {
+    return {
+      main: '销售管理',
+      sub: '订单出库'
     }
   }
 

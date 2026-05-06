@@ -66,6 +66,12 @@ public class Stock {
         this.availableQuantity = quantity - lockedQuantity;
     }
 
+    public void shipLockedQuantity(Integer amount) {
+        this.quantity -= amount;
+        this.lockedQuantity -= amount;
+        this.availableQuantity = quantity - lockedQuantity;
+    }
+
     public boolean isLowStock() {
         return quantity <= product.getAlertQuantity();
     }

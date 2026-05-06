@@ -11,6 +11,12 @@ public record DashboardChartBarResponse(
         String outboundValue,
         String stockValue,
         String productionValue,
-        String salesValue
+        String salesValue,
+        String inboundQuantityValue,
+        String outboundQuantityValue,
+        String stockQuantityValue,
+        String productionAmountValue,
+        String salesAmountValue,
+        String stockAmountValue
 ) {
 }

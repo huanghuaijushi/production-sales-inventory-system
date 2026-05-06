@@ -11,6 +11,7 @@ import com.hhjs.psi.inventory.dto.DashboardWarningItemResponse;
 import com.hhjs.psi.inventory.dto.InventoryDistributionItemResponse;
 import com.hhjs.psi.inventory.dto.InventoryDashboardResponse;
 import com.hhjs.psi.inventory.dto.InventoryValueTrendItemResponse;
+import com.hhjs.psi.inventory.dto.ProfitOverviewResponse;
 import com.hhjs.psi.inventory.dto.StockItemResponse;
 import com.hhjs.psi.inventory.dto.StockBatchResponse;
 import com.hhjs.psi.inventory.dto.StockOperationRequest;
@@ -118,7 +119,8 @@ public class InventoryService {
                 snapshot.rawCategoryShares,
                 snapshot.finishedCategoryShares,
                 snapshot.rawSummaryCards,
-                snapshot.finishedSummaryCards
+                snapshot.finishedSummaryCards,
+                snapshot.profitOverview
         );
     }
 
@@ -186,7 +188,8 @@ public class InventoryService {
                         new DashboardSummaryItemResponse("成品总库存件数", formatNumber(finishedQuantity) + " 件", "当前在库成品"),
                         buildHotProductsRatioSummary(finishedStocks),
                         buildFinishedOutboundAverageSummary(finishedStocks)
-                )
+                ),
+                buildProfitOverview()
         );
     }
 
@@ -202,8 +205,11 @@ public class InventoryService {
     }
 
     private List<DashboardChartBarResponse> buildRawMaterialBars() {
-        List<InventoryValueTrendItemResponse> trendItems = getInventoryValueTrend(7);
-        BigDecimal maxAmount = trendItems.stream()
+        List<InventoryValueTrendItemResponse> amountTrendItems = getInventoryValueTrend(7);
+        List<StockTrendItemResponse> quantityTrendItems = getStockTrend(7);
+        Map<String, StockTrendItemResponse> quantityByLabel = quantityTrendItems.stream()
+                .collect(Collectors.toMap(StockTrendItemResponse::label, item -> item, (first, ignored) -> first));
+        BigDecimal maxAmount = amountTrendItems.stream()
                 .flatMap(item -> java.util.stream.Stream.of(
                         item.rawMaterialInboundAmount(),
                         item.rawMaterialUsageAmount(),
@@ -214,26 +220,38 @@ public class InventoryService {
                 .orElse(BigDecimal.ZERO);
         BigDecimal axisMax = friendlyAmountAxisMax(maxAmount);
 
-        return trendItems.stream()
-                .map(item -> new DashboardChartBarResponse(
-                        item.label(),
-                        percent(item.rawMaterialInboundAmount(), axisMax),
-                        percent(item.rawMaterialUsageAmount(), axisMax),
-                        percent(item.totalAmount(), axisMax),
-                        null,
-                        null,
-                        formatCurrency(item.rawMaterialInboundAmount()),
-                        formatCurrency(item.rawMaterialUsageAmount()),
-                        formatCurrency(item.totalAmount()),
-                        null,
-                        null
-                ))
+        return amountTrendItems.stream()
+                .map(item -> {
+                    StockTrendItemResponse quantityItem = quantityByLabel.get(item.label());
+                    return new DashboardChartBarResponse(
+                            item.label(),
+                            percent(item.rawMaterialInboundAmount(), axisMax),
+                            percent(item.rawMaterialUsageAmount(), axisMax),
+                            percent(item.totalAmount(), axisMax),
+                            null,
+                            null,
+                            formatCurrency(item.rawMaterialInboundAmount()),
+                            formatCurrency(item.rawMaterialUsageAmount()),
+                            formatCurrency(item.totalAmount()),
+                            null,
+                            null,
+                            formatNumber(quantityItem == null ? 0 : quantityItem.rawMaterialInboundQuantity()),
+                            formatNumber(quantityItem == null ? 0 : quantityItem.rawMaterialOutboundQuantity()),
+                            formatNumber(quantityItem == null ? 0 : quantityItem.rawMaterialInboundQuantity() + quantityItem.rawMaterialOutboundQuantity()),
+                            null,
+                            null,
+                            null
+                    );
+                })
                 .toList();
     }
 
     private List<DashboardChartBarResponse> buildFinishedProductBars() {
-        List<StockTrendItemResponse> trendItems = getStockTrend(7);
-        int maxQuantity = trendItems.stream()
+        List<StockTrendItemResponse> quantityTrendItems = getStockTrend(7);
+        List<InventoryValueTrendItemResponse> amountTrendItems = getInventoryValueTrend(7);
+        Map<String, InventoryValueTrendItemResponse> amountByLabel = amountTrendItems.stream()
+                .collect(Collectors.toMap(InventoryValueTrendItemResponse::label, item -> item, (first, ignored) -> first));
+        int maxQuantity = quantityTrendItems.stream()
                 .flatMapToInt(item -> java.util.stream.IntStream.of(
                         item.finishedProductInboundQuantity(),
                         item.finishedProductOutboundQuantity(),
@@ -243,21 +261,143 @@ public class InventoryService {
                 .orElse(0);
         int axisMax = friendlyQuantityAxisMax(maxQuantity);
 
-        return trendItems.stream()
-                .map(item -> new DashboardChartBarResponse(
-                        item.label(),
-                        null,
-                        null,
-                        percent(item.finishedProductInboundQuantity() + item.finishedProductOutboundQuantity(), axisMax),
-                        percent(item.finishedProductInboundQuantity(), axisMax),
-                        percent(item.finishedProductOutboundQuantity(), axisMax),
-                        null,
-                        null,
-                        formatNumber(item.finishedProductInboundQuantity() + item.finishedProductOutboundQuantity()) + "件",
-                        formatNumber(item.finishedProductInboundQuantity()) + "件",
-                        formatNumber(item.finishedProductOutboundQuantity()) + "件"
-                ))
+        return quantityTrendItems.stream()
+                .map(item -> {
+                    InventoryValueTrendItemResponse amountItem = amountByLabel.get(item.label());
+                    BigDecimal inboundAmount = amountItem == null ? BigDecimal.ZERO : amountItem.finishedProductInboundAmount();
+                    BigDecimal salesAmount = amountItem == null ? BigDecimal.ZERO : amountItem.finishedProductSalesAmount();
+                    BigDecimal stockAmount = inboundAmount.add(salesAmount);
+                    return new DashboardChartBarResponse(
+                            item.label(),
+                            null,
+                            null,
+                            percent(item.finishedProductInboundQuantity() + item.finishedProductOutboundQuantity(), axisMax),
+                            percent(item.finishedProductInboundQuantity(), axisMax),
+                            percent(item.finishedProductOutboundQuantity(), axisMax),
+                            null,
+                            null,
+                            formatNumber(item.finishedProductInboundQuantity() + item.finishedProductOutboundQuantity()) + "件",
+                            formatNumber(item.finishedProductInboundQuantity()) + "件",
+                            formatNumber(item.finishedProductOutboundQuantity()) + "件",
+                            null,
+                            null,
+                            null,
+                            formatCurrency(inboundAmount),
+                            formatCurrency(salesAmount),
+                            formatCurrency(stockAmount)
+                    );
+                })
                 .toList();
+    }
+
+    private ProfitOverviewResponse buildProfitOverview() {
+        List<InventoryValueTrendItemResponse> trendItems = getInventoryValueTrend(7);
+        BigDecimal totalRevenue = trendItems.stream()
+                .map(InventoryValueTrendItemResponse::finishedProductSalesAmount)
+                .map(this::normalizeMoney)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCost = trendItems.stream()
+                .map(InventoryValueTrendItemResponse::finishedProductInboundAmount)
+                .map(this::normalizeMoney)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal grossProfit = totalRevenue.subtract(totalCost);
+        long orderCount = countShippedSalesOrders(7);
+        BigDecimal axisMax = friendlyAmountAxisMax(trendItems.stream()
+                .flatMap(item -> java.util.stream.Stream.of(
+                        item.finishedProductSalesAmount(),
+                        item.finishedProductInboundAmount(),
+                        item.finishedProductSalesAmount().subtract(item.finishedProductInboundAmount()).max(BigDecimal.ZERO)
+                ))
+                .map(this::normalizeMoney)
+                .max(BigDecimal::compareTo)
+                .orElse(BigDecimal.ZERO));
+
+        List<DashboardChartBarResponse> trendBars = trendItems.stream()
+                .map(item -> {
+                    BigDecimal revenue = normalizeMoney(item.finishedProductSalesAmount());
+                    BigDecimal cost = normalizeMoney(item.finishedProductInboundAmount());
+                    BigDecimal profit = revenue.subtract(cost);
+                    return new DashboardChartBarResponse(
+                            item.label(),
+                            null,
+                            null,
+                            percent(profit.max(BigDecimal.ZERO), axisMax),
+                            percent(revenue, axisMax),
+                            percent(cost, axisMax),
+                            null,
+                            null,
+                            formatCurrency(profit),
+                            formatCurrency(revenue),
+                            formatCurrency(cost),
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null
+                    );
+                })
+                .toList();
+
+        List<DashboardRankingItemResponse> channelRanking = buildProfitChannelRanking(7);
+        return new ProfitOverviewResponse(
+                formatCurrency(totalRevenue),
+                formatCurrency(totalCost),
+                formatCurrency(grossProfit),
+                ratio(grossProfit, totalRevenue),
+                formatCurrency(averageAmount(totalRevenue, orderCount)),
+                formatCurrency(averageAmount(grossProfit, orderCount)),
+                List.of(
+                        metric("revenue", "近 7 天销售收入", formatCurrency(totalRevenue), "按已发货/已完成销售单", "收", "#2563eb", "实时", "trend-up", percent(totalRevenue, totalRevenue.max(BigDecimal.ONE)), "linear-gradient(90deg, #2563eb 0%, #60a5fa 100%)"),
+                        metric("cost", "近 7 天销售成本", formatCurrency(totalCost), "按成品成本价估算", "本", "#f59e0b", "成本", "trend-down", percent(totalCost, totalRevenue.max(BigDecimal.ONE)), "linear-gradient(90deg, #f59e0b 0%, #fcd34d 100%)"),
+                        metric("grossProfit", "近 7 天毛利", formatCurrency(grossProfit), "收入 - 成本", "利", "#16a34a", ratio(grossProfit, totalRevenue), grossProfit.signum() >= 0 ? "trend-up" : "trend-down", percent(grossProfit.max(BigDecimal.ZERO), totalRevenue.max(BigDecimal.ONE)), "linear-gradient(90deg, #16a34a 0%, #86efac 100%)"),
+                        metric("grossMargin", "近 7 天毛利率", ratio(grossProfit, totalRevenue), "按销售收入计算", "%", "#7c3aed", formatNumber((int) orderCount) + " 单", "trend-up", ratio(grossProfit.max(BigDecimal.ZERO), totalRevenue), "linear-gradient(90deg, #7c3aed 0%, #c4b5fd 100%)")
+                ),
+                trendBars,
+                channelRanking,
+                List.of(
+                        new DashboardSummaryItemResponse("成交订单", formatNumber((int) orderCount) + " 单", "已发货/已完成"),
+                        new DashboardSummaryItemResponse("客单销售额", formatCurrency(averageAmount(totalRevenue, orderCount)), "销售收入 / 成交订单"),
+                        new DashboardSummaryItemResponse("单均毛利", formatCurrency(averageAmount(grossProfit, orderCount)), "毛利 / 成交订单")
+                )
+        );
+    }
+
+    private List<DashboardRankingItemResponse> buildProfitChannelRanking(int days) {
+        LocalDate endDate = LocalDate.now(BUSINESS_ZONE);
+        LocalDate startDate = endDate.minusDays(days - 1L);
+        var start = startDate.atStartOfDay(BUSINESS_ZONE).toInstant();
+        var end = endDate.plusDays(1).atStartOfDay(BUSINESS_ZONE).toInstant();
+        List<Object[]> rows = stockRecordRepository.findProfitChannelRows(start, end);
+        BigDecimal maxRevenue = rows.stream()
+                .map(row -> normalizeMoney((BigDecimal) row[1]))
+                .max(BigDecimal::compareTo)
+                .orElse(BigDecimal.ONE);
+        return java.util.stream.IntStream.range(0, Math.min(rows.size(), 5))
+                .mapToObj(index -> {
+                    Object[] row = rows.get(index);
+                    String channelName = row[0] == null ? "未设置渠道" : (String) row[0];
+                    BigDecimal revenue = normalizeMoney((BigDecimal) row[1]);
+                    BigDecimal cost = normalizeMoney((BigDecimal) row[2]);
+                    BigDecimal profit = revenue.subtract(cost);
+                    return new DashboardRankingItemResponse(
+                            index + 1,
+                            channelName,
+                            percent(revenue, maxRevenue),
+                            formatCurrency(revenue) + " / 毛利 " + formatCurrency(profit)
+                    );
+                })
+                .toList();
+    }
+
+    private long countShippedSalesOrders(int days) {
+        LocalDate endDate = LocalDate.now(BUSINESS_ZONE);
+        LocalDate startDate = endDate.minusDays(days - 1L);
+        var start = startDate.atStartOfDay(BUSINESS_ZONE).toInstant();
+        var end = endDate.plusDays(1).atStartOfDay(BUSINESS_ZONE).toInstant();
+        return stockRecordRepository.findProfitChannelRows(start, end).stream()
+                .mapToLong(row -> ((Number) row[3]).longValue())
+                .sum();
     }
 
     private List<DashboardWarningItemResponse> buildRawMaterialWarnings(List<Stock> rawStocks) {
@@ -527,18 +667,18 @@ public class InventoryService {
             ProductType productType = (ProductType) row[4];
             BigDecimal costPrice = normalizeMoney((BigDecimal) row[5]);
             BigDecimal salePrice = normalizeMoney((BigDecimal) row[6]);
-            BigDecimal recordAmount = row.length > 7 && row[7] != null ? normalizeMoney((BigDecimal) row[7]) : BigDecimal.ZERO;
+            BigDecimal recordAmount = row.length > 7 && row[7] != null ? normalizeMoney((BigDecimal) row[7]) : null;
             InventoryValueTrendAggregate aggregate = aggregates.computeIfAbsent(recordDate, ignored -> new InventoryValueTrendAggregate());
 
             if (productType == ProductType.RAW_MATERIAL && type == StockRecordType.IN && subType == StockRecordSubType.PURCHASE) {
-                aggregate.rawMaterialInboundAmount = aggregate.rawMaterialInboundAmount.add(recordAmount.signum() > 0 ? recordAmount : amount(costPrice, quantity));
+                aggregate.rawMaterialInboundAmount = aggregate.rawMaterialInboundAmount.add(recordAmount != null ? recordAmount : amount(costPrice, quantity));
             } else if (productType == ProductType.RAW_MATERIAL && type == StockRecordType.OUT && subType == StockRecordSubType.PRODUCTION_USAGE) {
                 aggregate.rawMaterialUsageAmount = aggregate.rawMaterialUsageAmount.add(recordAmount.signum() > 0 ? recordAmount : amount(costPrice, quantity));
             } else if (productType == ProductType.FINISHED_PRODUCT && type == StockRecordType.IN && subType == StockRecordSubType.PRODUCTION) {
                 aggregate.finishedProductInboundAmount = aggregate.finishedProductInboundAmount.add(recordAmount.signum() > 0 ? recordAmount : amount(costPrice, quantity));
             } else if (productType == ProductType.FINISHED_PRODUCT && type == StockRecordType.OUT && subType == StockRecordSubType.SALES) {
                 BigDecimal unitPrice = salePrice.signum() > 0 ? salePrice : costPrice;
-                aggregate.finishedProductSalesAmount = aggregate.finishedProductSalesAmount.add(recordAmount.signum() > 0 ? recordAmount : amount(unitPrice, quantity));
+                aggregate.finishedProductSalesAmount = aggregate.finishedProductSalesAmount.add(recordAmount != null ? recordAmount : amount(unitPrice, quantity));
             }
         });
 
@@ -688,7 +828,24 @@ public class InventoryService {
         return performStockOperation(request, StockRecordType.OUT);
     }
 
+    @Transactional
+    public StockRecordResponse outboundFromLocked(StockOperationRequest request) {
+        return performStockOperation(request, StockRecordType.OUT, true);
+    }
+
+    public StockRecordResponse outboundFromLocked(StockOperationRequest request, BigDecimal unitPriceSnapshot) {
+        return performStockOperation(request, StockRecordType.OUT, true, unitPriceSnapshot);
+    }
+
     private StockRecordResponse performStockOperation(StockOperationRequest request, StockRecordType type) {
+        return performStockOperation(request, type, false);
+    }
+
+    private StockRecordResponse performStockOperation(StockOperationRequest request, StockRecordType type, boolean consumeLockedQuantity) {
+        return performStockOperation(request, type, consumeLockedQuantity, null);
+    }
+
+    private StockRecordResponse performStockOperation(StockOperationRequest request, StockRecordType type, boolean consumeLockedQuantity, BigDecimal unitPriceSnapshot) {
         validateOperation(request, type);
 
         Stock stock = stockRepository.findByProductIdForUpdate(request.productId())
@@ -713,11 +870,18 @@ public class InventoryService {
         if (afterQuantity < 0) {
             throw BusinessException.badRequest("Insufficient stock. Available: " + stock.getAvailableQuantity());
         }
-        if (type == StockRecordType.OUT && stock.getAvailableQuantity() < request.quantity()) {
+        if (type == StockRecordType.OUT && consumeLockedQuantity && stock.getLockedQuantity() < request.quantity()) {
+            throw BusinessException.badRequest("Insufficient locked stock. Locked: " + stock.getLockedQuantity());
+        }
+        if (type == StockRecordType.OUT && !consumeLockedQuantity && stock.getAvailableQuantity() < request.quantity()) {
             throw BusinessException.badRequest("Insufficient available stock. Available: " + stock.getAvailableQuantity());
         }
 
-        stock.updateQuantity(afterQuantity);
+        if (type == StockRecordType.OUT && consumeLockedQuantity) {
+            stock.shipLockedQuantity(request.quantity());
+        } else {
+            stock.updateQuantity(afterQuantity);
+        }
         stockRepository.save(stock);
 
         String recordNo = generateRecordNo(type);
@@ -744,7 +908,7 @@ public class InventoryService {
         if (request.relatedOrderId() != null) {
             record.setRelatedOrder(resolveSourceType(request), request.relatedOrderId(), request.batchNo());
         }
-        record.setAmountSnapshot(resolveRecordUnitPrice(product, type, request.subType()));
+        record.setAmountSnapshot(unitPriceSnapshot == null ? resolveRecordUnitPrice(product, type, request.subType()) : normalizeMoney(unitPriceSnapshot));
 
         stockRecordRepository.save(record);
 
@@ -925,10 +1089,20 @@ public class InventoryService {
     }
 
     private BigDecimal resolveRecordUnitPrice(Product product, StockRecordType type, StockRecordSubType subType) {
-        if (type == StockRecordType.OUT && subType == StockRecordSubType.SALES && product.getSalePrice() != null) {
-            return product.getSalePrice();
+        if (type == StockRecordType.OUT && subType == StockRecordSubType.SALES) {
+            return firstPositiveMoney(product.getSalePrice(), product.getCostPrice());
         }
         return normalizeMoney(product.getCostPrice());
+    }
+
+    private BigDecimal firstPositiveMoney(BigDecimal... values) {
+        for (BigDecimal value : values) {
+            BigDecimal normalized = normalizeMoney(value);
+            if (normalized.signum() > 0) {
+                return normalized;
+            }
+        }
+        return BigDecimal.ZERO;
     }
 
     private String resolveSourceType(StockOperationRequest request) {
@@ -1033,8 +1207,15 @@ public class InventoryService {
         if (values.isEmpty()) {
             return BigDecimal.ZERO;
         }
-        BigDecimal total = values.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal total = values.stream().map(this::normalizeMoney).reduce(BigDecimal.ZERO, BigDecimal::add);
         return total.divide(BigDecimal.valueOf(values.size()), 2, java.math.RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal averageAmount(BigDecimal total, long count) {
+        if (count <= 0) {
+            return BigDecimal.ZERO;
+        }
+        return normalizeMoney(total).divide(BigDecimal.valueOf(count), 2, java.math.RoundingMode.HALF_UP);
     }
 
     private int averageQuantity(List<Integer> values) {
@@ -1145,7 +1326,8 @@ public class InventoryService {
             List<DashboardCategoryShareResponse> rawCategoryShares,
             List<DashboardCategoryShareResponse> finishedCategoryShares,
             List<DashboardSummaryItemResponse> rawSummaryCards,
-            List<DashboardSummaryItemResponse> finishedSummaryCards
+            List<DashboardSummaryItemResponse> finishedSummaryCards,
+            ProfitOverviewResponse profitOverview
     ) {
     }
 }

@@ -1,70 +1,128 @@
 <template>
   <div class="product-management">
     <div class="page-header">
-      <h1>产品管理</h1>
-      <button class="btn btn-primary" @click="showCreateModal = true">
-        <PlusIcon class="icon" />
-        新增产品
-      </button>
-    </div>
-
-    <div class="filters-section">
-      <div class="search-box">
-        <input
-          type="text"
-          v-model="searchQuery"
-          placeholder="搜索产品名称或编码..."
-          @input="handleSearch()"
-        />
-        <MagnifyingGlassIcon class="search-icon" />
+      <div>
+        <h1>产品管理</h1>
+        <p>维护产品资料和分类字典，新增商品时从已有分类中选择。</p>
       </div>
     </div>
 
-    <div class="products-table">
-      <table>
-        <thead>
-          <tr>
-            <th>产品编码</th>
-            <th>产品名称</th>
-            <th>类型</th>
-            <th>类别</th>
-            <th>规格型号</th>
-            <th>计量单位</th>
-            <th>预警库存</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="product in products" :key="product.id">
-            <td>{{ product.sku }}</td>
-            <td>{{ product.name }}</td>
-            <td>{{ productTypeLabel(product.type) }}</td>
-            <td>{{ product.category || '-' }}</td>
-            <td>{{ product.specification || '-' }}</td>
-            <td>{{ product.unit }}</td>
-            <td>{{ product.alertQuantity ?? 0 }}</td>
-            <td>
-              <div class="table-actions">
-                <button class="btn btn-sm btn-secondary" @click="editProduct(product)">
-                  编辑
-                </button>
-                <button class="btn btn-sm btn-danger" @click="openDeleteModal(product)">
-                  删除
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <div class="product-workbench">
+      <aside class="category-sidebar">
+        <div class="category-sidebar__header">
+          <h2>分类管理</h2>
+          <button class="category-add-btn" type="button" @click="openCategoryModal()">
+            <PlusIcon class="icon" />
+            新增分类
+          </button>
+        </div>
 
-    <div class="pagination" v-if="totalElements > 0">
-      <div class="pagination-summary">
-        <span>第 {{ currentPage + 1 }} 页 / 共 {{ displayTotalPages }} 页</span>
-        <span>共 {{ totalElements }} 条记录，每页 {{ pageSize }} 条</span>
-      </div>
+        <div class="category-search">
+          <MagnifyingGlassIcon class="category-search__icon" />
+          <input v-model="categoryKeyword" type="text" placeholder="搜索分类名称" />
+          <button
+            class="enabled-chip"
+            :class="{ active: categoryEnabledOnly }"
+            type="button"
+            @click="toggleCategoryEnabledOnly"
+          >
+            启用
+          </button>
+        </div>
 
-      <div class="pagination-controls">
+        <div class="category-tree" :class="{ 'is-empty': visibleCategories.length === 0 }">
+          <button
+            v-for="category in visibleCategories"
+            :key="category.id"
+            class="category-tree__item"
+            :class="{ active: selectedCategory === category.name }"
+            type="button"
+            @click="selectedCategory = category.name"
+          >
+            <span class="tree-folder"></span>
+            <span class="tree-name">{{ category.name }}</span>
+            <span class="tree-count">{{ categoryProductCount(category.name) }}</span>
+          </button>
+        </div>
+      </aside>
+
+      <section class="product-list-card">
+        <div class="product-list-card__header">
+          <h2>产品列表</h2>
+        </div>
+
+        <div class="product-toolbar">
+          <div class="search-box product-search-box">
+            <input
+              type="text"
+              v-model="searchQuery"
+              placeholder="搜索产品名称、编码或规格"
+              @input="handleSearch()"
+            />
+            <MagnifyingGlassIcon class="search-icon" />
+          </div>
+          <label class="toolbar-field">
+            <span>类型</span>
+            <select v-model="productTypeFilter">
+              <option value="">全部</option>
+              <option value="FINISHED_PRODUCT">成品 / 半成品</option>
+              <option value="RAW_MATERIAL">原料 / 包装</option>
+            </select>
+          </label>
+          <label class="toolbar-field">
+            <span>分类</span>
+            <select v-model="selectedCategory">
+              <option value="">全部</option>
+              <option v-for="category in visibleCategories" :key="`filter-${category.id}`" :value="category.name">{{ category.name }}</option>
+            </select>
+          </label>
+          <button class="btn btn-outline" type="button" @click="resetProductFilters">重置</button>
+          <button class="btn btn-primary product-create-btn" type="button" @click="openCreateModal">
+            <PlusIcon class="icon" />
+            新增产品
+          </button>
+        </div>
+
+        <div class="products-table products-table--inside-card">
+          <table>
+            <thead>
+              <tr>
+                <th>产品编码</th>
+                <th>产品名称</th>
+                <th>类型</th>
+                <th>分类</th>
+                <th>规格型号</th>
+                <th>计量单位</th>
+                <th>预警库存</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="product in filteredProducts" :key="product.id">
+                <td>{{ product.sku }}</td>
+                <td>{{ product.name }}</td>
+                <td>{{ productTypeLabel(product.type) }}</td>
+                <td>{{ product.category || '-' }}</td>
+                <td>{{ product.specification || '-' }}</td>
+                <td>{{ product.unit }}</td>
+                <td>{{ product.alertQuantity ?? 0 }}</td>
+                <td>
+                  <div class="table-actions">
+                    <button class="btn btn-sm btn-secondary table-action-edit" @click="editProduct(product)">编辑</button>
+                    <button class="btn btn-sm btn-danger table-action-delete" @click="openDeleteModal(product)">删除</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="pagination" v-if="totalElements > 0">
+          <div class="pagination-summary">
+            <span>共 {{ totalElements }} 条记录，每页 {{ pageSize }} 条</span>
+          </div>
+
+          <div class="pagination-controls">
         <button
           class="btn btn-sm btn-outline"
           type="button"
@@ -114,9 +172,61 @@
       </div>
     </div>
 
-    <div class="pagination pagination--empty" v-else>
-      暂无产品数据
+        <div class="pagination pagination--empty" v-else>
+          暂无产品数据
+        </div>
+      </section>
     </div>
+
+    <!-- 创建/编辑分类模态框 -->
+    <Teleport to="body">
+      <div v-if="showCategoryModal" class="modal-overlay" @click="closeCategoryModal">
+        <div class="modal-content modal-content--small" @click.stop>
+          <header class="modal-header">
+            <h2>{{ categoryEditing ? '编辑分类' : '新增分类' }}</h2>
+            <button type="button" class="modal-close" @click="closeCategoryModal">
+              <XMarkIcon class="close-icon" />
+            </button>
+          </header>
+
+          <form class="modal-body" @submit.prevent="handleCategorySubmit">
+            <label class="form-field">
+              <span>分类名称 *</span>
+              <input v-model="categoryForm.name" type="text" required placeholder="例如：粽子、原料、包装" />
+            </label>
+            <label class="form-field">
+              <span>适用类型</span>
+              <select v-model="categoryForm.type">
+                <option value="">通用</option>
+                <option value="FINISHED_PRODUCT">成品 / 半成品</option>
+                <option value="RAW_MATERIAL">原料 / 包装</option>
+              </select>
+            </label>
+            <label class="form-field">
+              <span>排序</span>
+              <input v-model.number="categoryForm.sortOrder" type="number" min="0" step="1" />
+            </label>
+            <label class="checkbox-field checkbox-field--modal">
+              <input v-model="categoryForm.enabled" type="checkbox" />
+              <span>启用分类</span>
+            </label>
+            <label class="form-field">
+              <span>备注</span>
+              <textarea v-model="categoryForm.remark" rows="3" placeholder="可选"></textarea>
+            </label>
+
+            <p v-if="categoryMessage" class="form-message">{{ categoryMessage }}</p>
+
+            <div class="modal-actions">
+              <button type="button" class="btn btn-secondary" @click="closeCategoryModal">取消</button>
+              <button type="submit" class="btn btn-primary" :disabled="categorySubmitting">
+                {{ categorySubmitting ? '保存中...' : '保存分类' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- 创建产品模态框 -->
     <Teleport to="body">
@@ -162,11 +272,12 @@
 
               <label class="form-field">
                 <span>产品类别</span>
-                <input
-                  type="text"
-                  v-model="createForm.category"
-                  placeholder="如：粽子、原料、包装"
-                />
+                <select v-model="createForm.category">
+                  <option value="">请选择分类</option>
+                  <option v-for="category in filteredCategoryOptions(createForm.type)" :key="`create-${category.id}`" :value="category.name">
+                    {{ category.name }}
+                  </option>
+                </select>
               </label>
 
               <label class="form-field">
@@ -291,11 +402,12 @@
 
               <label class="form-field">
                 <span>产品类别</span>
-                <input
-                  type="text"
-                  v-model="editForm.category"
-                  placeholder="如：粽子、原料、包装"
-                />
+                <select v-model="editForm.category">
+                  <option value="">请选择分类</option>
+                  <option v-for="category in filteredCategoryOptions(editForm.type)" :key="`edit-${category.id}`" :value="category.name">
+                    {{ category.name }}
+                  </option>
+                </select>
               </label>
 
               <label class="form-field">
@@ -414,25 +526,72 @@ import { computed, ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { PlusIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { productApi, type Product, type ProductRequest, type PageResponse } from '@/api/product'
+import { productCategoryApi, type ProductCategory } from '@/api/productCategory'
 
 const route = useRoute()
 const products = ref<Product[]>([])
+const categories = ref<ProductCategory[]>([])
 const searchQuery = ref('')
+const categoryKeyword = ref('')
+const selectedCategory = ref('')
+const productTypeFilter = ref('')
+const showCategoryModal = ref(false)
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const showDeleteModal = ref(false)
+const categoryLoading = ref(false)
+const categorySubmitting = ref(false)
 const loading = ref(false)
 const deleteLoading = ref(false)
+const categoryMessage = ref('')
 const formMessage = ref('')
 const deleteMessage = ref('')
+const categoryEditing = ref<ProductCategory | null>(null)
 const editingProduct = ref<Product | null>(null)
 const deletingProduct = ref<Product | null>(null)
 const currentPage = ref(0)
-const pageSize = ref(5)
+const pageSize = ref(10)
 const totalElements = ref(0)
 const totalPages = ref(0)
+const categoryEnabledOnly = ref(true)
+const categoryOptions = ref<ProductCategory[]>([])
+const categoryForm = ref({
+  name: '',
+  type: '' as '' | 'FINISHED_PRODUCT' | 'RAW_MATERIAL',
+  sortOrder: 0,
+  enabled: true,
+  remark: ''
+})
 
 const displayTotalPages = computed(() => Math.max(totalPages.value, 1))
+
+const normalizedCategories = computed(() => {
+  if (categories.value.length > 0) return categories.value
+
+  const categoryNames = Array.from(new Set(products.value.map(product => product.category).filter(Boolean))) as string[]
+  return categoryNames.map((name, index) => ({
+    id: -index - 1,
+    name,
+    type: products.value.find(product => product.category === name)?.type ?? null,
+    typeText: products.value.find(product => product.category === name)?.type === 'RAW_MATERIAL' ? '原料 / 包装' : '成品 / 半成品',
+    sortOrder: index + 1,
+    enabled: true,
+    remark: '来自已有产品',
+    createdAt: '',
+    updatedAt: ''
+  }))
+})
+
+const visibleCategories = computed(() => normalizedCategories.value.filter(category => {
+  const matchesKeyword = !categoryKeyword.value.trim() || category.name.includes(categoryKeyword.value.trim())
+  return matchesKeyword
+}))
+
+const filteredProducts = computed(() => products.value.filter(product => {
+  const matchesCategory = !selectedCategory.value || product.category === selectedCategory.value
+  const matchesType = !productTypeFilter.value || product.type === productTypeFilter.value
+  return matchesCategory && matchesType
+}))
 
 const pageNumbers = computed(() => {
   const maxButtons = 5
@@ -497,6 +656,89 @@ const handleSearch = async (page: number = 0) => {
   }
 }
 
+const loadCategories = async () => {
+  categoryLoading.value = true
+  try {
+    categories.value = await productCategoryApi.getCategories(undefined, categoryEnabledOnly.value)
+  } catch (error) {
+    console.error('加载分类列表失败:', error)
+  } finally {
+    categoryLoading.value = false
+  }
+}
+
+const toggleCategoryEnabledOnly = async () => {
+  categoryEnabledOnly.value = !categoryEnabledOnly.value
+  await loadCategories()
+}
+
+const loadCategoryOptions = async (type?: string) => {
+  try {
+    categoryOptions.value = await productCategoryApi.getCategories(type || undefined, true)
+  } catch (error) {
+    console.error('加载分类失败:', error)
+  }
+}
+
+const openCategoryModal = (category?: ProductCategory) => {
+  categoryEditing.value = category ?? null
+  categoryMessage.value = ''
+  categoryForm.value = category
+    ? {
+        name: category.name,
+        type: category.type ?? '',
+        sortOrder: category.sortOrder,
+        enabled: category.enabled,
+        remark: category.remark || ''
+      }
+    : {
+        name: '',
+        type: '',
+        sortOrder: 0,
+        enabled: true,
+        remark: ''
+      }
+  showCategoryModal.value = true
+}
+
+const closeCategoryModal = () => {
+  if (categorySubmitting.value) return
+  showCategoryModal.value = false
+  categoryEditing.value = null
+  categoryMessage.value = ''
+}
+
+const handleCategorySubmit = async () => {
+  categorySubmitting.value = true
+  categoryMessage.value = ''
+  try {
+    const payload = {
+      name: categoryForm.value.name,
+      type: categoryForm.value.type || undefined,
+      sortOrder: categoryForm.value.sortOrder,
+      enabled: categoryForm.value.enabled,
+      remark: categoryForm.value.remark || undefined
+    }
+    if (categoryEditing.value) {
+      await productCategoryApi.updateCategory(categoryEditing.value.id, payload)
+    } else {
+      await productCategoryApi.createCategory(payload)
+    }
+    closeCategoryModal()
+    await Promise.all([loadCategories(), loadCategoryOptions()])
+  } catch (error) {
+    console.error('保存分类失败:', error)
+    categoryMessage.value = error instanceof Error ? error.message : '保存分类失败，请稍后重试。'
+  } finally {
+    categorySubmitting.value = false
+  }
+}
+
+const openCreateModal = async () => {
+  showCreateModal.value = true
+  await loadCategoryOptions(createForm.value.type)
+}
+
 const handleCreateProduct = async () => {
   loading.value = true
   formMessage.value = ''
@@ -524,7 +766,8 @@ const closeCreateModal = () => {
   }
 }
 
-const editProduct = (product: Product) => {
+const editProduct = async (product: Product) => {
+  await loadCategoryOptions(product.type)
   editingProduct.value = product
   editForm.value = {
     code: product.sku,
@@ -632,6 +875,22 @@ async function reloadCurrentProducts() {
   await loadProducts(currentPage.value)
 }
 
+function filteredCategoryOptions(type: string) {
+  if (!type) return categoryOptions.value
+  return categoryOptions.value.filter(category => !category.type || category.type === type)
+}
+
+function categoryProductCount(categoryName: string) {
+  return products.value.filter(product => product.category === categoryName).length
+}
+
+function resetProductFilters() {
+  selectedCategory.value = ''
+  productTypeFilter.value = ''
+  searchQuery.value = ''
+  handleSearch(0)
+}
+
 function productTypeLabel(type: Product['type']) {
   return type === 'RAW_MATERIAL' ? '原料 / 包装' : '成品 / 半成品'
 }
@@ -656,7 +915,28 @@ watch(
   }
 )
 
+watch(
+  () => createForm.value.type,
+  async (type) => {
+    createForm.value.category = ''
+    await loadCategoryOptions(type)
+  }
+)
+
+watch(
+  () => editForm.value.type,
+  async (type) => {
+    if (!showEditModal.value) {
+      return
+    }
+    editForm.value.category = ''
+    await loadCategoryOptions(type)
+  }
+)
+
 onMounted(() => {
+  loadCategories()
+  loadCategoryOptions()
   applyRouteSearch()
 })
 </script>
@@ -669,8 +949,9 @@ onMounted(() => {
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 14px;
 }
 
 .page-header h1 {
@@ -680,8 +961,374 @@ onMounted(() => {
   line-height: 1.2;
 }
 
+.page-header p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .filters-section {
   margin-bottom: 14px;
+}
+
+.product-workbench {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+  min-height: calc(100vh - 190px);
+}
+
+.category-sidebar,
+.product-list-card {
+  background: #ffffff;
+  border: 1px solid #e9eef6;
+  border-radius: 14px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+}
+
+.category-sidebar {
+  min-height: 100%;
+  padding: 14px 10px 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.category-sidebar__header,
+.product-list-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.category-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 11px;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.category-add-btn:hover {
+  border-color: #93c5fd;
+  background: #dbeafe;
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.12);
+}
+
+.category-sidebar__header h2,
+.product-list-card__header h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.category-search {
+  position: relative;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.category-search input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  height: 38px;
+  padding: 0 12px 0 36px;
+  border: 1px solid #dbe3ef;
+  border-radius: 10px;
+  background: #fbfcfe;
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.category-search__icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  color: #94a3b8;
+  transform: translateY(-50%);
+}
+
+.enabled-chip {
+  flex: 0 0 auto;
+  height: 38px;
+  min-width: 54px;
+  padding: 0 12px;
+  border: 1px solid #dbe3ef;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.enabled-chip.active {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.category-tree {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  flex: 1;
+  min-height: 360px;
+  padding: 10px 8px;
+  border-radius: 10px;
+  background: #edf5ff;
+  overflow-y: auto;
+}
+
+.category-tree__item {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #4b5563;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.category-tree__item:hover {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.category-tree__item.active {
+  background: #ffffff;
+  color: #2563eb;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+}
+
+.tree-folder {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.45;
+}
+
+.tree-name {
+  min-width: 0;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-count {
+  min-width: 28px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 22px;
+  text-align: right;
+}
+
+.category-tree__item.active .tree-count {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.product-list-card {
+  padding: 14px 14px 10px;
+  min-width: 0;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.product-toolbar {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(122px, 150px) minmax(122px, 150px) 68px 116px;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.product-toolbar label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.product-toolbar select {
+  width: 100%;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid #dbe3ef;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #334155;
+}
+
+.product-search-box {
+  max-width: none;
+}
+
+.products-table--inside-card {
+  flex: 1;
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.products-table--inside-card table {
+  min-width: 850px;
+}
+
+.panel-section {
+  margin-bottom: 16px;
+  padding: 14px 16px 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.panel-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.panel-header-row--compact {
+  margin-bottom: 10px;
+}
+
+.panel-header-row h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.panel-header-row p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.category-filters-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid #edf2f7;
+  border-radius: 10px;
+}
+
+.category-filters-inline label:not(.checkbox-field) {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.category-filters-inline select {
+  min-width: 170px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.checkbox-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.checkbox-field input {
+  width: 16px;
+  height: 16px;
+  accent-color: #3b82f6;
+}
+
+.checkbox-field--modal {
+  margin: 4px 0 12px;
+}
+
+.products-table--compact {
+  margin-top: 10px;
+}
+
+.products-table--compact table {
+  min-width: 760px;
+}
+
+.empty-cell {
+  padding: 28px 16px;
+  text-align: center;
+  color: #94a3b8;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.status-active {
+  color: #047857;
+  background: #ecfdf5;
+}
+
+.status-disabled {
+  color: #64748b;
+  background: #f1f5f9;
 }
 
 .search-box {
@@ -727,11 +1374,17 @@ thead {
 }
 
 th, td {
-  padding: 12px 14px;
+  padding: 11px 14px;
   text-align: left;
   border-bottom: 1px solid #edf2f7;
   color: #334155;
   font-size: 13px;
+}
+
+.category-panel th,
+.category-panel td {
+  padding-top: 10px;
+  padding-bottom: 10px;
 }
 
 th {
@@ -746,7 +1399,18 @@ th {
 
 .table-actions {
   display: flex;
-  gap: 0.5rem;
+  align-items: center;
+  gap: 8px;
+}
+
+.table-action-edit,
+.table-action-delete {
+  min-width: 54px;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  line-height: 1.1;
 }
 
 /* 模态框样式 */
@@ -901,13 +1565,26 @@ th {
   background: #2563eb;
 }
 
-.btn-secondary {
-  background: #f3f4f6;
-  color: #374151;
+.product-create-btn {
+  height: 38px;
+  justify-content: center;
+  padding: 0 14px;
+  border-radius: 10px;
+  white-space: nowrap;
 }
 
-.btn-secondary:hover:not(:disabled) {
-  background: #e5e7eb;
+.btn-secondary,
+.btn-soft {
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+}
+
+.btn-secondary:hover:not(:disabled),
+.btn-soft:hover:not(:disabled) {
+  background: #eef4ff;
+  border-color: #bfdbfe;
+  color: #2563eb;
 }
 
 .btn-danger {
@@ -917,6 +1594,31 @@ th {
 
 .btn-danger:hover:not(:disabled) {
   background: #b91c1c;
+}
+
+.table-action-delete {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.table-action-delete:hover:not(:disabled) {
+  border-color: #fca5a5;
+  background: #fee2e2;
+  color: #b91c1c;
+  box-shadow: 0 4px 10px rgba(220, 38, 38, 0.12);
+}
+
+.table-action-edit {
+  border: 1px solid #dbeafe;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.table-action-edit:hover:not(:disabled) {
+  border-color: #bfdbfe;
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .delete-copy {
@@ -949,9 +1651,34 @@ th {
   to { transform: rotate(360deg); }
 }
 
+@media (max-width: 1024px) {
+  .product-workbench {
+    grid-template-columns: 1fr;
+  }
+
+  .product-toolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .product-search-box {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .product-toolbar {
+    grid-template-columns: 1fr;
+  }
+}
+
 .icon {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.05rem;
+  height: 1.05rem;
 }
 
 /* 分页组件样式 */

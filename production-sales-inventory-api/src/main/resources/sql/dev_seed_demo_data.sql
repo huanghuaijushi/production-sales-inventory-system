@@ -11,6 +11,14 @@ VALUES
     ('丰源包装', '王经理', '13800000003', '浙江省台州市', '包装耗材', 1)
 ON DUPLICATE KEY UPDATE contact_name = VALUES(contact_name);
 
+INSERT INTO product_category (name, type, sort_order, enabled, remark)
+VALUES
+    ('粽子', 'FINISHED_PRODUCT', 10, 1, '成品粽子'),
+    ('半成品', 'FINISHED_PRODUCT', 20, 1, '生产过程半成品'),
+    ('原料', 'RAW_MATERIAL', 10, 1, '生产原材料'),
+    ('包装', 'RAW_MATERIAL', 20, 1, '包装与辅材')
+ON DUPLICATE KEY UPDATE sort_order = VALUES(sort_order), enabled = VALUES(enabled), remark = VALUES(remark);
+
 INSERT INTO product (code, name, type, category, specification, unit, cost_price, sale_price, alert_quantity, shelf_life_days, enabled)
 VALUES
     ('FP001', '豆沙粽', 'FINISHED_PRODUCT', '粽子', '100g/个', '个', 2.50, 5.00, 500, 7, 1),
@@ -91,6 +99,31 @@ VALUES
     (2, 2, 'FP002', '鲜肉粽', '120g/个', '个', '粽子', 80, 6.00, 480.00)
 ON DUPLICATE KEY UPDATE subtotal = VALUES(subtotal);
 
+INSERT INTO bom_item (finished_product_id, material_product_id, quantity_per_unit, loss_rate)
+VALUES
+    (1, 4, 0.2000, 0.0300),
+    (1, 5, 0.0800, 0.0200),
+    (1, 7, 0.0090, 0.0100),
+    (2, 4, 0.1800, 0.0300),
+    (2, 6, 0.1200, 0.0400),
+    (2, 7, 0.0090, 0.0100),
+    (3, 4, 0.2200, 0.0300),
+    (3, 6, 0.1000, 0.0400),
+    (3, 7, 0.0090, 0.0100),
+    (3, 8, 0.1000, 0.0200)
+ON DUPLICATE KEY UPDATE quantity_per_unit = VALUES(quantity_per_unit), loss_rate = VALUES(loss_rate);
+
+INSERT INTO supplier_material (supplier_id, product_id, default_unit_price, min_order_quantity, order_multiple, lead_time_days, preferred, remark)
+VALUES
+    (1, 4, 120.00, 10, 5, 3, 1, '糯米主供应商'),
+    (1, 5, 35.00, 5, 5, 2, 1, '豆沙馅主供应商'),
+    (2, 6, 25.00, 20, 10, 1, 1, '猪肉主供应商'),
+    (2, 8, 40.00, 10, 5, 2, 1, '咸蛋黄主供应商'),
+    (3, 7, 15.00, 20, 10, 4, 1, '粽叶主供应商'),
+    (3, 4, 122.00, 10, 5, 5, 0, '糯米备选供应商'),
+    (1, 7, 16.00, 20, 10, 3, 0, '粽叶备选供应商')
+ON DUPLICATE KEY UPDATE default_unit_price = VALUES(default_unit_price), min_order_quantity = VALUES(min_order_quantity), order_multiple = VALUES(order_multiple), lead_time_days = VALUES(lead_time_days), preferred = VALUES(preferred), remark = VALUES(remark);
+
 INSERT INTO production_order (order_no, batch_no, product_id, planned_quantity, completed_quantity, inbound_quantity, loss_quantity, current_step, status, planned_date, started_at, completed_at, operator_id, operator_name, remark)
 VALUES
     ('PRD202605050001', 'FP001-20260504-A', 1, 1000, 920, 920, 18, 'PACKAGING', 'COMPLETED', CURDATE(), DATE_SUB(NOW(), INTERVAL 2 DAY), DATE_SUB(NOW(), INTERVAL 1 DAY), 1, '系统管理员', '豆沙粽批次'),
@@ -107,6 +140,18 @@ VALUES
     (3, 4, 80, 80),
     (3, 8, 30, 30)
 ON DUPLICATE KEY UPDATE issued_quantity = VALUES(issued_quantity);
+
+INSERT INTO production_material_issue (production_order_id, material_plan_id, material_product_id, stock_batch_id, batch_no, issued_quantity, stock_record_id, operator_id, operator_name, remark, created_at)
+VALUES
+    (1, 1, 4, 1, 'RM001-20260501-A', 120, '1', 1, '系统管理员', '豆沙粽工单领用糯米第一批', DATE_SUB(NOW(), INTERVAL 2 DAY)),
+    (1, 1, 4, 2, 'RM001-20260503-B', 80, '1', 1, '系统管理员', '豆沙粽工单领用糯米第二批', DATE_SUB(NOW(), INTERVAL 2 DAY)),
+    (1, 2, 5, 3, 'RM002-20260502-A', 80, '2', 1, '系统管理员', '豆沙粽工单领用豆沙馅', DATE_SUB(NOW(), INTERVAL 2 DAY)),
+    (2, 3, 6, 4, 'RM003-20260501-A', 80, '3', 1, '系统管理员', '鲜肉粽工单领用猪肉第一批', DATE_SUB(NOW(), INTERVAL 1 DAY)),
+    (2, 3, 6, 5, 'RM003-20260503-B', 40, '3', 1, '系统管理员', '鲜肉粽工单领用猪肉第二批', DATE_SUB(NOW(), INTERVAL 1 DAY)),
+    (2, 4, 8, 7, 'RM005-20260502-A', 40, '7', 1, '系统管理员', '鲜肉粽工单领用咸蛋黄', DATE_SUB(NOW(), INTERVAL 1 DAY)),
+    (3, 5, 4, 2, 'RM001-20260503-B', 80, '1', 1, '系统管理员', '蛋黄肉粽工单领用糯米', NOW()),
+    (3, 6, 8, 7, 'RM005-20260502-A', 30, '7', 1, '系统管理员', '蛋黄肉粽工单领用咸蛋黄', NOW())
+ON DUPLICATE KEY UPDATE issued_quantity = VALUES(issued_quantity), remark = VALUES(remark);
 
 INSERT INTO production_step_record (production_order_id, step_type, completed_quantity, loss_quantity, loss_reason, operator_id, operator_name, created_at)
 VALUES

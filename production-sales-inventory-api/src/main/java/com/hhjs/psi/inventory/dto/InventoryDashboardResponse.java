@@ -19,6 +19,7 @@ public record InventoryDashboardResponse(
         List<DashboardCategoryShareResponse> rawCategoryShares,
         List<DashboardCategoryShareResponse> finishedCategoryShares,
         List<DashboardSummaryItemResponse> rawSummaryCards,
-        List<DashboardSummaryItemResponse> finishedSummaryCards
+        List<DashboardSummaryItemResponse> finishedSummaryCards,
+        ProfitOverviewResponse profitOverview
 ) {
 }

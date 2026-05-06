@@ -65,13 +65,25 @@ public class GlobalExceptionHandler {
     ) {
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
-                .body(ApiResponse.error(HttpStatus.CONFLICT.value(), "Data constraint violation"));
+                .body(ApiResponse.error(HttpStatus.CONFLICT.value(), rootCauseMessage(exception, "Data constraint violation")));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleException(Exception exception) {
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal server error"));
+                .body(ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR.value(), rootCauseMessage(exception, "Internal server error")));
+    }
+
+    private String rootCauseMessage(Throwable throwable, String fallback) {
+        Throwable current = throwable;
+        String message = null;
+        while (current != null) {
+            if (current.getMessage() != null && !current.getMessage().isBlank()) {
+                message = current.getMessage();
+            }
+            current = current.getCause();
+        }
+        return message == null || message.isBlank() ? fallback : message;
     }
 }

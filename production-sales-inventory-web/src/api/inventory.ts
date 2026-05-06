@@ -43,6 +43,12 @@ export interface DashboardChartBar {
   stockValue: string | null
   productionValue: string | null
   salesValue: string | null
+  inboundQuantityValue: string | null
+  outboundQuantityValue: string | null
+  stockQuantityValue: string | null
+  productionAmountValue: string | null
+  salesAmountValue: string | null
+  stockAmountValue: string | null
 }
 
 export interface DashboardWarningItem {
@@ -75,6 +81,19 @@ export interface DashboardSummaryItem {
   meta: string
 }
 
+export interface ProfitOverview {
+  totalRevenue: string
+  totalCost: string
+  grossProfit: string
+  grossMargin: string
+  averageOrderRevenue: string
+  averageOrderGrossProfit: string
+  metrics: DashboardMetricItem[]
+  trendBars: DashboardChartBar[]
+  channelRanking: DashboardRankingItem[]
+  summaries: DashboardSummaryItem[]
+}
+
 export interface InventoryDashboard {
   totalProducts: number
   lowStockCount: number
@@ -93,6 +112,7 @@ export interface InventoryDashboard {
   finishedCategoryShares: DashboardCategoryShare[]
   rawSummaryCards: DashboardSummaryItem[]
   finishedSummaryCards: DashboardSummaryItem[]
+  profitOverview: ProfitOverview
 }
 
 export interface StockTrendItem {
