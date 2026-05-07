@@ -24,6 +24,21 @@ public interface StockRecordRepository extends JpaRepository<StockRecord, Long> 
     @Query("SELECT sr FROM StockRecord sr JOIN FETCH sr.product LEFT JOIN FETCH sr.batch WHERE sr.type = :type ORDER BY sr.createdAt DESC")
     Page<StockRecord> findByType(StockRecordType type, Pageable pageable);
 
+    @Query("""
+            SELECT COALESCE(SUM(sr.costAmount), 0)
+            FROM StockRecord sr
+            WHERE sr.relatedOrderType = :relatedOrderType
+              AND sr.relatedOrderId = :relatedOrderId
+              AND sr.type = :type
+              AND sr.subType = :subType
+            """)
+    java.math.BigDecimal sumCostAmountByRelatedOrderAndTypeAndSubType(
+            String relatedOrderType,
+            Long relatedOrderId,
+            StockRecordType type,
+            StockRecordSubType subType
+    );
+
     long countByTypeAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
             StockRecordType type,
             Instant start,

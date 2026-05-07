@@ -10,6 +10,7 @@ import com.hhjs.psi.inventory.entity.Stock;
 import com.hhjs.psi.inventory.entity.StockRecordSubType;
 import com.hhjs.psi.inventory.entity.StockRecordType;
 import com.hhjs.psi.inventory.repository.ProductRepository;
+import com.hhjs.psi.inventory.repository.StockRecordRepository;
 import com.hhjs.psi.inventory.repository.StockRepository;
 import com.hhjs.psi.production.dto.BomItemRequest;
 import com.hhjs.psi.production.dto.BomItemResponse;
@@ -73,6 +74,7 @@ public class ProductionPlanningService {
     private final SupplierMaterialRepository supplierMaterialRepository;
     private final ProductRepository productRepository;
     private final StockRepository stockRepository;
+    private final StockRecordRepository stockRecordRepository;
     private final SupplierRepository supplierRepository;
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final InventoryService inventoryService;
@@ -86,6 +88,7 @@ public class ProductionPlanningService {
             SupplierMaterialRepository supplierMaterialRepository,
             ProductRepository productRepository,
             StockRepository stockRepository,
+            StockRecordRepository stockRecordRepository,
             SupplierRepository supplierRepository,
             PurchaseOrderRepository purchaseOrderRepository,
             InventoryService inventoryService,
@@ -98,6 +101,7 @@ public class ProductionPlanningService {
         this.supplierMaterialRepository = supplierMaterialRepository;
         this.productRepository = productRepository;
         this.stockRepository = stockRepository;
+        this.stockRecordRepository = stockRecordRepository;
         this.supplierRepository = supplierRepository;
         this.purchaseOrderRepository = purchaseOrderRepository;
         this.inventoryService = inventoryService;
@@ -189,6 +193,8 @@ public class ProductionPlanningService {
                 StockRecordSubType.PRODUCTION_USAGE,
                 request.quantity(),
                 order.getId(),
+                null,
+                null,
                 request.batchId(),
                 null,
                 null,
@@ -259,12 +265,15 @@ public class ProductionPlanningService {
         }
 
         LocalDate productionDate = request.productionDate() == null ? LocalDate.now() : request.productionDate();
+        BigDecimal unitProductionCost = calculateProductionUnitCost(order, request.quantity());
         inventoryService.inbound(new StockOperationRequest(
                 order.getProduct().getId(),
                 StockRecordType.IN,
                 StockRecordSubType.PRODUCTION,
                 request.quantity(),
                 order.getId(),
+                null,
+                unitProductionCost,
                 null,
                 order.getBatchNo(),
                 productionDate,
@@ -274,6 +283,19 @@ public class ProductionPlanningService {
         order.addInbound(request.quantity());
 
         return toProductionOrderDetailResponse(order);
+    }
+
+    private BigDecimal calculateProductionUnitCost(ProductionOrder order, Integer inboundQuantity) {
+        if (inboundQuantity == null || inboundQuantity <= 0) {
+            throw BusinessException.badRequest("成品入库数量必须大于0");
+        }
+        BigDecimal materialCostAmount = stockRecordRepository.sumCostAmountByRelatedOrderAndTypeAndSubType(
+                "PRODUCTION_ORDER",
+                order.getId(),
+                StockRecordType.OUT,
+                StockRecordSubType.PRODUCTION_USAGE
+        );
+        return materialCostAmount.divide(BigDecimal.valueOf(inboundQuantity), 2, RoundingMode.HALF_UP);
     }
 
     @Transactional

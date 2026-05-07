@@ -784,6 +784,7 @@ public class InventoryService {
                             null,
                             null,
                             null,
+                            null,
                             "ADJ-" + generateRecordNo(StockRecordType.ADJUST),
                             LocalDate.now(BUSINESS_ZONE),
                             null,
@@ -826,6 +827,10 @@ public class InventoryService {
         return performStockOperation(request, StockRecordType.IN);
     }
 
+    public StockRecordResponse inbound(StockOperationRequest request, BigDecimal costUnitPriceSnapshot) {
+        return performStockOperation(request, StockRecordType.IN, false, null, costUnitPriceSnapshot);
+    }
+
     @Transactional
     public StockRecordResponse outbound(StockOperationRequest request) {
         return performStockOperation(request, StockRecordType.OUT);
@@ -845,10 +850,14 @@ public class InventoryService {
     }
 
     private StockRecordResponse performStockOperation(StockOperationRequest request, StockRecordType type, boolean consumeLockedQuantity) {
-        return performStockOperation(request, type, consumeLockedQuantity, null);
+        return performStockOperation(request, type, consumeLockedQuantity, null, null);
     }
 
     private StockRecordResponse performStockOperation(StockOperationRequest request, StockRecordType type, boolean consumeLockedQuantity, BigDecimal businessUnitPriceSnapshot) {
+        return performStockOperation(request, type, consumeLockedQuantity, businessUnitPriceSnapshot, null);
+    }
+
+    private StockRecordResponse performStockOperation(StockOperationRequest request, StockRecordType type, boolean consumeLockedQuantity, BigDecimal businessUnitPriceSnapshot, BigDecimal costUnitPriceSnapshot) {
         validateOperation(request, type);
 
         Stock stock = stockRepository.findByProductIdForUpdate(request.productId())
@@ -912,7 +921,8 @@ public class InventoryService {
             record.setRelatedOrder(resolveSourceType(request), request.relatedOrderId(), request.batchNo());
         }
         BigDecimal requestedBusinessUnitPrice = businessUnitPriceSnapshot != null ? businessUnitPriceSnapshot : request.businessUnitPrice();
-        record.setAmountSnapshot(resolveCostUnitPrice(product, batch), resolveBusinessUnitPrice(product, type, request.subType(), requestedBusinessUnitPrice));
+        BigDecimal requestedCostUnitPrice = request.costUnitPrice() == null ? resolveCostUnitPrice(product, batch) : normalizeMoney(request.costUnitPrice());
+        record.setAmountSnapshot(requestedCostUnitPrice, resolveBusinessUnitPrice(product, type, request.subType(), requestedBusinessUnitPrice));
 
         stockRecordRepository.save(record);
 
@@ -960,7 +970,7 @@ public class InventoryService {
                 ));
         batch.increase(request.quantity());
         batch.setCostAndSource(
-                normalizeMoney(product.getCostPrice()),
+                request.costUnitPrice() == null ? normalizeMoney(product.getCostPrice()) : normalizeMoney(request.costUnitPrice()),
                 resolveSourceType(request),
                 request.relatedOrderId(),
                 request.batchNo()

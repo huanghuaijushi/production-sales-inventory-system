@@ -128,6 +128,7 @@ public class PurchaseOrderService {
                     order.getId(),
                     null,
                     null,
+                    null,
                     "%s-%s".formatted(order.getOrderNo(), item.getProductCode()),
                     order.getExpectedArrivalDate(),
                     null,
