@@ -72,6 +72,28 @@ GET  /api/v1/auth/status
 POST /api/v1/auth/logout
 ```
 
+当前主业务接口还包括：
+
+```text
+GET    /api/v1/inventory/dashboard
+GET    /api/v1/inventory/records
+GET    /api/v1/inventory/batches/product/{productId}
+POST   /api/v1/inventory/inbound
+POST   /api/v1/inventory/outbound
+GET    /api/v1/production/capacity
+GET    /api/v1/production/suggestions
+GET    /api/v1/production/purchase-suggestions
+POST   /api/v1/production/inbound/{productionOrderId}
+POST   /api/v1/production/material-issue/{productionOrderId}
+```
+
+库存与金额口径约定：
+
+- `stock_record.business_amount` 用于收入 / 销售价快照。
+- `stock_record.cost_amount` 用于成本 / 领料 / 损耗快照。
+- 生产成品入库的批次 `unit_cost` 由领料流水 `cost_amount` 汇总后按入库数量分摊得到。
+- 原料与成品首页分类占比按库存金额统计，同时展示 SKU 数与库存数量。
+
 认证实现约定：
 
 - 密码使用 BCrypt 存储。

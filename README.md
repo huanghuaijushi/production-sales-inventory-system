@@ -16,37 +16,47 @@ production-sales-inventory-system/
 ## Tech Stack
 
 - 前端：Vue 3、TypeScript、Vite、自定义 CSS
-- 后端：Java 21、Spring Boot、RESTful API
+- 后端：Java 21、Spring Boot、Spring Security、JPA、Flyway
 - 数据库：MySQL 8
 - 缓存：Redis
 - 部署：Nginx、Docker
 
 ## Business Scope
 
-- 生产管理
-- 销售管理
-- 采购管理
-- 库存管理
-- 商品与供应商/客户资料管理
-- 库存流水与经营统计
+- 生产管理：BOM 配方、生产工单、领料、工序、成品入库
+- 销售管理：订单导入、销售出库、渠道收益分析
+- 采购管理：供应商、采购单、采购入库、原材料采购建议
+- 库存管理：总账、批次库存、库存流水、盘点、调拨、报损
+- 商品管理：成品 / 原材料分类、规格、售价、成本价、安全库存
+- 经营看板：库存金额占比、分类占比、趋势图、毛利统计、预警
+
+## Current Highlights
+
+- 库存流水区分 `business_amount` 与 `cost_amount`
+- 销售出库支持录入实际销售单价，自动计算毛利
+- 生产成品入库按领料库存流水 `cost_amount` 汇总批次成本
+- 成品 / 原料分类库存看板按库存金额统计，并展示 SKU 数与库存数量
+- 产品管理分类侧栏仅显示启用分类
 
 ## Documentation
 
-开发规范、功能边界、接口约定和部署规划见：
+开发规范、业务边界、接口约定和部署规划见：
 
-[docs/development-guide.md](docs/development-guide.md)
+- [docs/development-guide.md](docs/development-guide.md)
+- [docs/system-business-data-design.md](docs/system-business-data-design.md)
+- [docs/system-improvement-plan.md](docs/system-improvement-plan.md)
+- [docs/production-purchasing-design.md](docs/production-purchasing-design.md)
+- [docs/production-purchasing-operation-guide.md](docs/production-purchasing-operation-guide.md)
+- [docs/sales-order-import-center-design.md](docs/sales-order-import-center-design.md)
 
-后端认证模块说明见：
+后端说明见：
 
-[production-sales-inventory-api/README.md](production-sales-inventory-api/README.md)
+- [production-sales-inventory-api/README.md](production-sales-inventory-api/README.md)
+- [docs/database-setup.md](docs/database-setup.md)
 
-前端登录模块说明见：
+前端说明见：
 
-[production-sales-inventory-web/README.md](production-sales-inventory-web/README.md)
-
-数据库初始化说明见：
-
-[docs/database-setup.md](docs/database-setup.md)
+- [production-sales-inventory-web/README.md](production-sales-inventory-web/README.md)
 
 ## Local LAN Access
 
