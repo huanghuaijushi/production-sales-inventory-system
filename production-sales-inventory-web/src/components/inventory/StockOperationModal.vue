@@ -21,6 +21,43 @@
               </select>
             </label>
 
+            <div v-if="selectedStock" class="price-preview-card">
+              <div class="price-preview-card__header">
+                <strong>{{ selectedStock.productName }}</strong>
+                <span>{{ selectedStock.productCode }}</span>
+              </div>
+              <div class="price-preview-card__grid">
+                <div v-if="isSalesOutbound">
+                  <label>建议销售单价</label>
+                  <strong>{{ formatMoney(businessUnitPrice) }}</strong>
+                </div>
+                <div v-if="isSalesOutbound">
+                  <label>本次销售单价</label>
+                  <strong>{{ formatMoney(resolvedBusinessUnitPrice) }}</strong>
+                </div>
+                <div>
+                  <label>建议成本单价</label>
+                  <strong>{{ formatMoney(costUnitPrice) }}</strong>
+                </div>
+                <div>
+                  <label>{{ isInbound ? '预估入库金额' : '预估成本金额' }}</label>
+                  <strong>{{ formatMoney(previewCostAmount) }}</strong>
+                </div>
+                <div v-if="isSalesOutbound">
+                  <label>预估收入金额</label>
+                  <strong>{{ formatMoney(previewBusinessAmount) }}</strong>
+                </div>
+                <div v-if="isSalesOutbound">
+                  <label>预估毛利</label>
+                  <strong :class="previewProfit >= 0 ? 'profit-positive' : 'profit-negative'">{{ formatMoney(previewProfit) }}</strong>
+                </div>
+                <div v-if="!isInbound && !isSalesOutbound">
+                  <label>成本说明</label>
+                  <strong>按批次成本优先，其次商品成本</strong>
+                </div>
+              </div>
+            </div>
+
             <label class="form-field">
               <span>操作类型</span>
               <select v-model="form.subType" required>
@@ -43,11 +80,22 @@
               />
             </label>
 
+            <label v-if="!isInbound && isSalesOutbound" class="form-field">
+              <span>本次销售单价</span>
+              <input
+                type="number"
+                v-model.number="form.businessUnitPrice"
+                min="0"
+                step="0.01"
+                placeholder="不填则使用建议销售单价"
+              />
+            </label>
+
             <label v-if="!isInbound" class="form-field">
               <span>出库批次</span>
               <select v-model.number="form.batchId" required :disabled="!form.productId || batchesLoading">
                 <option :value="0" disabled>
-                  {{ batchesLoading ? '正在加载批次' : '请选择批次' }}
+                  {{ batchPlaceholder }}
                 </option>
                 <option v-for="batch in batches" :key="batch.id" :value="batch.id">
                   {{ batch.batchNo }} - 可用 {{ batch.availableQuantity }}{{ batch.productUnit }}
@@ -192,6 +240,42 @@ const selectedBatch = computed(() => {
   return batches.value.find((batch) => batch.id === form.value.batchId) || null
 })
 
+const batchPlaceholder = computed(() => {
+  if (!form.value.productId) return '请先选择商品'
+  if (batchesLoading.value) return '正在加载批次'
+  if (batches.value.length === 0) return '该商品暂无可用批次'
+  return '请选择批次'
+})
+
+const businessUnitPrice = computed(() => {
+  if (!selectedStock.value) return 0
+  if (selectedStock.value.salePrice && selectedStock.value.salePrice > 0) return selectedStock.value.salePrice
+  return selectedStock.value.costPrice || 0
+})
+
+const isSalesOutbound = computed(() => !props.isInbound && form.value.subType === 'SALES')
+
+const costUnitPrice = computed(() => {
+  if (selectedBatch.value?.unitCost && selectedBatch.value.unitCost > 0) {
+    return selectedBatch.value.unitCost
+  }
+  return selectedStock.value?.costPrice || 0
+})
+
+const resolvedBusinessUnitPrice = computed(() => {
+  return form.value.businessUnitPrice != null && form.value.businessUnitPrice >= 0
+    ? form.value.businessUnitPrice
+    : businessUnitPrice.value
+})
+
+const previewCostAmount = computed(() => costUnitPrice.value * Math.max(form.value.quantity, 0))
+const previewBusinessAmount = computed(() => resolvedBusinessUnitPrice.value * Math.max(form.value.quantity, 0))
+const previewProfit = computed(() => previewBusinessAmount.value - previewCostAmount.value)
+
+function formatMoney(value: number) {
+  return `¥${Number(value || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
     resetForm()
@@ -214,6 +298,7 @@ watch(() => form.value.productId, (productId) => {
     batches.value = []
   }
 })
+
 
 function updateOperationTypes() {
   if (props.isInbound) {
@@ -248,7 +333,8 @@ async function loadStocks() {
 async function loadBatches(productId: number) {
   batchesLoading.value = true
   try {
-    batches.value = await inventoryApi.getBatchesByProductId(productId)
+    const result = await inventoryApi.getBatchesByProductId(productId)
+    batches.value = result.map(batch => ({ ...batch, id: Number(batch.id) }))
   } catch (error) {
     console.error('加载批次失败:', error)
     errorMessage.value = '批次加载失败，请稍后重试'
@@ -256,6 +342,12 @@ async function loadBatches(productId: number) {
     batchesLoading.value = false
   }
 }
+
+watch(isSalesOutbound, (isSales) => {
+  if (!isSales) {
+    form.value.batchId = 0
+  }
+})
 
 function getInitialSubType(): StockRecordSubType {
   const fallback: StockRecordSubType = props.isInbound ? 'PURCHASE' : 'SALES'
@@ -335,6 +427,9 @@ function normalizePayload(): StockOperationRequest {
   }
   if (!props.isInbound && form.value.batchId) {
     payload.batchId = form.value.batchId
+  }
+  if (!props.isInbound && form.value.businessUnitPrice != null) {
+    payload.businessUnitPrice = form.value.businessUnitPrice
   }
   if (form.value.remark?.trim()) {
     payload.remark = form.value.remark.trim()

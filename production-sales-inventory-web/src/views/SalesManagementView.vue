@@ -225,10 +225,16 @@
                     <div v-for="item in order.items" :key="item.id" class="raw-item" :class="{ danger: item.matchStatus !== 'MATCHED' }">
                       <div>
                         <strong>{{ item.externalProductName }}</strong>
-                        <span>规格 {{ item.externalSpecName || '-' }} · 外部数量 {{ item.externalQuantity }} · 成交价 {{ formatMoney(item.externalUnitPrice || 0) }}</span>
+                        <span>规格 {{ item.externalSpecName || '-' }} · 外部数量 {{ item.externalQuantity }} · 导入成交价 {{ formatMoney(item.externalUnitPrice || 0) }}</span>
                       </div>
                       <div>
-                        <span v-if="item.matchStatus === 'MATCHED'">匹配：{{ item.matchedProductName }} x {{ item.convertedQuantity }}</span>
+                        <span v-if="item.matchStatus === 'MATCHED'">
+                          匹配：{{ item.matchedProductName }} x {{ item.convertedQuantity }}
+                          · 预估单价 {{ formatMoney(item.resolvedUnitPrice || 0) }}
+                          <template v-if="item.priceSource === 'MAPPING_DEFAULT'">（映射默认价）</template>
+                          <template v-else-if="item.priceSource === 'PRODUCT_SALE_PRICE'">（商品默认售价）</template>
+                          <template v-else-if="item.priceSource === 'IMPORTED'">（导入价）</template>
+                        </span>
                         <span v-else>{{ item.matchMessage || '未匹配' }}</span>
                       </div>
                       <button v-if="item.matchStatus !== 'MATCHED'" type="button" class="text-button primary-text" @click="openMappingModalFromItem(order.channelId, item)">建立映射</button>

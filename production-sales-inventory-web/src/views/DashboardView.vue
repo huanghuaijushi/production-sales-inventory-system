@@ -265,6 +265,7 @@
       <div
         v-if="chartTooltip.visible"
         class="floating-chart-tooltip"
+        :class="[`is-${chartTooltip.placement}`, `is-align-${chartTooltip.align}`]"
         :style="{ left: `${chartTooltip.x}px`, top: `${chartTooltip.y}px` }"
       >
         <strong>{{ chartTooltip.title }}</strong>
@@ -368,7 +369,9 @@ const chartTooltip = reactive({
   x: 0,
   y: 0,
   title: '',
-  rows: [] as ChartTooltipRow[]
+  rows: [] as ChartTooltipRow[],
+  placement: 'right' as 'right' | 'left',
+  align: 'middle' as 'middle' | 'top'
 })
 
 const overviewMetrics = computed(() => {
@@ -504,16 +507,33 @@ function showChartTooltip(event: MouseEvent, chartType: ChartType, bar: Dashboar
       : { title: bar.label, rows: getProfitTooltipRows(bar) }
 
   chartTooltip.visible = true
-  chartTooltip.x = event.clientX
-  chartTooltip.y = event.clientY
   chartTooltip.title = payload.title
   chartTooltip.rows = payload.rows
+  updateChartTooltipPosition(event)
 }
 
 function moveChartTooltip(event: MouseEvent) {
   if (!chartTooltip.visible) return
-  chartTooltip.x = event.clientX
-  chartTooltip.y = event.clientY
+  updateChartTooltipPosition(event)
+}
+
+function updateChartTooltipPosition(event: MouseEvent) {
+  const tooltipWidth = 240
+  const tooltipHeight = Math.max(118, 52 + chartTooltip.rows.length * 28)
+  const gap = 18
+  const viewportPadding = 12
+  const canPlaceRight = event.clientX + gap + tooltipWidth <= window.innerWidth - viewportPadding
+  const x = canPlaceRight
+    ? event.clientX + gap
+    : Math.max(viewportPadding, event.clientX - gap - tooltipWidth)
+  const maxY = window.innerHeight - viewportPadding - tooltipHeight
+  const middleY = event.clientY - tooltipHeight / 2
+  const y = Math.max(viewportPadding, Math.min(maxY, middleY))
+
+  chartTooltip.x = x
+  chartTooltip.y = y
+  chartTooltip.placement = canPlaceRight ? 'right' : 'left'
+  chartTooltip.align = y === viewportPadding ? 'top' : 'middle'
 }
 
 function hideChartTooltip() {
@@ -1182,8 +1202,8 @@ onMounted(() => {
 
 .floating-chart-tooltip {
   position: fixed;
-  transform: translate(14px, -50%);
   min-width: 210px;
+  max-width: 240px;
   padding: 12px 14px;
   border-radius: 14px;
   background: rgba(15, 23, 42, 0.96);
@@ -1194,6 +1214,14 @@ onMounted(() => {
   pointer-events: none;
   z-index: 9999;
   backdrop-filter: blur(10px);
+}
+
+.floating-chart-tooltip.is-right {
+  transform: none;
+}
+
+.floating-chart-tooltip.is-left {
+  transform: none;
 }
 
 .floating-chart-tooltip strong {

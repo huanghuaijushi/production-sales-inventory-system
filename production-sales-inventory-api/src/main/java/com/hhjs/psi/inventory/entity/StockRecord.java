@@ -50,6 +50,18 @@ public class StockRecord {
     @Column(name = "amount", precision = 14, scale = 2)
     private BigDecimal amount;
 
+    @Column(name = "business_unit_price", precision = 12, scale = 2)
+    private BigDecimal businessUnitPrice;
+
+    @Column(name = "business_amount", precision = 14, scale = 2)
+    private BigDecimal businessAmount;
+
+    @Column(name = "cost_unit_price", precision = 12, scale = 2)
+    private BigDecimal costUnitPrice;
+
+    @Column(name = "cost_amount", precision = 14, scale = 2)
+    private BigDecimal costAmount;
+
     @Column(name = "before_quantity", nullable = false)
     private Integer beforeQuantity;
 
@@ -144,10 +156,21 @@ public class StockRecord {
     }
 
     public void setAmountSnapshot(BigDecimal unitPrice) {
-        this.unitPrice = unitPrice;
-        this.amount = unitPrice == null
-                ? BigDecimal.ZERO
-                : unitPrice.multiply(BigDecimal.valueOf(Math.abs(this.quantity)));
+        setAmountSnapshot(unitPrice, unitPrice);
+    }
+
+    public void setAmountSnapshot(BigDecimal costUnitPrice, BigDecimal businessUnitPrice) {
+        BigDecimal quantityAbs = BigDecimal.valueOf(Math.abs(this.quantity));
+        this.costUnitPrice = normalizeMoney(costUnitPrice);
+        this.costAmount = this.costUnitPrice.multiply(quantityAbs);
+        this.businessUnitPrice = businessUnitPrice == null ? null : normalizeMoney(businessUnitPrice);
+        this.businessAmount = this.businessUnitPrice == null ? null : this.businessUnitPrice.multiply(quantityAbs);
+        this.unitPrice = this.businessUnitPrice == null ? this.costUnitPrice : this.businessUnitPrice;
+        this.amount = this.businessAmount == null ? this.costAmount : this.businessAmount;
+    }
+
+    private BigDecimal normalizeMoney(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 
     public Long getId() {
@@ -180,6 +203,22 @@ public class StockRecord {
 
     public BigDecimal getAmount() {
         return amount;
+    }
+
+    public BigDecimal getBusinessUnitPrice() {
+        return businessUnitPrice;
+    }
+
+    public BigDecimal getBusinessAmount() {
+        return businessAmount;
+    }
+
+    public BigDecimal getCostUnitPrice() {
+        return costUnitPrice;
+    }
+
+    public BigDecimal getCostAmount() {
+        return costAmount;
     }
 
     public Integer getBeforeQuantity() {

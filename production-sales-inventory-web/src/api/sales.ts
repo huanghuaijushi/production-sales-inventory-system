@@ -111,6 +111,7 @@ export interface ChannelProductMappingRequest {
   externalSkuCode?: string | undefined
   productId: number
   quantityMultiplier: number
+  defaultUnitPrice?: number | undefined
   matchType: 'EXACT' | 'CONTAINS'
   enabled: boolean
   priority?: number | undefined
@@ -124,6 +125,9 @@ export interface ExternalOrderItemRaw {
   externalSkuCode?: string | undefined
   externalQuantity: number
   externalUnitPrice: number
+  resolvedUnitPrice?: number | undefined
+  resolvedSubtotal?: number | undefined
+  priceSource?: 'IMPORTED' | 'MAPPING_DEFAULT' | 'PRODUCT_SALE_PRICE' | 'NONE' | undefined
   matchedProductId?: number | undefined
   matchedProductCode?: string | undefined
   matchedProductName?: string | undefined

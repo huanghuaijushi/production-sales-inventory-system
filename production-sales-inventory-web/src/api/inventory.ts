@@ -183,6 +183,7 @@ export interface StockOperationRequest {
   subType: StockRecordSubType
   quantity: number
   relatedOrderId?: number
+  businessUnitPrice?: number
   batchId?: number
   batchNo?: string
   productionDate?: string
@@ -206,6 +207,10 @@ export interface StockRecord {
   type: 'IN' | 'OUT' | 'ADJUST'
   subType: StockRecordSubType
   quantity: number
+  businessUnitPrice?: number | null
+  businessAmount?: number | null
+  costUnitPrice?: number | null
+  costAmount?: number | null
   beforeQuantity: number
   afterQuantity: number
   batchId: number | null
@@ -228,6 +233,7 @@ export interface StockBatch {
   expiryDate: string | null
   quantity: number
   availableQuantity: number
+  unitCost?: number | null
   remark: string | null
   createdAt: string
   updatedAt: string

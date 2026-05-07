@@ -668,17 +668,19 @@ public class InventoryService {
             BigDecimal costPrice = normalizeMoney((BigDecimal) row[5]);
             BigDecimal salePrice = normalizeMoney((BigDecimal) row[6]);
             BigDecimal recordAmount = row.length > 7 && row[7] != null ? normalizeMoney((BigDecimal) row[7]) : null;
+            BigDecimal businessAmount = row.length > 8 && row[8] != null ? normalizeMoney((BigDecimal) row[8]) : null;
+            BigDecimal costAmount = row.length > 9 && row[9] != null ? normalizeMoney((BigDecimal) row[9]) : null;
             InventoryValueTrendAggregate aggregate = aggregates.computeIfAbsent(recordDate, ignored -> new InventoryValueTrendAggregate());
 
             if (productType == ProductType.RAW_MATERIAL && type == StockRecordType.IN && subType == StockRecordSubType.PURCHASE) {
-                aggregate.rawMaterialInboundAmount = aggregate.rawMaterialInboundAmount.add(recordAmount != null ? recordAmount : amount(costPrice, quantity));
+                aggregate.rawMaterialInboundAmount = aggregate.rawMaterialInboundAmount.add(fallbackAmount(costAmount, recordAmount, costPrice, quantity));
             } else if (productType == ProductType.RAW_MATERIAL && type == StockRecordType.OUT && subType == StockRecordSubType.PRODUCTION_USAGE) {
-                aggregate.rawMaterialUsageAmount = aggregate.rawMaterialUsageAmount.add(recordAmount.signum() > 0 ? recordAmount : amount(costPrice, quantity));
+                aggregate.rawMaterialUsageAmount = aggregate.rawMaterialUsageAmount.add(fallbackAmount(costAmount, recordAmount, costPrice, quantity));
             } else if (productType == ProductType.FINISHED_PRODUCT && type == StockRecordType.IN && subType == StockRecordSubType.PRODUCTION) {
-                aggregate.finishedProductInboundAmount = aggregate.finishedProductInboundAmount.add(recordAmount.signum() > 0 ? recordAmount : amount(costPrice, quantity));
+                aggregate.finishedProductInboundAmount = aggregate.finishedProductInboundAmount.add(fallbackAmount(costAmount, recordAmount, costPrice, quantity));
             } else if (productType == ProductType.FINISHED_PRODUCT && type == StockRecordType.OUT && subType == StockRecordSubType.SALES) {
                 BigDecimal unitPrice = salePrice.signum() > 0 ? salePrice : costPrice;
-                aggregate.finishedProductSalesAmount = aggregate.finishedProductSalesAmount.add(recordAmount != null ? recordAmount : amount(unitPrice, quantity));
+                aggregate.finishedProductSalesAmount = aggregate.finishedProductSalesAmount.add(fallbackAmount(businessAmount, recordAmount, unitPrice, quantity));
             }
         });
 
@@ -777,8 +779,9 @@ public class InventoryService {
                     new StockOperationRequest(
                             product.getId(),
                             StockRecordType.IN,
-                    StockRecordSubType.INVENTORY,
-                    afterQuantity - beforeQuantity,
+                            StockRecordSubType.INVENTORY,
+                            afterQuantity - beforeQuantity,
+                            null,
                             null,
                             null,
                             "ADJ-" + generateRecordNo(StockRecordType.ADJUST),
@@ -833,8 +836,8 @@ public class InventoryService {
         return performStockOperation(request, StockRecordType.OUT, true);
     }
 
-    public StockRecordResponse outboundFromLocked(StockOperationRequest request, BigDecimal unitPriceSnapshot) {
-        return performStockOperation(request, StockRecordType.OUT, true, unitPriceSnapshot);
+    public StockRecordResponse outboundFromLocked(StockOperationRequest request, BigDecimal businessUnitPriceSnapshot) {
+        return performStockOperation(request, StockRecordType.OUT, true, businessUnitPriceSnapshot);
     }
 
     private StockRecordResponse performStockOperation(StockOperationRequest request, StockRecordType type) {
@@ -845,7 +848,7 @@ public class InventoryService {
         return performStockOperation(request, type, consumeLockedQuantity, null);
     }
 
-    private StockRecordResponse performStockOperation(StockOperationRequest request, StockRecordType type, boolean consumeLockedQuantity, BigDecimal unitPriceSnapshot) {
+    private StockRecordResponse performStockOperation(StockOperationRequest request, StockRecordType type, boolean consumeLockedQuantity, BigDecimal businessUnitPriceSnapshot) {
         validateOperation(request, type);
 
         Stock stock = stockRepository.findByProductIdForUpdate(request.productId())
@@ -908,7 +911,8 @@ public class InventoryService {
         if (request.relatedOrderId() != null) {
             record.setRelatedOrder(resolveSourceType(request), request.relatedOrderId(), request.batchNo());
         }
-        record.setAmountSnapshot(unitPriceSnapshot == null ? resolveRecordUnitPrice(product, type, request.subType()) : normalizeMoney(unitPriceSnapshot));
+        BigDecimal requestedBusinessUnitPrice = businessUnitPriceSnapshot != null ? businessUnitPriceSnapshot : request.businessUnitPrice();
+        record.setAmountSnapshot(resolveCostUnitPrice(product, batch), resolveBusinessUnitPrice(product, type, request.subType(), requestedBusinessUnitPrice));
 
         stockRecordRepository.save(record);
 
@@ -1027,6 +1031,10 @@ public class InventoryService {
                 record.getType(),
                 record.getSubType(),
                 record.getQuantity(),
+                record.getBusinessUnitPrice(),
+                record.getBusinessAmount(),
+                record.getCostUnitPrice(),
+                record.getCostAmount(),
                 record.getBeforeQuantity(),
                 record.getAfterQuantity(),
                 record.getBatch() == null ? null : record.getBatch().getId(),
@@ -1052,6 +1060,7 @@ public class InventoryService {
                 batch.getExpiryDate(),
                 batch.getQuantity(),
                 batch.getAvailableQuantity(),
+                batch.getUnitCost(),
                 batch.getRemark(),
                 batch.getCreatedAt(),
                 batch.getUpdatedAt()
@@ -1088,9 +1097,19 @@ public class InventoryService {
         return "%s%s%d".formatted(prefix, timestamp, random);
     }
 
-    private BigDecimal resolveRecordUnitPrice(Product product, StockRecordType type, StockRecordSubType subType) {
+    private BigDecimal resolveBusinessUnitPrice(Product product, StockRecordType type, StockRecordSubType subType, BigDecimal businessUnitPriceSnapshot) {
+        if (businessUnitPriceSnapshot != null) {
+            return normalizeMoney(businessUnitPriceSnapshot);
+        }
         if (type == StockRecordType.OUT && subType == StockRecordSubType.SALES) {
             return firstPositiveMoney(product.getSalePrice(), product.getCostPrice());
+        }
+        return null;
+    }
+
+    private BigDecimal resolveCostUnitPrice(Product product, StockBatch batch) {
+        if (batch != null && batch.getUnitCost() != null && batch.getUnitCost().signum() > 0) {
+            return batch.getUnitCost();
         }
         return normalizeMoney(product.getCostPrice());
     }
@@ -1280,6 +1299,16 @@ public class InventoryService {
 
     private BigDecimal amount(BigDecimal unitPrice, int quantity) {
         return normalizeMoney(unitPrice).multiply(BigDecimal.valueOf(quantity));
+    }
+
+    private BigDecimal fallbackAmount(BigDecimal preferredAmount, BigDecimal legacyAmount, BigDecimal fallbackUnitPrice, int quantity) {
+        if (preferredAmount != null) {
+            return preferredAmount;
+        }
+        if (legacyAmount != null) {
+            return legacyAmount;
+        }
+        return amount(fallbackUnitPrice, quantity);
     }
 
     private String normalizeFilter(String value) {

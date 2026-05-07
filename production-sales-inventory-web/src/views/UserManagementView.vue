@@ -489,6 +489,11 @@ input:focus {
   font-weight: 700;
 }
 
+.user-table th:last-child,
+.user-table td:last-child {
+  text-align: center;
+}
+
 .user-table strong {
   color: #0f172a;
 }
@@ -513,8 +518,15 @@ input:focus {
 }
 
 .row-actions,
-.pagination-actions,
 .modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pagination-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;

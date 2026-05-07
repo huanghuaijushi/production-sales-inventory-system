@@ -127,6 +127,7 @@ public class PurchaseOrderService {
                     item.getQuantity(),
                     order.getId(),
                     null,
+                    null,
                     "%s-%s".formatted(order.getOrderNo(), item.getProductCode()),
                     order.getExpectedArrivalDate(),
                     null,
