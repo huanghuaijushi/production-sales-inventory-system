@@ -20,14 +20,6 @@
         <div class="category-search">
           <MagnifyingGlassIcon class="category-search__icon" />
           <input v-model="categoryKeyword" type="text" placeholder="搜索分类名称" />
-          <button
-            class="enabled-chip"
-            :class="{ active: categoryEnabledOnly }"
-            type="button"
-            @click="toggleCategoryEnabledOnly"
-          >
-            启用
-          </button>
         </div>
 
         <div class="category-tree" :class="{ 'is-empty': visibleCategories.length === 0 }">
@@ -553,7 +545,6 @@ const currentPage = ref(0)
 const pageSize = ref(10)
 const totalElements = ref(0)
 const totalPages = ref(0)
-const categoryEnabledOnly = ref(true)
 const categoryOptions = ref<ProductCategory[]>([])
 const categoryForm = ref({
   name: '',
@@ -659,17 +650,12 @@ const handleSearch = async (page: number = 0) => {
 const loadCategories = async () => {
   categoryLoading.value = true
   try {
-    categories.value = await productCategoryApi.getCategories(undefined, categoryEnabledOnly.value)
+    categories.value = await productCategoryApi.getCategories(undefined, true)
   } catch (error) {
     console.error('加载分类列表失败:', error)
   } finally {
     categoryLoading.value = false
   }
-}
-
-const toggleCategoryEnabledOnly = async () => {
-  categoryEnabledOnly.value = !categoryEnabledOnly.value
-  await loadCategories()
 }
 
 const loadCategoryOptions = async (type?: string) => {
@@ -1063,27 +1049,6 @@ onMounted(() => {
   height: 16px;
   color: #94a3b8;
   transform: translateY(-50%);
-}
-
-.enabled-chip {
-  flex: 0 0 auto;
-  height: 38px;
-  min-width: 54px;
-  padding: 0 12px;
-  border: 1px solid #dbe3ef;
-  border-radius: 999px;
-  background: #f8fafc;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 800;
-  cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-}
-
-.enabled-chip.active {
-  border-color: #bfdbfe;
-  background: #eff6ff;
-  color: #2563eb;
 }
 
 .category-tree {

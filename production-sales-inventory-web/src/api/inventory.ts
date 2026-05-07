@@ -73,6 +73,8 @@ export interface DashboardCategoryShare {
   value: string
   ratio: string
   color: string
+  productCount: number
+  quantity: number
 }
 
 export interface DashboardSummaryItem {

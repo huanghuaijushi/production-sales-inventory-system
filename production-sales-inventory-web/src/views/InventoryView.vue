@@ -6,14 +6,6 @@
         <h1>库存总览</h1>
         <p>按商品名称、SKU、分类和状态筛选库存数据，快速查看当前库存健康状况。</p>
       </div>
-      <div class="page-actions">
-        <button type="button" class="page-action page-action--primary" @click="openInboundModal()">
-          新增入库
-        </button>
-        <button type="button" class="page-action page-action--outline" @click="openOutboundModal()">
-          新增出库
-        </button>
-      </div>
     </section>
 
     <InventoryFilterBar

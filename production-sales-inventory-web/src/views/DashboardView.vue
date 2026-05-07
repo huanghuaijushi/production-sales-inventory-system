@@ -297,12 +297,16 @@
                 <span>库存金额</span>
                 <strong>{{ item.value }}</strong>
               </div>
+              <div class="category-row__meta">
+                <span>{{ item.productCount }} 个 SKU</span>
+                <span>库存 {{ formatDashboardNumber(item.quantity) }}</span>
+              </div>
             </div>
           </div>
 
           <div class="category-summary-line">
             <span>合计库存金额</span>
-            <strong>¥1,286,750</strong>
+            <strong>{{ rawCategoryTotalAmount }}</strong>
             <RouterLink to="/inventory" class="table-link">查看全部分类</RouterLink>
           </div>
         </article>
@@ -311,7 +315,7 @@
           <div class="section-card__header section-card__header--tight">
             <div>
               <h2>成品分类库存占比</h2>
-              <p>按库存件数</p>
+              <p>按库存金额</p>
             </div>
           </div>
 
@@ -324,15 +328,19 @@
               </div>
               <div class="category-row__track"><i :style="{ width: item.percent, background: item.color }"></i></div>
               <div class="category-row__footer">
-                <span>库存件数</span>
+                <span>库存金额</span>
                 <strong>{{ item.value }}</strong>
+              </div>
+              <div class="category-row__meta">
+                <span>{{ item.productCount }} 个 SKU</span>
+                <span>库存 {{ formatDashboardNumber(item.quantity) }}</span>
               </div>
             </div>
           </div>
 
           <div class="category-summary-line">
-            <span>合计库存件数</span>
-            <strong>9,550 件</strong>
+            <span>合计库存金额</span>
+            <strong>{{ finishedCategoryTotalAmount }}</strong>
             <RouterLink to="/inventory" class="table-link">查看全部分类</RouterLink>
           </div>
         </article>
@@ -453,6 +461,8 @@ const finishedLegend = computed(() => finishedMonitorMode.value === 'quantity'
 const hotProducts = computed(() => dashboardData.value?.hotProducts ?? [])
 const rawCategoryShares = computed(() => dashboardData.value?.rawCategoryShares ?? [])
 const finishedCategoryShares = computed(() => dashboardData.value?.finishedCategoryShares ?? [])
+const rawCategoryTotalAmount = computed(() => amountSummary(rawCategoryShares.value))
+const finishedCategoryTotalAmount = computed(() => amountSummary(finishedCategoryShares.value))
 const rawSummaryCards = computed(() => dashboardData.value?.rawSummaryCards ?? [])
 const finishedSummaryCards = computed(() => dashboardData.value?.finishedSummaryCards ?? [])
 const profitOverview = computed(() => dashboardData.value?.profitOverview)
@@ -544,6 +554,21 @@ function formatNumber(value: number | null | undefined) {
   return value === null || value === undefined
     ? '--'
     : new Intl.NumberFormat('zh-CN').format(value)
+}
+
+function formatDashboardNumber(value: number | null | undefined) {
+  return formatNumber(value)
+}
+
+function parseCurrencyAmount(value: string | null | undefined) {
+  if (!value) return 0
+  const parsed = Number(value.replace(/[¥,\s]/g, ''))
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function amountSummary(items: { value: string }[]) {
+  const total = items.reduce((sum, item) => sum + parseCurrencyAmount(item.value), 0)
+  return `¥${new Intl.NumberFormat('zh-CN').format(Math.round(total))}`
 }
 
 function parseDisplayNumber(value: string | null | undefined) {
@@ -1536,9 +1561,17 @@ onMounted(() => {
   color: #64748b;
 }
 
-.category-row__footer span {
+.category-row__footer span,
+.category-row__meta span {
   font-size: 12px;
   color: #94a3b8;
+}
+
+.category-row__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .category-row__footer strong,

@@ -5,6 +5,8 @@ public record DashboardCategoryShareResponse(
         String percent,
         String value,
         String ratio,
-        String color
+        String color,
+        Integer productCount,
+        Integer quantity
 ) {
 }

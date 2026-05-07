@@ -177,8 +177,8 @@ public class InventoryService {
                 buildFinishedProductBars(),
                 buildRawMaterialWarnings(rawStocks),
                 buildHotProducts(finishedStocks),
-                buildCategoryShares(rawStocks, true),
-                buildCategoryShares(finishedStocks, false),
+                buildCategoryShares(rawStocks),
+                buildCategoryShares(finishedStocks),
                 List.of(
                         new DashboardSummaryItemResponse("原料总库存金额", formatCurrency(rawInventoryAmount), "按成本价估算"),
                         new DashboardSummaryItemResponse("低于安全库存 SKU", formatNumber(rawLowStockCount), "需优先补货 " + formatNumber(Math.min(rawLowStockCount, 8)) + " 项"),
@@ -471,32 +471,28 @@ public class InventoryService {
                 .toList();
     }
 
-    private List<DashboardCategoryShareResponse> buildCategoryShares(List<Stock> stocks, boolean amountMode) {
-        String[] colors = {"#2563eb", "#7c3aed", "#f59e0b", "#14b8a6", "#22c55e"};
+    private List<DashboardCategoryShareResponse> buildCategoryShares(List<Stock> stocks) {
+        String[] colors = {"#2563eb", "#7c3aed", "#f59e0b", "#14b8a6", "#22c55e", "#ef4444", "#0ea5e9"};
         Map<String, List<Stock>> grouped = stocks.stream()
                 .collect(Collectors.groupingBy(stock -> normalizeDistributionCategory(stock.getProduct()), LinkedHashMap::new, Collectors.toList()));
         BigDecimal totalAmount = inventoryAmount(stocks);
-        int totalQuantity = stocks.stream().mapToInt(Stock::getQuantity).sum();
         List<Map.Entry<String, List<Stock>>> entries = grouped.entrySet().stream()
-                .sorted((left, right) -> {
-                    BigDecimal leftValue = amountMode ? inventoryAmount(left.getValue()) : BigDecimal.valueOf(left.getValue().stream().mapToInt(Stock::getQuantity).sum());
-                    BigDecimal rightValue = amountMode ? inventoryAmount(right.getValue()) : BigDecimal.valueOf(right.getValue().stream().mapToInt(Stock::getQuantity).sum());
-                    return rightValue.compareTo(leftValue);
-                })
-                .limit(5)
+                .sorted((left, right) -> inventoryAmount(right.getValue()).compareTo(inventoryAmount(left.getValue())))
                 .toList();
         return java.util.stream.IntStream.range(0, entries.size())
                 .mapToObj(index -> {
                     Map.Entry<String, List<Stock>> entry = entries.get(index);
-                    BigDecimal value = amountMode ? inventoryAmount(entry.getValue()) : BigDecimal.valueOf(entry.getValue().stream().mapToInt(Stock::getQuantity).sum());
-                    BigDecimal total = amountMode ? totalAmount : BigDecimal.valueOf(Math.max(totalQuantity, 1));
-                    String ratio = ratio(value, total);
+                    BigDecimal value = inventoryAmount(entry.getValue());
+                    String ratio = ratio(value, totalAmount);
+                    List<Stock> categoryStocks = entry.getValue();
                     return new DashboardCategoryShareResponse(
                             entry.getKey(),
                             ratio,
-                            amountMode ? formatCurrency(value) : formatNumber(value.intValue()) + " 件",
+                            formatCurrency(value),
                             ratio,
-                            colors[index % colors.length]
+                            colors[index % colors.length],
+                            categoryStocks.size(),
+                            categoryStocks.stream().mapToInt(Stock::getQuantity).sum()
                     );
                 })
                 .toList();
