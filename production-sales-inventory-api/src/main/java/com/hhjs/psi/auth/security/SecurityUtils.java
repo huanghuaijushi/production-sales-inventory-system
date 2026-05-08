@@ -11,20 +11,20 @@ public final class SecurityUtils {
     private SecurityUtils() {
     }
 
-    public static Optional<AuthenticatedAdmin> currentAdmin() {
+    public static Optional<AuthenticatedSysUser> currentSysUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
             return Optional.empty();
         }
         Object principal = authentication.getPrincipal();
-        if (principal instanceof AuthenticatedAdmin authenticatedAdmin) {
-            return Optional.of(authenticatedAdmin);
+        if (principal instanceof AuthenticatedSysUser authenticatedSysUser) {
+            return Optional.of(authenticatedSysUser);
         }
         return Optional.empty();
     }
 
-    public static AuthenticatedAdmin requireCurrentAdmin() {
-        return currentAdmin()
+    public static AuthenticatedSysUser requireCurrentSysUser() {
+        return currentSysUser()
                 .orElseThrow(() -> BusinessException.unauthorized("Authentication required"));
     }
 }

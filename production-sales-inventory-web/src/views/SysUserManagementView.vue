@@ -4,9 +4,9 @@
       <div>
         <p class="page-eyebrow">系统设置</p>
         <h1>用户管理</h1>
-        <p>由当前管理员创建账号、重置密码，并控制后台账号是否可登录。</p>
+        <p>由系统用户创建账号、重置密码，并控制后台账号是否可登录。</p>
       </div>
-      <button type="button" class="primary-button" @click="openCreateModal">新增管理员</button>
+      <button v-if="canCreateUser" type="button" class="primary-button" @click="openCreateModal">新增用户</button>
     </div>
 
     <p v-if="message" class="operation-message">{{ message }}</p>
@@ -16,15 +16,15 @@
         v-model="query"
         type="search"
         placeholder="搜索账号或昵称"
-        @keyup.enter="loadAdmins(true)"
+        @keyup.enter="loadUsers(true)"
       />
-      <button type="button" class="secondary-button" @click="loadAdmins(true)">查询</button>
+      <button type="button" class="secondary-button" @click="loadUsers(true)">查询</button>
     </section>
 
     <section class="panel user-table-panel">
       <div class="table-header">
         <div>
-          <h2>管理员列表</h2>
+          <h2>系统用户列表</h2>
           <p>共 {{ pageState.totalElements }} 个账号，禁用后该账号不能继续登录。</p>
         </div>
       </div>
@@ -44,37 +44,37 @@
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="7" class="empty-cell">正在加载管理员...</td>
+              <td colspan="7" class="empty-cell">正在加载用户...</td>
             </tr>
-            <tr v-else-if="admins.length === 0">
-              <td colspan="7" class="empty-cell">暂无管理员账号</td>
+            <tr v-else-if="users.length === 0">
+              <td colspan="7" class="empty-cell">暂无用户账号</td>
             </tr>
-            <tr v-for="admin in admins" v-else :key="admin.id">
+            <tr v-for="user in users" v-else :key="user.id">
               <td>
-                <strong>{{ admin.username }}</strong>
+                <strong>{{ user.username }}</strong>
               </td>
-              <td>{{ admin.nickname }}</td>
-              <td>{{ formatRoles(admin.roles) }}</td>
+              <td>{{ user.nickname }}</td>
+              <td>{{ formatRoles(user.roles) }}</td>
               <td>
-                <span class="status-pill" :class="admin.status === 'ACTIVE' ? 'status-pill--active' : 'status-pill--disabled'">
-                  {{ admin.status === 'ACTIVE' ? '正常' : '禁用' }}
+                <span class="status-pill" :class="user.status === 'ACTIVE' ? 'status-pill--active' : 'status-pill--disabled'">
+                  {{ user.status === 'ACTIVE' ? '正常' : '禁用' }}
                 </span>
               </td>
-              <td>{{ formatDateTime(admin.lastLoginAt) }}</td>
-              <td>{{ formatDateTime(admin.createdAt) }}</td>
+              <td>{{ formatDateTime(user.lastLoginAt) }}</td>
+              <td>{{ formatDateTime(user.createdAt) }}</td>
               <td>
                 <div class="row-actions">
-                  <button type="button" class="text-button" @click="openPasswordModal(admin)">重置密码</button>
+                  <button v-if="canUpdateUser" type="button" class="text-button" @click="openPasswordModal(user)">重置密码</button>
                   <button
-                    v-if="admin.status === 'ACTIVE'"
+                    v-if="canDisableUser && user.status === 'ACTIVE'"
                     type="button"
                     class="text-button danger-text"
-                    :disabled="admin.id === authStore.admin?.id"
-                    @click="disableAdmin(admin)"
+                    :disabled="user.id === authStore.sysUser?.id"
+                    @click="disableUser(user)"
                   >
                     禁用
                   </button>
-                  <button v-else type="button" class="text-button primary-text" @click="activateAdmin(admin)">启用</button>
+                  <button v-else-if="canUpdateUser" type="button" class="text-button primary-text" @click="activateUser(user)">启用</button>
                 </div>
               </td>
             </tr>
@@ -94,7 +94,7 @@
     <div v-if="createModalOpen" class="modal-backdrop">
       <div class="modal-content">
         <div class="modal-header">
-          <h2>新增管理员</h2>
+          <h2>新增用户</h2>
           <button type="button" class="icon-button" @click="closeCreateModal">×</button>
         </div>
         <div class="modal-body">
@@ -104,7 +104,7 @@
           </label>
           <label>
             <span>昵称</span>
-            <input v-model.trim="createForm.nickname" type="text" placeholder="管理员显示名称" />
+            <input v-model.trim="createForm.nickname" type="text" placeholder="用户显示名称" />
           </label>
           <label>
             <span>初始密码</span>
@@ -113,21 +113,21 @@
         </div>
         <div class="modal-actions">
           <button type="button" class="secondary-button" @click="closeCreateModal">取消</button>
-          <button type="button" class="primary-button" :disabled="submitting" @click="createAdmin">
+          <button type="button" class="primary-button" :disabled="submitting" @click="createUser">
             {{ submitting ? '创建中...' : '创建账号' }}
           </button>
         </div>
       </div>
     </div>
 
-    <div v-if="passwordModalOpen && selectedAdmin" class="modal-backdrop">
+    <div v-if="passwordModalOpen && selectedUser" class="modal-backdrop">
       <div class="modal-content">
         <div class="modal-header">
           <h2>重置密码</h2>
           <button type="button" class="icon-button" @click="closePasswordModal">×</button>
         </div>
         <div class="modal-body">
-          <p class="modal-help">正在为「{{ selectedAdmin.nickname }}」重置登录密码，保存后旧密码立即失效。</p>
+          <p class="modal-help">正在为「{{ selectedUser.nickname }}」重置登录密码，保存后旧密码立即失效。</p>
           <label>
             <span>新密码</span>
             <input v-model="newPassword" type="password" placeholder="至少 8 位，包含字母和数字" />
@@ -145,19 +145,19 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ApiError } from '@/api/http'
-import { adminUserApi } from '@/api/adminUser'
+import { sysUserApi } from '@/api/sysUser'
 import { useAuthStore } from '@/stores/auth'
-import type { AdminProfile } from '@/types/auth'
+import type { SysUserProfile } from '@/types/auth'
 
 const authStore = useAuthStore()
-const admins = ref<AdminProfile[]>([])
+const users = ref<SysUserProfile[]>([])
 const loading = ref(false)
 const submitting = ref(false)
 const createModalOpen = ref(false)
 const passwordModalOpen = ref(false)
-const selectedAdmin = ref<AdminProfile | null>(null)
+const selectedUser = ref<SysUserProfile | null>(null)
 const newPassword = ref('')
 const query = ref('')
 const message = ref('')
@@ -175,29 +175,33 @@ const createForm = reactive({
 let searchTimer: number | undefined
 let messageTimer: number | undefined
 
+const canCreateUser = computed(() => authStore.hasPermission('auth:user:create'))
+const canUpdateUser = computed(() => authStore.hasPermission('auth:user:update'))
+const canDisableUser = computed(() => authStore.hasPermission('auth:user:disable'))
+
 watch(query, () => {
   window.clearTimeout(searchTimer)
-  searchTimer = window.setTimeout(() => loadAdmins(true), 300)
+  searchTimer = window.setTimeout(() => loadUsers(true), 300)
 })
 
 onMounted(() => {
-  loadAdmins(true)
+  loadUsers(true)
 })
 
-async function loadAdmins(resetPage = false) {
+async function loadUsers(resetPage = false) {
   if (resetPage) {
     pageState.number = 0
   }
   loading.value = true
   try {
-    const result = await adminUserApi.getAdmins(pageState.number, pageState.size, query.value)
-    admins.value = result.content
+    const result = await sysUserApi.getUsers(pageState.number, pageState.size, query.value)
+    users.value = result.content
     pageState.number = result.number
     pageState.size = result.size
     pageState.totalElements = result.totalElements
     pageState.totalPages = result.totalPages
   } catch (error) {
-    showMessage(getErrorMessage(error, '加载管理员失败'))
+    showMessage(getErrorMessage(error, '加载用户失败'))
   } finally {
     loading.value = false
   }
@@ -205,7 +209,7 @@ async function loadAdmins(resetPage = false) {
 
 function changePage(page: number) {
   pageState.number = page
-  loadAdmins()
+  loadUsers()
 }
 
 function openCreateModal() {
@@ -219,8 +223,8 @@ function closeCreateModal() {
   createModalOpen.value = false
 }
 
-async function createAdmin() {
-  const validationMessage = validateAdminForm(createForm.username, createForm.nickname, createForm.password)
+async function createUser() {
+  const validationMessage = validateUserForm(createForm.username, createForm.nickname, createForm.password)
   if (validationMessage) {
     showMessage(validationMessage)
     return
@@ -228,35 +232,35 @@ async function createAdmin() {
 
   submitting.value = true
   try {
-    await adminUserApi.createAdmin({
+    await sysUserApi.createUser({
       username: createForm.username,
       nickname: createForm.nickname,
       password: createForm.password
     })
-    showMessage('管理员账号已创建。')
+    showMessage('用户账号已创建。')
     closeCreateModal()
-    await loadAdmins(true)
+    await loadUsers(true)
   } catch (error) {
-    showMessage(getErrorMessage(error, '创建管理员失败'))
+    showMessage(getErrorMessage(error, '创建用户失败'))
   } finally {
     submitting.value = false
   }
 }
 
-function openPasswordModal(admin: AdminProfile) {
-  selectedAdmin.value = admin
+function openPasswordModal(user: SysUserProfile) {
+  selectedUser.value = user
   newPassword.value = ''
   passwordModalOpen.value = true
 }
 
 function closePasswordModal() {
   passwordModalOpen.value = false
-  selectedAdmin.value = null
+  selectedUser.value = null
   newPassword.value = ''
 }
 
 async function resetPassword() {
-  if (!selectedAdmin.value) return
+  if (!selectedUser.value) return
   const validationMessage = validatePassword(newPassword.value)
   if (validationMessage) {
     showMessage(validationMessage)
@@ -265,10 +269,10 @@ async function resetPassword() {
 
   submitting.value = true
   try {
-    await adminUserApi.resetPassword(selectedAdmin.value.id, newPassword.value)
+    await sysUserApi.resetPassword(selectedUser.value.id, newPassword.value)
     showMessage('密码已重置。')
     closePasswordModal()
-    await loadAdmins()
+    await loadUsers()
   } catch (error) {
     showMessage(getErrorMessage(error, '重置密码失败'))
   } finally {
@@ -276,39 +280,39 @@ async function resetPassword() {
   }
 }
 
-async function activateAdmin(admin: AdminProfile) {
+async function activateUser(user: SysUserProfile) {
   submitting.value = true
   try {
-    await adminUserApi.activateAdmin(admin.id)
-    showMessage('管理员已启用。')
-    await loadAdmins()
+    await sysUserApi.activateUser(user.id)
+    showMessage('用户已启用。')
+    await loadUsers()
   } catch (error) {
-    showMessage(getErrorMessage(error, '启用管理员失败'))
+    showMessage(getErrorMessage(error, '启用用户失败'))
   } finally {
     submitting.value = false
   }
 }
 
-async function disableAdmin(admin: AdminProfile) {
-  const confirmed = window.confirm(`确定禁用管理员「${admin.nickname}」吗？`)
+async function disableUser(user: SysUserProfile) {
+  const confirmed = window.confirm(`确定禁用用户「${user.nickname}」吗？`)
   if (!confirmed) return
 
   submitting.value = true
   try {
-    await adminUserApi.disableAdmin(admin.id)
-    showMessage('管理员已禁用。')
-    await loadAdmins()
+    await sysUserApi.disableUser(user.id)
+    showMessage('用户已禁用。')
+    await loadUsers()
   } catch (error) {
-    showMessage(getErrorMessage(error, '禁用管理员失败'))
+    showMessage(getErrorMessage(error, '禁用用户失败'))
   } finally {
     submitting.value = false
   }
 }
 
-function validateAdminForm(username: string, nickname: string, password: string) {
+function validateUserForm(username: string, nickname: string, password: string) {
   if (!/^[A-Za-z0-9_]{3,50}$/.test(username)) return '账号需为 3-50 位字母、数字或下划线。'
-  if (!nickname.trim()) return '请填写管理员昵称。'
-  if (nickname.trim().length > 80) return '管理员昵称不能超过 80 个字符。'
+  if (!nickname.trim()) return '请填写用户昵称。'
+  if (nickname.trim().length > 80) return '用户昵称不能超过 80 个字符。'
   return validatePassword(password)
 }
 

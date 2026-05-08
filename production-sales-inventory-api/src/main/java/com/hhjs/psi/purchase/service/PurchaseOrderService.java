@@ -73,14 +73,14 @@ public class PurchaseOrderService {
     @Transactional
     public PurchaseOrderResponse createOrder(PurchaseOrderRequest request) {
         Supplier supplier = getEnabledSupplier(request.supplierId());
-        var currentAdmin = SecurityUtils.requireCurrentAdmin();
+        var currentSysUser = SecurityUtils.requireCurrentSysUser();
         PurchaseOrder order = PurchaseOrder.create(
                 generateOrderNo(),
                 supplier,
                 resolveStatus(request.draft()),
                 request.expectedArrivalDate(),
-                currentAdmin.id(),
-                currentAdmin.username(),
+                currentSysUser.id(),
+                currentSysUser.username(),
                 normalizeOptional(request.remark())
         );
         order.replaceItems(buildItems(request.items()));

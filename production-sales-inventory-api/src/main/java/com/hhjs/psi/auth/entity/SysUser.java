@@ -24,8 +24,8 @@ import java.util.stream.Collectors;
 import static jakarta.persistence.FetchType.LAZY;
 
 @Entity
-@Table(name = "admin_user")
-public class AdminUser {
+@Table(name = "sys_user")
+public class SysUser {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -42,8 +42,8 @@ public class AdminUser {
 
     @ManyToMany(fetch = LAZY)
     @JoinTable(
-            name = "admin_user_role",
-            joinColumns = @JoinColumn(name = "admin_user_id"),
+            name = "sys_user_role",
+            joinColumns = @JoinColumn(name = "sys_user_id"),
             inverseJoinColumns = @JoinColumn(name = "role_id")
     )
     @OrderBy("sortOrder ASC, code ASC")
@@ -67,17 +67,17 @@ public class AdminUser {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    protected AdminUser() {
+    protected SysUser() {
     }
 
-    public static AdminUser create(String username, String passwordHash, String nickname) {
-        AdminUser adminUser = new AdminUser();
-        adminUser.username = username;
-        adminUser.passwordHash = passwordHash;
-        adminUser.nickname = nickname;
-        adminUser.status = AdminStatus.ACTIVE;
-        adminUser.tokenVersion = 0;
-        return adminUser;
+    public static SysUser create(String username, String passwordHash, String nickname) {
+        SysUser sysUser = new SysUser();
+        sysUser.username = username;
+        sysUser.passwordHash = passwordHash;
+        sysUser.nickname = nickname;
+        sysUser.status = AdminStatus.ACTIVE;
+        sysUser.tokenVersion = 0;
+        return sysUser;
     }
 
     public boolean isActive() {

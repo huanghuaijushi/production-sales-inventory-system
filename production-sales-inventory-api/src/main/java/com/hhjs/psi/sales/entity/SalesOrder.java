@@ -1,6 +1,6 @@
 package com.hhjs.psi.sales.entity;
 
-import com.hhjs.psi.auth.entity.AdminUser;
+import com.hhjs.psi.auth.entity.SysUser;
 import com.hhjs.psi.sales.importing.entity.ImportSourceType;
 import com.hhjs.psi.sales.importing.entity.OrderImportBatch;
 import com.hhjs.psi.sales.importing.entity.SalesChannelConfig;
@@ -86,7 +86,7 @@ public class SalesOrder {
 
     @ManyToOne(fetch = LAZY)
     @JoinColumn(name = "operator_id", nullable = false)
-    private AdminUser operator;
+    private SysUser operator;
 
     @Column(name = "operator_name", nullable = false, length = 80)
     private String operatorName;
@@ -119,7 +119,7 @@ public class SalesOrder {
             String customerName,
             String customerPhone,
             String customerAddress,
-            AdminUser operator,
+            SysUser operator,
             String operatorName,
             String remark
     ) {
@@ -239,7 +239,7 @@ public class SalesOrder {
         return completeDate;
     }
 
-    public AdminUser getOperator() {
+    public SysUser getOperator() {
         return operator;
     }
 

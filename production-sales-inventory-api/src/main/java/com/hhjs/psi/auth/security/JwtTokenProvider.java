@@ -1,6 +1,6 @@
 package com.hhjs.psi.auth.security;
 
-import com.hhjs.psi.auth.entity.AdminUser;
+import com.hhjs.psi.auth.entity.SysUser;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -24,19 +24,19 @@ public class JwtTokenProvider {
         this.secretKey = Keys.hmacShaKeyFor(jwtProperties.secret().getBytes(StandardCharsets.UTF_8));
     }
 
-    public GeneratedToken generateToken(AdminUser adminUser) {
+    public GeneratedToken generateToken(SysUser sysUser) {
         Instant issuedAt = Instant.now();
         Instant expiresAt = issuedAt.plus(jwtProperties.accessTokenTtl());
         String jti = UUID.randomUUID().toString();
 
         String token = Jwts.builder()
                 .issuer(jwtProperties.issuer())
-                .subject(adminUser.getId().toString())
+                .subject(sysUser.getId().toString())
                 .id(jti)
-                .claim("username", adminUser.getUsername())
-                .claim("roles", List.copyOf(adminUser.getRoleCodes()))
-                .claim("permissions", List.copyOf(adminUser.getPermissionCodes()))
-                .claim("tokenVersion", adminUser.getTokenVersion())
+                .claim("username", sysUser.getUsername())
+                .claim("roles", List.copyOf(sysUser.getRoleCodes()))
+                .claim("permissions", List.copyOf(sysUser.getPermissionCodes()))
+                .claim("tokenVersion", sysUser.getTokenVersion())
                 .issuedAt(Date.from(issuedAt))
                 .expiration(Date.from(expiresAt))
                 .signWith(secretKey, Jwts.SIG.HS256)

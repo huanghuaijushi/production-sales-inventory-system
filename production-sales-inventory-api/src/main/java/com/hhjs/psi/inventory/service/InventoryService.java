@@ -790,7 +790,7 @@ public class InventoryService {
             stock.updateQuantity(afterQuantity);
             stockRepository.save(stock);
 
-            var currentAdmin = SecurityUtils.requireCurrentAdmin();
+            var currentSysUser = SecurityUtils.requireCurrentSysUser();
             StockRecord record = StockRecord.create(
                     generateRecordNo(StockRecordType.ADJUST),
                     product,
@@ -799,8 +799,8 @@ public class InventoryService {
                     afterQuantity - beforeQuantity,
                     beforeQuantity,
                     afterQuantity,
-                    currentAdmin.id(),
-                    currentAdmin.username(),
+                    currentSysUser.id(),
+                    currentSysUser.username(),
                     normalizeRemark(request.remark())
             );
             record.setBatch(batch);
@@ -893,7 +893,7 @@ public class InventoryService {
         stockRepository.save(stock);
 
         String recordNo = generateRecordNo(type);
-        var currentAdmin = SecurityUtils.requireCurrentAdmin();
+        var currentSysUser = SecurityUtils.requireCurrentSysUser();
 
         StockRecord record = StockRecord.create(
                 recordNo,
@@ -903,8 +903,8 @@ public class InventoryService {
                 changeAmount,
                 beforeQuantity,
                 afterQuantity,
-                currentAdmin.id(),
-                currentAdmin.username(),
+                currentSysUser.id(),
+                currentSysUser.username(),
                 request.remark()
         );
 

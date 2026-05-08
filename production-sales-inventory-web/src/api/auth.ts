@@ -1,10 +1,10 @@
 import { request } from '@/api/http'
 import type {
-  AdminProfile,
   AuthStatusResponse,
   AuthTokenResponse,
   LoginRequest,
-  RegisterRequest
+  RegisterRequest,
+  SysUserProfile
 } from '@/types/auth'
 
 export function loginApi(payload: LoginRequest) {
@@ -16,19 +16,23 @@ export function loginApi(payload: LoginRequest) {
 }
 
 export function registerApi(payload: RegisterRequest) {
-  return request<AdminProfile>('/auth/register', {
+  return request<SysUserProfile>('/auth/register', {
     method: 'POST',
     auth: false,
     body: { ...payload }
   })
 }
 
-export function getCurrentAdminApi() {
-  return request<AdminProfile>('/auth/me')
+export function getCurrentSysUserApi() {
+  return request<SysUserProfile>('/auth/me')
 }
 
 export function getAuthStatusApi() {
   return request<AuthStatusResponse>('/auth/status')
+}
+
+export function getCurrentSysUserApi() {
+  return request<SysUserProfile>('/auth/me')
 }
 
 export function logoutApi() {

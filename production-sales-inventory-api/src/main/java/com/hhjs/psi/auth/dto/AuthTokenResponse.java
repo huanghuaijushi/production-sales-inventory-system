@@ -4,10 +4,10 @@ public record AuthTokenResponse(
         String tokenType,
         String accessToken,
         long expiresIn,
-        AdminProfileResponse admin
+        SysUserProfileResponse sysUser
 ) {
 
-    public static AuthTokenResponse bearer(String accessToken, long expiresIn, AdminProfileResponse admin) {
-        return new AuthTokenResponse("Bearer", accessToken, expiresIn, admin);
+    public static AuthTokenResponse bearer(String accessToken, long expiresIn, SysUserProfileResponse sysUser) {
+        return new AuthTokenResponse("Bearer", accessToken, expiresIn, sysUser);
     }
 }

@@ -133,15 +133,15 @@ public class ProductionPlanningService {
             throw BusinessException.badRequest("请先在生产配置里维护该成品的配方");
         }
 
-        var currentAdmin = SecurityUtils.requireCurrentAdmin();
+        var currentSysUser = SecurityUtils.requireCurrentSysUser();
         ProductionOrder order = ProductionOrder.create(
                 generateProductionOrderNo(),
                 normalizeProductionBatchNo(finishedProduct, request.batchNo()),
                 finishedProduct,
                 request.plannedQuantity(),
                 request.plannedDate(),
-                currentAdmin.id(),
-                currentAdmin.username(),
+                currentSysUser.id(),
+                currentSysUser.username(),
                 normalizeOptional(request.remark())
         );
         ProductionOrder savedOrder = productionOrderRepository.save(order);
@@ -203,7 +203,7 @@ public class ProductionPlanningService {
         ));
 
         plan.addIssued(request.quantity());
-        var currentAdmin = SecurityUtils.requireCurrentAdmin();
+        var currentSysUser = SecurityUtils.requireCurrentSysUser();
         productionMaterialIssueRepository.save(ProductionMaterialIssue.create(
                 order,
                 plan,
@@ -212,8 +212,8 @@ public class ProductionPlanningService {
                 stockRecord.batchNo(),
                 request.quantity(),
                 stockRecord.id(),
-                currentAdmin.id(),
-                currentAdmin.username(),
+                currentSysUser.id(),
+                currentSysUser.username(),
                 normalizeOptional(request.remark())
         ));
 
@@ -238,15 +238,15 @@ public class ProductionPlanningService {
         }
         int completedQuantity = inputQuantity - request.lossQuantity();
 
-        var currentAdmin = SecurityUtils.requireCurrentAdmin();
+        var currentSysUser = SecurityUtils.requireCurrentSysUser();
         ProductionStepRecord record = ProductionStepRecord.create(
                 order,
                 stepType,
                 completedQuantity,
                 request.lossQuantity(),
                 normalizeOptional(request.lossReason()),
-                currentAdmin.id(),
-                currentAdmin.username()
+                currentSysUser.id(),
+                currentSysUser.username()
         );
         order.completeStep(completedQuantity, request.lossQuantity(), nextStep(stepType));
         productionStepRecordRepository.save(record);

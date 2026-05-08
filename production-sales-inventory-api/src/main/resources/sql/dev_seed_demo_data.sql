@@ -1,7 +1,7 @@
 USE production_sales_inventory;
 
-INSERT INTO admin_user (username, password_hash, nickname, role, status, token_version)
-VALUES ('admin', '$2y$10$t.AYesG/Q6t4oszfBHOKruOnH2GaKBFRvaV2Llh/F5bGtCQjvRIXi', '系统管理员', 'ADMIN', 'ACTIVE', 0)
+INSERT INTO sys_user (username, password_hash, nickname, status, token_version)
+VALUES ('admin', '$2y$10$t.AYesG/Q6t4oszfBHOKruOnH2GaKBFRvaV2Llh/F5bGtCQjvRIXi', '系统管理员', 'ACTIVE', 0)
 ON DUPLICATE KEY UPDATE nickname = VALUES(nickname);
 
 INSERT INTO supplier (name, contact_name, phone, address, remark, enabled)

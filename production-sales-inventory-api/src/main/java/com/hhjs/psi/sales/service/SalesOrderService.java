@@ -1,6 +1,6 @@
 package com.hhjs.psi.sales.service;
 
-import com.hhjs.psi.auth.repository.AdminUserRepository;
+import com.hhjs.psi.auth.repository.SysUserRepository;
 import com.hhjs.psi.auth.security.SecurityUtils;
 import com.hhjs.psi.common.exception.BusinessException;
 import com.hhjs.psi.inventory.dto.StockOperationRequest;
@@ -52,7 +52,7 @@ public class SalesOrderService {
     private final ProductRepository productRepository;
     private final StockRepository stockRepository;
     private final StockBatchRepository stockBatchRepository;
-    private final AdminUserRepository adminUserRepository;
+    private final SysUserRepository sysUserRepository;
     private final InventoryService inventoryService;
     private final SalesChannelConfigRepository salesChannelConfigRepository;
 
@@ -61,7 +61,7 @@ public class SalesOrderService {
             ProductRepository productRepository,
             StockRepository stockRepository,
             StockBatchRepository stockBatchRepository,
-            AdminUserRepository adminUserRepository,
+            SysUserRepository sysUserRepository,
             InventoryService inventoryService,
             SalesChannelConfigRepository salesChannelConfigRepository
     ) {
@@ -69,7 +69,7 @@ public class SalesOrderService {
         this.productRepository = productRepository;
         this.stockRepository = stockRepository;
         this.stockBatchRepository = stockBatchRepository;
-        this.adminUserRepository = adminUserRepository;
+        this.sysUserRepository = sysUserRepository;
         this.inventoryService = inventoryService;
         this.salesChannelConfigRepository = salesChannelConfigRepository;
     }
@@ -83,9 +83,9 @@ public class SalesOrderService {
 
     @Transactional
     public SalesOrderResponse createOrder(SalesOrderRequest request) {
-        var currentAdmin = SecurityUtils.requireCurrentAdmin();
-        var operator = adminUserRepository.findById(currentAdmin.id())
-                .orElseThrow(() -> BusinessException.unauthorized("当前管理员不存在"));
+        var currentSysUser = SecurityUtils.requireCurrentSysUser();
+        var operator = sysUserRepository.findById(currentSysUser.id())
+                .orElseThrow(() -> BusinessException.unauthorized("当前用户不存在"));
         SalesChannelConfig channelConfig = resolveChannelConfig(request.channelId(), request.channel());
         SalesOrder order = SalesOrder.create(
                 generateOrderNo(),
@@ -99,7 +99,7 @@ public class SalesOrderService {
                 normalizeOptional(request.customerPhone()),
                 normalizeOptional(request.customerAddress()),
                 operator,
-                currentAdmin.username(),
+                currentSysUser.username(),
                 normalizeOptional(request.remark())
         );
         List<SalesOrderItem> items = buildItems(request.items());
@@ -140,9 +140,9 @@ public class SalesOrderService {
             String remark,
             List<SalesOrderItem> items
     ) {
-        var currentAdmin = SecurityUtils.requireCurrentAdmin();
-        var operator = adminUserRepository.findById(currentAdmin.id())
-                .orElseThrow(() -> BusinessException.unauthorized("当前管理员不存在"));
+        var currentSysUser = SecurityUtils.requireCurrentSysUser();
+        var operator = sysUserRepository.findById(currentSysUser.id())
+                .orElseThrow(() -> BusinessException.unauthorized("当前用户不存在"));
         SalesOrder order = SalesOrder.create(
                 generateOrderNo(),
                 channel,
@@ -155,7 +155,7 @@ public class SalesOrderService {
                 normalizeOptional(customerPhone),
                 normalizeOptional(customerAddress),
                 operator,
-                currentAdmin.username(),
+                currentSysUser.username(),
                 normalizeOptional(remark)
         );
         order.replaceItems(items);
@@ -269,6 +269,8 @@ public class SalesOrderService {
                     StockRecordSubType.SALES,
                     outboundQuantity,
                     order.getId(),
+                    item.getUnitPrice(),
+                    null,
                     batch.getId(),
                     order.getOrderNo(),
                     null,

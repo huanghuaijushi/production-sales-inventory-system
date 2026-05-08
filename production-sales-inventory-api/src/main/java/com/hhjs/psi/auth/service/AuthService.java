@@ -1,14 +1,14 @@
 package com.hhjs.psi.auth.service;
 
-import com.hhjs.psi.auth.dto.AdminLoginRequest;
-import com.hhjs.psi.auth.dto.AdminProfileResponse;
-import com.hhjs.psi.auth.dto.AdminRegisterRequest;
 import com.hhjs.psi.auth.dto.AuthStatusResponse;
 import com.hhjs.psi.auth.dto.AuthTokenResponse;
-import com.hhjs.psi.auth.entity.AdminUser;
+import com.hhjs.psi.auth.dto.SysUserLoginRequest;
+import com.hhjs.psi.auth.dto.SysUserProfileResponse;
+import com.hhjs.psi.auth.dto.SysUserRegisterRequest;
 import com.hhjs.psi.auth.entity.Role;
-import com.hhjs.psi.auth.repository.AdminUserRepository;
+import com.hhjs.psi.auth.entity.SysUser;
 import com.hhjs.psi.auth.repository.RoleRepository;
+import com.hhjs.psi.auth.repository.SysUserRepository;
 import com.hhjs.psi.auth.security.GeneratedToken;
 import com.hhjs.psi.auth.security.JwtTokenClaims;
 import com.hhjs.psi.auth.security.JwtTokenProvider;
@@ -32,20 +32,20 @@ public class AuthService {
     private static final String BOOTSTRAP_ROLE_CODE = "SUPER_ADMIN";
     private static final Pattern PASSWORD_PATTERN = Pattern.compile("^(?=.*[A-Za-z])(?=.*\\d).+$");
 
-    private final AdminUserRepository adminUserRepository;
+    private final SysUserRepository sysUserRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final TokenBlacklistService tokenBlacklistService;
 
     public AuthService(
-            AdminUserRepository adminUserRepository,
+            SysUserRepository sysUserRepository,
             RoleRepository roleRepository,
             PasswordEncoder passwordEncoder,
             JwtTokenProvider jwtTokenProvider,
             TokenBlacklistService tokenBlacklistService
     ) {
-        this.adminUserRepository = adminUserRepository;
+        this.sysUserRepository = sysUserRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
@@ -53,63 +53,63 @@ public class AuthService {
     }
 
     @Transactional
-    public AdminProfileResponse register(AdminRegisterRequest request) {
+    public SysUserProfileResponse register(SysUserRegisterRequest request) {
         String username = normalizeUsername(request.username());
         validatePasswordStrength(request.password());
 
-        if (adminUserRepository.existsByUsername(username)) {
+        if (sysUserRepository.existsByUsername(username)) {
             throw BusinessException.conflict("Username already exists");
         }
-        if (adminUserRepository.count() > 0) {
+        if (sysUserRepository.count() > 0) {
             throw BusinessException.forbidden("System has been initialized. Please create administrators from user management.");
         }
 
-        AdminUser adminUser = AdminUser.create(
+        SysUser sysUser = SysUser.create(
                 username,
                 passwordEncoder.encode(request.password()),
                 request.nickname().trim()
         );
         Role bootstrapRole = roleRepository.findByCodeWithPermissions(BOOTSTRAP_ROLE_CODE)
                 .orElseThrow(() -> new IllegalStateException("Default role SUPER_ADMIN is missing"));
-        adminUser.addRole(bootstrapRole);
-        return AdminProfileResponse.from(adminUserRepository.save(adminUser));
+        sysUser.addRole(bootstrapRole);
+        return SysUserProfileResponse.from(sysUserRepository.save(sysUser));
     }
 
     @Transactional
-    public AuthTokenResponse login(AdminLoginRequest request) {
+    public AuthTokenResponse login(SysUserLoginRequest request) {
         String username = normalizeUsername(request.username());
-        AdminUser adminUser = adminUserRepository.findByUsernameWithRoles(username)
+        SysUser sysUser = sysUserRepository.findByUsernameWithRoles(username)
                 .orElseThrow(() -> BusinessException.unauthorized("Invalid username or password"));
 
-        if (!adminUser.isActive()) {
+        if (!sysUser.isActive()) {
             throw BusinessException.forbidden("Admin account is disabled");
         }
-        if (!passwordEncoder.matches(request.password(), adminUser.getPasswordHash())) {
+        if (!passwordEncoder.matches(request.password(), sysUser.getPasswordHash())) {
             throw BusinessException.unauthorized("Invalid username or password");
         }
 
-        adminUser.recordLogin(Instant.now());
-        GeneratedToken generatedToken = jwtTokenProvider.generateToken(adminUser);
+        sysUser.recordLogin(Instant.now());
+        GeneratedToken generatedToken = jwtTokenProvider.generateToken(sysUser);
         return AuthTokenResponse.bearer(
                 generatedToken.value(),
                 generatedToken.expiresInSeconds(),
-                AdminProfileResponse.from(adminUser)
+                SysUserProfileResponse.from(sysUser)
         );
     }
 
     @Transactional(readOnly = true)
-    public AdminProfileResponse currentAdmin() {
-        Long adminId = SecurityUtils.requireCurrentAdmin().id();
-        AdminUser adminUser = loadActiveAdmin(adminId);
-        return AdminProfileResponse.from(adminUser);
+    public SysUserProfileResponse currentSysUser() {
+        Long sysUserId = SecurityUtils.requireCurrentSysUser().id();
+        SysUser sysUser = loadActiveSysUser(sysUserId);
+        return SysUserProfileResponse.from(sysUser);
     }
 
     @Transactional(readOnly = true)
     public AuthStatusResponse status() {
-        return SecurityUtils.currentAdmin()
-                .flatMap(authenticatedAdmin -> adminUserRepository.findByIdWithRoles(authenticatedAdmin.id()))
-                .filter(AdminUser::isActive)
-                .map(AdminProfileResponse::from)
+        return SecurityUtils.currentSysUser()
+                .flatMap(authenticatedSysUser -> sysUserRepository.findByIdWithRoles(authenticatedSysUser.id()))
+                .filter(SysUser::isActive)
+                .map(SysUserProfileResponse::from)
                 .map(AuthStatusResponse::authenticated)
                 .orElseGet(AuthStatusResponse::anonymous);
     }
@@ -121,13 +121,13 @@ public class AuthService {
         tokenBlacklistService.blacklist(claims.jti(), claims.expiresAt());
     }
 
-    private AdminUser loadActiveAdmin(Long adminId) {
-        AdminUser adminUser = adminUserRepository.findByIdWithRoles(adminId)
+    private SysUser loadActiveSysUser(Long sysUserId) {
+        SysUser sysUser = sysUserRepository.findByIdWithRoles(sysUserId)
                 .orElseThrow(() -> BusinessException.unauthorized("Authentication required"));
-        if (!adminUser.isActive()) {
+        if (!sysUser.isActive()) {
             throw BusinessException.forbidden("Admin account is disabled");
         }
-        return adminUser;
+        return sysUser;
     }
 
     private String normalizeUsername(String username) {

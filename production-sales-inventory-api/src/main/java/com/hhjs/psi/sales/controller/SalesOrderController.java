@@ -6,6 +6,7 @@ import com.hhjs.psi.sales.dto.SalesOrderRequest;
 import com.hhjs.psi.sales.dto.SalesOrderResponse;
 import com.hhjs.psi.sales.service.SalesOrderService;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,6 +26,7 @@ public class SalesOrderController {
         this.salesOrderService = salesOrderService;
     }
 
+    @PreAuthorize("hasAuthority('*') or hasAuthority('sales:view')")
     @GetMapping
     public ApiResponse<PageResponse<SalesOrderResponse>> getOrders(
             @RequestParam(defaultValue = "0") int page,
@@ -35,26 +37,31 @@ public class SalesOrderController {
         return ApiResponse.ok(PageResponse.from(salesOrderService.getOrders(page, size, query, status)));
     }
 
+    @PreAuthorize("hasAuthority('*') or hasAuthority('sales:create')")
     @PostMapping
     public ApiResponse<SalesOrderResponse> createOrder(@Valid @RequestBody SalesOrderRequest request) {
         return ApiResponse.ok(salesOrderService.createOrder(request));
     }
 
+    @PreAuthorize("hasAuthority('*') or hasAuthority('sales:update')")
     @PutMapping("/{orderId}")
     public ApiResponse<SalesOrderResponse> updateOrder(@PathVariable Long orderId, @Valid @RequestBody SalesOrderRequest request) {
         return ApiResponse.ok(salesOrderService.updateOrder(orderId, request));
     }
 
+    @PreAuthorize("hasAuthority('*') or hasAuthority('sales:ship')")
     @PostMapping("/{orderId}/ship")
     public ApiResponse<SalesOrderResponse> shipOrder(@PathVariable Long orderId) {
         return ApiResponse.ok(salesOrderService.shipOrder(orderId));
     }
 
+    @PreAuthorize("hasAuthority('*') or hasAuthority('sales:complete')")
     @PostMapping("/{orderId}/complete")
     public ApiResponse<SalesOrderResponse> completeOrder(@PathVariable Long orderId) {
         return ApiResponse.ok(salesOrderService.completeOrder(orderId));
     }
 
+    @PreAuthorize("hasAuthority('*') or hasAuthority('sales:cancel')")
     @PostMapping("/{orderId}/cancel")
     public ApiResponse<SalesOrderResponse> cancelOrder(@PathVariable Long orderId) {
         return ApiResponse.ok(salesOrderService.cancelOrder(orderId));

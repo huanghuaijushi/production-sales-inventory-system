@@ -1,10 +1,10 @@
 package com.hhjs.psi.auth.controller;
 
-import com.hhjs.psi.auth.dto.AdminLoginRequest;
-import com.hhjs.psi.auth.dto.AdminProfileResponse;
-import com.hhjs.psi.auth.dto.AdminRegisterRequest;
 import com.hhjs.psi.auth.dto.AuthStatusResponse;
 import com.hhjs.psi.auth.dto.AuthTokenResponse;
+import com.hhjs.psi.auth.dto.SysUserLoginRequest;
+import com.hhjs.psi.auth.dto.SysUserProfileResponse;
+import com.hhjs.psi.auth.dto.SysUserRegisterRequest;
 import com.hhjs.psi.auth.service.AuthService;
 import com.hhjs.psi.common.dto.ApiResponse;
 import jakarta.validation.Valid;
@@ -27,18 +27,18 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ApiResponse<AdminProfileResponse> register(@Valid @RequestBody AdminRegisterRequest request) {
+    public ApiResponse<SysUserProfileResponse> register(@Valid @RequestBody SysUserRegisterRequest request) {
         return ApiResponse.ok(authService.register(request));
     }
 
     @PostMapping("/login")
-    public ApiResponse<AuthTokenResponse> login(@Valid @RequestBody AdminLoginRequest request) {
+    public ApiResponse<AuthTokenResponse> login(@Valid @RequestBody SysUserLoginRequest request) {
         return ApiResponse.ok(authService.login(request));
     }
 
     @GetMapping("/me")
-    public ApiResponse<AdminProfileResponse> me() {
-        return ApiResponse.ok(authService.currentAdmin());
+    public ApiResponse<SysUserProfileResponse> me() {
+        return ApiResponse.ok(authService.currentSysUser());
     }
 
     @GetMapping("/status")

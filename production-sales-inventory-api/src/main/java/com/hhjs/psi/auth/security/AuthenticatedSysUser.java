@@ -8,7 +8,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Stream;
 
-public record AuthenticatedAdmin(
+public record AuthenticatedSysUser(
         Long id,
         String username,
         List<String> roles,

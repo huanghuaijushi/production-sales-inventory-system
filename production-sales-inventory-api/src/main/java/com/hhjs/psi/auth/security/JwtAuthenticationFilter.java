@@ -1,7 +1,7 @@
 package com.hhjs.psi.auth.security;
 
-import com.hhjs.psi.auth.entity.AdminUser;
-import com.hhjs.psi.auth.repository.AdminUserRepository;
+import com.hhjs.psi.auth.entity.SysUser;
+import com.hhjs.psi.auth.repository.SysUserRepository;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -27,16 +27,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final TokenBlacklistService tokenBlacklistService;
-    private final AdminUserRepository adminUserRepository;
+    private final SysUserRepository sysUserRepository;
 
     public JwtAuthenticationFilter(
             JwtTokenProvider jwtTokenProvider,
             TokenBlacklistService tokenBlacklistService,
-            AdminUserRepository adminUserRepository
+            SysUserRepository sysUserRepository
     ) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.tokenBlacklistService = tokenBlacklistService;
-        this.adminUserRepository = adminUserRepository;
+        this.sysUserRepository = sysUserRepository;
     }
 
     @Override
@@ -59,22 +59,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            Optional<AdminUser> optionalAdminUser = adminUserRepository.findByIdWithRoles(claims.adminId());
-            if (optionalAdminUser.isEmpty()) {
+            Optional<SysUser> optionalSysUser = sysUserRepository.findByIdWithRoles(claims.adminId());
+            if (optionalSysUser.isEmpty()) {
                 return;
             }
 
-            AdminUser adminUser = optionalAdminUser.get();
-            if (!isTokenUsable(adminUser, claims)) {
+            SysUser sysUser = optionalSysUser.get();
+            if (!isTokenUsable(sysUser, claims)) {
                 return;
             }
 
-            AuthenticatedAdmin principal = new AuthenticatedAdmin(
-                    adminUser.getId(),
-                    adminUser.getUsername(),
-                    List.copyOf(adminUser.getRoleCodes()),
-                    List.copyOf(adminUser.getPermissionCodes()),
-                    adminUser.getTokenVersion()
+            AuthenticatedSysUser principal = new AuthenticatedSysUser(
+                    sysUser.getId(),
+                    sysUser.getUsername(),
+                    List.copyOf(sysUser.getRoleCodes()),
+                    List.copyOf(sysUser.getPermissionCodes()),
+                    sysUser.getTokenVersion()
             );
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                     principal,
@@ -89,11 +89,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
     }
 
-    private boolean isTokenUsable(AdminUser adminUser, JwtTokenClaims claims) {
-        return adminUser.isActive()
-                && adminUser.getUsername().equals(claims.username())
-                && adminUser.getTokenVersion() != null
-                && adminUser.getTokenVersion() == claims.tokenVersion();
+    private boolean isTokenUsable(SysUser sysUser, JwtTokenClaims claims) {
+        return sysUser.isActive()
+                && sysUser.getUsername().equals(claims.username())
+                && sysUser.getTokenVersion() != null
+                && sysUser.getTokenVersion() == claims.tokenVersion();
     }
 
     private String resolveToken(HttpServletRequest request) {

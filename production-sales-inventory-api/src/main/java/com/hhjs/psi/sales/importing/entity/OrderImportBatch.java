@@ -1,6 +1,6 @@
 package com.hhjs.psi.sales.importing.entity;
 
-import com.hhjs.psi.auth.entity.AdminUser;
+import com.hhjs.psi.auth.entity.SysUser;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -63,7 +63,7 @@ public class OrderImportBatch {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "operator_id", nullable = false)
-    private AdminUser operator;
+    private SysUser operator;
 
     @Column(name = "operator_name", nullable = false, length = 80)
     private String operatorName;
@@ -79,7 +79,7 @@ public class OrderImportBatch {
     protected OrderImportBatch() {
     }
 
-    public static OrderImportBatch create(String batchNo, SalesChannelConfig channel, ImportSourceType sourceType, String fileName, String rawText, AdminUser operator, String operatorName) {
+    public static OrderImportBatch create(String batchNo, SalesChannelConfig channel, ImportSourceType sourceType, String fileName, String rawText, SysUser operator, String operatorName) {
         OrderImportBatch batch = new OrderImportBatch();
         batch.batchNo = batchNo;
         batch.channel = channel;
@@ -120,7 +120,7 @@ public class OrderImportBatch {
     public Integer getConvertedCount() { return convertedCount; }
     public Integer getErrorCount() { return errorCount; }
     public ImportBatchStatus getStatus() { return status; }
-    public AdminUser getOperator() { return operator; }
+    public SysUser getOperator() { return operator; }
     public String getOperatorName() { return operatorName; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

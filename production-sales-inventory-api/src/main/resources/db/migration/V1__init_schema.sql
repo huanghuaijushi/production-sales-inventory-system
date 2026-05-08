@@ -9,10 +9,10 @@
 /*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
 /*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
-DROP TABLE IF EXISTS `admin_user`;
+DROP TABLE IF EXISTS `sys_user`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `admin_user` (
+CREATE TABLE `sys_user` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `username` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   `password_hash` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -24,25 +24,25 @@ CREATE TABLE `admin_user` (
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_admin_user_username` (`username`),
-  KEY `idx_admin_user_status` (`status`),
-  KEY `idx_admin_user_created_at` (`created_at`),
-  CONSTRAINT `ck_admin_user_role` CHECK ((`role` = _utf8mb4'ADMIN')),
-  CONSTRAINT `ck_admin_user_status` CHECK ((`status` in (_utf8mb4'ACTIVE',_utf8mb4'DISABLED'))),
-  CONSTRAINT `ck_admin_user_token_version` CHECK ((`token_version` >= 0))
+  UNIQUE KEY `uk_sys_user_username` (`username`),
+  KEY `idx_sys_user_status` (`status`),
+  KEY `idx_sys_user_created_at` (`created_at`),
+  CONSTRAINT `ck_sys_user_role` CHECK ((`role` = _utf8mb4'ADMIN')),
+  CONSTRAINT `ck_sys_user_status` CHECK ((`status` in (_utf8mb4'ACTIVE',_utf8mb4'DISABLED'))),
+  CONSTRAINT `ck_sys_user_token_version` CHECK ((`token_version` >= 0))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `admin_user_role`;
+DROP TABLE IF EXISTS `sys_user_role`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `admin_user_role` (
-  `admin_user_id` bigint NOT NULL,
+CREATE TABLE `sys_user_role` (
+  `sys_user_id` bigint NOT NULL,
   `role_id` bigint NOT NULL,
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (`admin_user_id`,`role_id`),
-  KEY `idx_admin_user_role_role_id` (`role_id`),
-  CONSTRAINT `fk_admin_user_role_admin_user` FOREIGN KEY (`admin_user_id`) REFERENCES `admin_user` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_admin_user_role_role` FOREIGN KEY (`role_id`) REFERENCES `role` (`id`) ON DELETE RESTRICT
+  PRIMARY KEY (`sys_user_id`,`role_id`),
+  KEY `idx_sys_user_role_role_id` (`role_id`),
+  CONSTRAINT `fk_sys_user_role_sys_user` FOREIGN KEY (`sys_user_id`) REFERENCES `sys_user` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_sys_user_role_role` FOREIGN KEY (`role_id`) REFERENCES `role` (`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `bom_item`;
@@ -135,7 +135,8 @@ CREATE TABLE `production_material_issue` (
   KEY `idx_production_material_issue_order` (`production_order_id`),
   KEY `idx_production_material_issue_batch` (`stock_batch_id`),
   CONSTRAINT `fk_production_material_issue_batch` FOREIGN KEY (`stock_batch_id`) REFERENCES `stock_batch` (`id`) ON DELETE RESTRICT,
-  CONSTRAINT `fk_production_material_issue_operator` FOREIGN KEY (`operator_id`) REFERENCES `admin_user` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_production_material_issue_operator` FOREIGN KEY (`operator_id`) REFERENCES `sys_user` (`id`)
+ ON DELETE RESTRICT,
   CONSTRAINT `fk_production_material_issue_order` FOREIGN KEY (`production_order_id`) REFERENCES `production_order` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_production_material_issue_plan` FOREIGN KEY (`material_plan_id`) REFERENCES `production_material_plan` (`id`) ON DELETE RESTRICT,
   CONSTRAINT `fk_production_material_issue_product` FOREIGN KEY (`material_product_id`) REFERENCES `product` (`id`) ON DELETE RESTRICT,
@@ -697,11 +698,60 @@ SET so.channel_id = sc.id,
 WHERE so.channel_id IS NULL;
 
 INSERT INTO `role` (code, name, description, enabled, sort_order)
-VALUES ('SUPER_ADMIN', '超级管理员', '系统默认超级管理员角色', 1, 0)
+VALUES
+  ('SUPER_ADMIN', '超级管理员', '系统默认超级管理员角色', 1, 0),
+  ('ADMIN', '管理员', '系统管理与业务管理角色', 1, 10),
+  ('WAREHOUSE', '仓库', '库存、入库、出库、批次管理角色', 1, 20),
+  ('FINANCE', '财务', '金额、成本、利润查看角色', 1, 30),
+  ('MANAGER', '主管', '全局业务查看与审核角色', 1, 40),
+  ('MERCHANDISER', '跟单', '销售跟单与订单协同角色', 1, 50),
+  ('PURCHASER', '采购', '采购与供应商管理角色', 1, 60),
+  ('SALES', '销售', '销售订单与客户管理角色', 1, 70),
+  ('PRODUCTION_MANAGER', '生产主管', '生产计划、领料、报工管理角色', 1, 80)
 ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description), enabled = VALUES(enabled), sort_order = VALUES(sort_order);
 
 INSERT INTO `permission` (code, name, module, description, enabled, sort_order)
-VALUES ('*', '全部权限', 'SYSTEM', '系统全部操作权限', 1, 0)
+VALUES
+  ('*', '全部权限', 'SYSTEM', '系统全部操作权限', 1, 0),
+  ('auth:user:view', '查看用户', 'SYSTEM', '查看系统用户信息', 1, 10),
+  ('auth:user:create', '新增用户', 'SYSTEM', '创建系统用户', 1, 20),
+  ('auth:user:update', '编辑用户', 'SYSTEM', '修改系统用户资料', 1, 30),
+  ('auth:user:disable', '禁用用户', 'SYSTEM', '禁用系统用户', 1, 40),
+  ('auth:role:view', '查看角色', 'SYSTEM', '查看角色信息', 1, 50),
+  ('auth:role:update', '编辑角色', 'SYSTEM', '维护角色与权限关系', 1, 60),
+  ('auth:permission:view', '查看权限', 'SYSTEM', '查看权限点', 1, 70),
+  ('product:view', '查看商品', 'PRODUCT', '查看商品资料', 1, 100),
+  ('product:create', '新增商品', 'PRODUCT', '新增商品资料', 1, 110),
+  ('product:update', '编辑商品', 'PRODUCT', '修改商品资料', 1, 120),
+  ('product:delete', '删除商品', 'PRODUCT', '删除商品资料', 1, 130),
+  ('stock:view', '查看库存', 'INVENTORY', '查看库存汇总', 1, 200),
+  ('stock:in', '库存入库', 'INVENTORY', '登记入库', 1, 210),
+  ('stock:out', '库存出库', 'INVENTORY', '登记出库', 1, 220),
+  ('stock:adjust', '库存调整', 'INVENTORY', '调整库存', 1, 230),
+  ('stock:record:view', '查看库存流水', 'INVENTORY', '查看出入库记录', 1, 240),
+  ('stock:batch:view', '查看批次库存', 'INVENTORY', '查看批次库存', 1, 250),
+  ('purchase:view', '查看采购', 'PURCHASE', '查看采购单', 1, 300),
+  ('purchase:create', '新增采购', 'PURCHASE', '创建采购单', 1, 310),
+  ('purchase:update', '编辑采购', 'PURCHASE', '修改采购单', 1, 320),
+  ('purchase:inbound', '采购入库', 'PURCHASE', '采购单入库', 1, 340),
+  ('purchase:cancel', '取消采购', 'PURCHASE', '取消采购单', 1, 350),
+  ('sales:view', '查看销售', 'SALES', '查看销售订单', 1, 400),
+  ('sales:create', '新增销售', 'SALES', '创建销售订单', 1, 410),
+  ('sales:update', '编辑销售', 'SALES', '修改销售订单', 1, 420),
+  ('sales:ship', '发货', 'SALES', '销售发货', 1, 430),
+  ('sales:complete', '完成销售', 'SALES', '销售订单完成确认', 1, 440),
+  ('sales:cancel', '取消销售', 'SALES', '取消销售订单', 1, 450),
+  ('sales:import', '导入销售', 'SALES', '导入外部订单', 1, 460),
+  ('production:view', '查看生产', 'PRODUCTION', '查看生产工单', 1, 500),
+  ('production:create', '新增生产', 'PRODUCTION', '创建生产工单', 1, 510),
+  ('production:start', '开始生产', 'PRODUCTION', '开始生产工单', 1, 520),
+  ('production:material-issue', '生产领料', 'PRODUCTION', '生产领料操作', 1, 530),
+  ('production:step-report', '工序报工', 'PRODUCTION', '提交工序报工', 1, 540),
+  ('production:inbound', '生产入库', 'PRODUCTION', '生产入库操作', 1, 550),
+  ('production:cancel', '取消生产', 'PRODUCTION', '取消生产工单', 1, 570),
+  ('finance:view-cost', '查看成本', 'FINANCE', '查看成本数据', 1, 600),
+  ('finance:view-profit', '查看利润', 'FINANCE', '查看利润', 1, 620),
+  ('dashboard:view', '查看看板', 'DASHBOARD', '查看经营看板', 1, 700)
 ON DUPLICATE KEY UPDATE name = VALUES(name), module = VALUES(module), description = VALUES(description), enabled = VALUES(enabled), sort_order = VALUES(sort_order);
 
 INSERT IGNORE INTO role_permission (role_id, permission_id)
@@ -709,4 +759,61 @@ SELECT r.id, p.id
 FROM `role` r
 JOIN `permission` p ON p.code = '*'
 WHERE r.code = 'SUPER_ADMIN';
+
+INSERT IGNORE INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+FROM `role` r
+JOIN `permission` p ON p.code IN (
+  'auth:user:view','auth:user:create','auth:user:update','auth:user:disable',
+  'auth:role:view','auth:role:update','auth:permission:view',
+  'product:view','product:create','product:update','product:delete',
+  'stock:view','stock:in','stock:out','stock:adjust','stock:record:view','stock:batch:view',
+  'purchase:view','purchase:create','purchase:update','purchase:inbound','purchase:cancel',
+  'sales:view','sales:create','sales:update','sales:ship','sales:complete','sales:cancel','sales:import',
+  'production:view','production:create','production:start','production:material-issue','production:step-report','production:inbound','production:cancel',
+  'finance:view-cost','finance:view-profit','dashboard:view'
+)
+WHERE r.code = 'ADMIN';
+
+INSERT IGNORE INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+FROM `role` r
+JOIN `permission` p ON p.code IN ('stock:view','stock:in','stock:out','stock:adjust','stock:record:view','stock:batch:view','product:view')
+WHERE r.code = 'WAREHOUSE';
+
+INSERT IGNORE INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+FROM `role` r
+JOIN `permission` p ON p.code IN ('finance:view-cost','finance:view-profit','stock:view','sales:view','purchase:view','production:view','dashboard:view')
+WHERE r.code = 'FINANCE';
+
+INSERT IGNORE INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+FROM `role` r
+JOIN `permission` p ON p.code IN ('dashboard:view','product:view','stock:view','purchase:view','sales:view','production:view','finance:view-cost','finance:view-profit')
+WHERE r.code = 'MANAGER';
+
+INSERT IGNORE INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+FROM `role` r
+JOIN `permission` p ON p.code IN ('sales:view','sales:create','sales:update','sales:import','sales:ship','sales:complete','sales:cancel','dashboard:view')
+WHERE r.code = 'MERCHANDISER';
+
+INSERT IGNORE INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+FROM `role` r
+JOIN `permission` p ON p.code IN ('purchase:view','purchase:create','purchase:update','purchase:inbound','purchase:cancel','stock:view','stock:batch:view','dashboard:view')
+WHERE r.code = 'PURCHASER';
+
+INSERT IGNORE INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+FROM `role` r
+JOIN `permission` p ON p.code IN ('sales:view','sales:create','sales:update','sales:ship','sales:complete','sales:cancel','sales:import','purchase:view','dashboard:view')
+WHERE r.code = 'SALES';
+
+INSERT IGNORE INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+FROM `role` r
+JOIN `permission` p ON p.code IN ('production:view','production:create','production:start','production:material-issue','production:step-report','production:inbound','production:cancel','stock:view','stock:record:view','dashboard:view')
+WHERE r.code = 'PRODUCTION_MANAGER';
 

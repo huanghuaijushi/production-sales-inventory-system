@@ -1,12 +1,12 @@
-export type AdminStatus = 'ACTIVE' | 'DISABLED'
+export type SysUserStatus = 'ACTIVE' | 'DISABLED'
 
-export interface AdminProfile {
+export interface SysUserProfile {
   id: number
   username: string
   nickname: string
   roles: string[]
   permissions: string[]
-  status: AdminStatus
+  status: SysUserStatus
   lastLoginAt?: string
   createdAt: string
 }
@@ -26,10 +26,10 @@ export interface AuthTokenResponse {
   tokenType: 'Bearer'
   accessToken: string
   expiresIn: number
-  admin: AdminProfile
+  sysUser: SysUserProfile
 }
 
 export interface AuthStatusResponse {
   authenticated: boolean
-  admin?: AdminProfile
+  sysUser?: SysUserProfile
 }

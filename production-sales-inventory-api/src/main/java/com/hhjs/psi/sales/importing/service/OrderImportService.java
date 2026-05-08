@@ -1,6 +1,6 @@
 package com.hhjs.psi.sales.importing.service;
 
-import com.hhjs.psi.auth.repository.AdminUserRepository;
+import com.hhjs.psi.auth.repository.SysUserRepository;
 import com.hhjs.psi.auth.security.SecurityUtils;
 import com.hhjs.psi.common.exception.BusinessException;
 import com.hhjs.psi.sales.entity.SalesChannel;
@@ -46,7 +46,7 @@ public class OrderImportService {
     private final ExternalOrderRawRepository externalOrderRepository;
     private final SalesChannelConfigRepository channelRepository;
     private final ChannelProductMappingRepository mappingRepository;
-    private final AdminUserRepository adminUserRepository;
+    private final SysUserRepository sysUserRepository;
     private final SalesOrderService salesOrderService;
     private final TextOrderParser textOrderParser = new TextOrderParser();
 
@@ -55,14 +55,14 @@ public class OrderImportService {
             ExternalOrderRawRepository externalOrderRepository,
             SalesChannelConfigRepository channelRepository,
             ChannelProductMappingRepository mappingRepository,
-            AdminUserRepository adminUserRepository,
+            SysUserRepository sysUserRepository,
             SalesOrderService salesOrderService
     ) {
         this.batchRepository = batchRepository;
         this.externalOrderRepository = externalOrderRepository;
         this.channelRepository = channelRepository;
         this.mappingRepository = mappingRepository;
-        this.adminUserRepository = adminUserRepository;
+        this.sysUserRepository = sysUserRepository;
         this.salesOrderService = salesOrderService;
     }
 
@@ -311,9 +311,9 @@ public class OrderImportService {
     }
 
     private OrderImportBatch createBatch(SalesChannelConfig channel, ImportSourceType sourceType, String fileName, String rawText) {
-        var currentAdmin = SecurityUtils.requireCurrentAdmin();
-        var operator = adminUserRepository.findById(currentAdmin.id()).orElseThrow(() -> BusinessException.unauthorized("当前管理员不存在"));
-        return batchRepository.save(OrderImportBatch.create(generateBatchNo(), channel, sourceType, fileName, rawText, operator, currentAdmin.username()));
+        var currentSysUser = SecurityUtils.requireCurrentSysUser();
+        var operator = sysUserRepository.findById(currentSysUser.id()).orElseThrow(() -> BusinessException.unauthorized("当前用户不存在"));
+        return batchRepository.save(OrderImportBatch.create(generateBatchNo(), channel, sourceType, fileName, rawText, operator, currentSysUser.username()));
     }
 
     private OrderImportBatch findBatch(Long batchId) {

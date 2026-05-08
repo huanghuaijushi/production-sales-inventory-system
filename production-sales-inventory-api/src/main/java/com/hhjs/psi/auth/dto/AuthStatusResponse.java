@@ -5,14 +5,14 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record AuthStatusResponse(
         boolean authenticated,
-        AdminProfileResponse admin
+        SysUserProfileResponse sysUser
 ) {
 
     public static AuthStatusResponse anonymous() {
         return new AuthStatusResponse(false, null);
     }
 
-    public static AuthStatusResponse authenticated(AdminProfileResponse admin) {
-        return new AuthStatusResponse(true, admin);
+    public static AuthStatusResponse authenticated(SysUserProfileResponse sysUser) {
+        return new AuthStatusResponse(true, sysUser);
     }
 }

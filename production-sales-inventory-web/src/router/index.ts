@@ -10,7 +10,9 @@ import SupplierManagementView from '@/views/SupplierManagementView.vue'
 import ProductionPlanView from '@/views/ProductionPlanView.vue'
 import ProductionConfigView from '@/views/ProductionConfigView.vue'
 import SalesManagementView from '@/views/SalesManagementView.vue'
-import UserManagementView from '@/views/UserManagementView.vue'
+import SysUserManagementView from '@/views/SysUserManagementView.vue'
+import RoleManagementView from '@/views/RoleManagementView.vue'
+import PermissionManagementView from '@/views/PermissionManagementView.vue'
 import LoginView from '@/views/LoginView.vue'
 import RegisterView from '@/views/RegisterView.vue'
 
@@ -85,9 +87,19 @@ const router = createRouter({
           component: SalesManagementView
         },
         {
-          path: 'users',
-          name: 'users',
-          component: UserManagementView
+          path: 'sys-users',
+          name: 'sys-users',
+          component: SysUserManagementView
+        },
+        {
+          path: 'roles',
+          name: 'roles',
+          component: RoleManagementView
+        },
+        {
+          path: 'permissions',
+          name: 'permissions',
+          component: PermissionManagementView
         }
       ]
     }
