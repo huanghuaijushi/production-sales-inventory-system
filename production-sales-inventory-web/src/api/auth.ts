@@ -31,10 +31,6 @@ export function getAuthStatusApi() {
   return request<AuthStatusResponse>('/auth/status')
 }
 
-export function getCurrentSysUserApi() {
-  return request<SysUserProfile>('/auth/me')
-}
-
 export function logoutApi() {
   return request<void>('/auth/logout', {
     method: 'POST'

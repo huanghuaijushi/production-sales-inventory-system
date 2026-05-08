@@ -190,7 +190,7 @@ CREATE TABLE `production_order` (
   KEY `idx_production_order_product` (`product_id`),
   KEY `idx_production_order_status` (`status`),
   KEY `idx_production_order_created_at` (`created_at`),
-  CONSTRAINT `fk_production_order_operator` FOREIGN KEY (`operator_id`) REFERENCES `admin_user` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_production_order_operator` FOREIGN KEY (`operator_id`) REFERENCES `sys_user` (`id`) ON DELETE RESTRICT,
   CONSTRAINT `fk_production_order_product` FOREIGN KEY (`product_id`) REFERENCES `product` (`id`) ON DELETE RESTRICT,
   CONSTRAINT `ck_production_order_status` CHECK ((`status` in (_utf8mb4'PLANNED',_utf8mb4'IN_PROGRESS',_utf8mb4'WAIT_INBOUND',_utf8mb4'COMPLETED',_utf8mb4'CANCELLED'))),
   CONSTRAINT `ck_production_order_step` CHECK (((`current_step` is null) or (`current_step` in (_utf8mb4'PREPARATION',_utf8mb4'WRAPPING',_utf8mb4'COOKING',_utf8mb4'PACKAGING',_utf8mb4'STERILIZATION',_utf8mb4'BOXING'))))
@@ -213,7 +213,7 @@ CREATE TABLE `production_step_record` (
   KEY `fk_production_step_record_operator` (`operator_id`),
   KEY `idx_production_step_record_order` (`production_order_id`),
   KEY `idx_production_step_record_created_at` (`created_at`),
-  CONSTRAINT `fk_production_step_record_operator` FOREIGN KEY (`operator_id`) REFERENCES `admin_user` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_production_step_record_operator` FOREIGN KEY (`operator_id`) REFERENCES `sys_user` (`id`) ON DELETE RESTRICT,
   CONSTRAINT `fk_production_step_record_order` FOREIGN KEY (`production_order_id`) REFERENCES `production_order` (`id`) ON DELETE CASCADE,
   CONSTRAINT `ck_production_step_type` CHECK ((`step_type` in (_utf8mb4'PREPARATION',_utf8mb4'WRAPPING',_utf8mb4'COOKING',_utf8mb4'PACKAGING',_utf8mb4'STERILIZATION',_utf8mb4'BOXING')))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='生产工序记录表';
@@ -240,7 +240,7 @@ CREATE TABLE `purchase_order` (
   KEY `idx_purchase_order_supplier` (`supplier_id`),
   KEY `idx_purchase_order_status` (`status`),
   KEY `idx_purchase_order_created_at` (`created_at`),
-  CONSTRAINT `fk_purchase_order_operator` FOREIGN KEY (`operator_id`) REFERENCES `admin_user` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_purchase_order_operator` FOREIGN KEY (`operator_id`) REFERENCES `sys_user` (`id`) ON DELETE RESTRICT,
   CONSTRAINT `fk_purchase_order_supplier` FOREIGN KEY (`supplier_id`) REFERENCES `supplier` (`id`) ON DELETE RESTRICT,
   CONSTRAINT `ck_purchase_order_status` CHECK ((`status` in (_utf8mb4'DRAFT',_utf8mb4'PENDING_INBOUND',_utf8mb4'INBOUNDED',_utf8mb4'CANCELLED')))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='采购单表';
@@ -325,7 +325,7 @@ CREATE TABLE `sales_order` (
   KEY `idx_sales_order_status` (`status`),
   KEY `idx_sales_order_date` (`order_date`),
   KEY `idx_sales_order_status_order_date` (`status`,`order_date`),
-  CONSTRAINT `fk_sales_order_operator` FOREIGN KEY (`operator_id`) REFERENCES `admin_user` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_sales_order_operator` FOREIGN KEY (`operator_id`) REFERENCES `sys_user` (`id`) ON DELETE RESTRICT,
   CONSTRAINT `ck_sales_order_channel` CHECK ((`channel` in (_utf8mb4'DOUYIN',_utf8mb4'PINDUODUO',_utf8mb4'OFFLINE'))),
   CONSTRAINT `ck_sales_order_status` CHECK ((`status` in (_utf8mb4'PENDING',_utf8mb4'SHIPPED',_utf8mb4'COMPLETED',_utf8mb4'CANCELLED')))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='销售订单表';
@@ -438,7 +438,7 @@ CREATE TABLE `stock_record` (
   KEY `idx_stock_record_product_created` (`product_id`,`created_at`),
   KEY `idx_stock_record_related_order` (`related_order_type`,`related_order_id`),
   CONSTRAINT `fk_stock_record_batch` FOREIGN KEY (`batch_id`) REFERENCES `stock_batch` (`id`) ON DELETE RESTRICT,
-  CONSTRAINT `fk_stock_record_operator` FOREIGN KEY (`operator_id`) REFERENCES `admin_user` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_stock_record_operator` FOREIGN KEY (`operator_id`) REFERENCES `sys_user` (`id`) ON DELETE RESTRICT,
   CONSTRAINT `fk_stock_record_product` FOREIGN KEY (`product_id`) REFERENCES `product` (`id`) ON DELETE RESTRICT,
   CONSTRAINT `ck_stock_record_sub_type` CHECK ((`sub_type` in (_utf8mb4'PRODUCTION',_utf8mb4'PURCHASE',_utf8mb4'SALES',_utf8mb4'PRODUCTION_USAGE',_utf8mb4'PRODUCTION_LOSS',_utf8mb4'PACKAGING_LOSS',_utf8mb4'SHIPPING_LOSS',_utf8mb4'INVENTORY'))),
   CONSTRAINT `ck_stock_record_type` CHECK ((`type` in (_utf8mb4'IN',_utf8mb4'OUT',_utf8mb4'ADJUST')))
@@ -567,7 +567,7 @@ CREATE TABLE IF NOT EXISTS `order_import_batch` (
   KEY `idx_order_import_batch_status` (`status`),
   KEY `idx_order_import_batch_created_at` (`created_at`),
   CONSTRAINT `fk_order_import_batch_channel` FOREIGN KEY (`channel_id`) REFERENCES `sales_channel_config` (`id`) ON DELETE RESTRICT,
-  CONSTRAINT `fk_order_import_batch_operator` FOREIGN KEY (`operator_id`) REFERENCES `admin_user` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_order_import_batch_operator` FOREIGN KEY (`operator_id`) REFERENCES `sys_user` (`id`) ON DELETE RESTRICT,
   CONSTRAINT `ck_order_import_batch_source_type` CHECK ((`source_type` in (_utf8mb4'EXCEL',_utf8mb4'TEXT',_utf8mb4'MANUAL',_utf8mb4'CONTRACT',_utf8mb4'API'))),
   CONSTRAINT `ck_order_import_batch_status` CHECK ((`status` in (_utf8mb4'DRAFT',_utf8mb4'PARSED',_utf8mb4'CONFIRMED',_utf8mb4'CANCELLED')))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='订单导入批次表';
