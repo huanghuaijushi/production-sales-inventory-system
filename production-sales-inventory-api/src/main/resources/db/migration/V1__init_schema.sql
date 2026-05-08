@@ -817,3 +817,18 @@ FROM `role` r
 JOIN `permission` p ON p.code IN ('production:view','production:create','production:start','production:material-issue','production:step-report','production:inbound','production:cancel','stock:view','stock:record:view','dashboard:view')
 WHERE r.code = 'PRODUCTION_MANAGER';
 
+INSERT INTO `sys_user` (username, password_hash, nickname, role, status, token_version, last_login_at)
+VALUES ('admin', '$2y$10$E7UdBJXyP4cqkPOsCBvxm.YuFhlyUlJXBOMHIZsIUgy3iAiBmOZFa', '系统管理员', 'ADMIN', 'ACTIVE', 0, NULL)
+ON DUPLICATE KEY UPDATE
+  password_hash = VALUES(password_hash),
+  nickname = VALUES(nickname),
+  role = VALUES(role),
+  status = VALUES(status),
+  token_version = VALUES(token_version);
+
+INSERT IGNORE INTO `sys_user_role` (sys_user_id, role_id)
+SELECT su.id, r.id
+FROM `sys_user` su
+JOIN `role` r ON r.code = 'SUPER_ADMIN'
+WHERE su.username = 'admin';
+

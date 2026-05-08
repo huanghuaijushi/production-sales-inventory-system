@@ -1,8 +1,11 @@
 package com.hhjs.psi.auth.controller;
 
+import com.hhjs.psi.auth.dto.PermissionOptionResponse;
+import com.hhjs.psi.auth.dto.RoleOptionResponse;
 import com.hhjs.psi.auth.dto.SysUserCreateRequest;
 import com.hhjs.psi.auth.dto.SysUserPasswordResetRequest;
 import com.hhjs.psi.auth.dto.SysUserProfileResponse;
+import com.hhjs.psi.auth.dto.UserRoleUpdateRequest;
 import com.hhjs.psi.auth.service.SysUserManagementService;
 import com.hhjs.psi.common.dto.ApiResponse;
 import jakarta.validation.Valid;
@@ -16,6 +19,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/sys-users")
@@ -37,10 +42,31 @@ public class SysUserManagementController {
         return ApiResponse.ok(sysUserManagementService.getUsers(page, size, query));
     }
 
+    @PreAuthorize("hasAuthority('*') or hasAuthority('auth:user:view')")
+    @GetMapping("/role-options")
+    public ApiResponse<List<RoleOptionResponse>> getRoleOptions() {
+        return ApiResponse.ok(sysUserManagementService.getRoleOptions());
+    }
+
+    @PreAuthorize("hasAuthority('*') or hasAuthority('auth:user:view')")
+    @GetMapping("/permission-options")
+    public ApiResponse<List<PermissionOptionResponse>> getPermissionOptions() {
+        return ApiResponse.ok(sysUserManagementService.getPermissionOptions());
+    }
+
     @PreAuthorize("hasAuthority('*') or hasAuthority('auth:user:create')")
     @PostMapping
     public ApiResponse<SysUserProfileResponse> createUser(@Valid @RequestBody SysUserCreateRequest request) {
         return ApiResponse.ok(sysUserManagementService.createUser(request));
+    }
+
+    @PreAuthorize("hasAuthority('*') or hasAuthority('auth:user:update')")
+    @PatchMapping("/{userId}/roles")
+    public ApiResponse<SysUserProfileResponse> updateUserRoles(
+            @PathVariable Long userId,
+            @Valid @RequestBody UserRoleUpdateRequest request
+    ) {
+        return ApiResponse.ok(sysUserManagementService.updateUserRoles(userId, request));
     }
 
     @PreAuthorize("hasAuthority('*') or hasAuthority('auth:user:update')")

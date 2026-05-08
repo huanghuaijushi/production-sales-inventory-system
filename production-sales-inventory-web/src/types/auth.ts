@@ -11,6 +11,36 @@ export interface SysUserProfile {
   createdAt: string
 }
 
+export interface RoleOption {
+  id: number
+  code: string
+  name: string
+  description?: string
+}
+
+export interface PermissionOption {
+  id: number
+  code: string
+  name: string
+  module: string
+  description?: string
+}
+
+export interface PermissionGroupResponse {
+  module: string
+  permissions: PermissionOption[]
+}
+
+export interface RoleDetailResponse {
+  id: number
+  code: string
+  name: string
+  description?: string
+  enabled: boolean
+  sortOrder: number
+  permissionCodes: string[]
+}
+
 export interface LoginRequest {
   username: string
   password: string

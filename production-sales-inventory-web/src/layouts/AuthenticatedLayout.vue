@@ -12,41 +12,15 @@
       </div>
 
       <nav class="sidebar-nav">
-        <RouterLink v-if="canAccess('dashboard:view')" to="/dashboard" class="nav-item" :class="{ active: isActive('dashboard') }">
-          <HomeIcon class="nav-icon" />
-          <span class="nav-text">控制台首页</span>
-        </RouterLink>
-        <RouterLink v-if="canAccessAny(['stock:view', 'stock:record:view', 'stock:batch:view'])" to="/inventory" class="nav-item" :class="{ active: isActive('inventory') }">
-          <CubeIcon class="nav-icon" />
-          <span class="nav-text">库存管理</span>
-        </RouterLink>
-        <RouterLink v-if="canAccess('product:view')" to="/products" class="nav-item" :class="{ active: isActive('products') }">
-          <TagIcon class="nav-icon" />
-          <span class="nav-text">产品管理</span>
-        </RouterLink>
-        <RouterLink v-if="canAccess('purchase:view')" to="/purchase" class="nav-item" :class="{ active: isActive('purchase') }">
-          <ShoppingCartIcon class="nav-icon" />
-          <span class="nav-text">采购管理</span>
-        </RouterLink>
-        <RouterLink v-if="canAccessAny(['purchase:view', 'product:view'])" to="/suppliers" class="nav-item" :class="{ active: isActive('suppliers') }">
-          <TruckIcon class="nav-icon" />
-          <span class="nav-text">供应商管理</span>
-        </RouterLink>
-        <RouterLink v-if="canAccess('production:view')" to="/production" class="nav-item" :class="{ active: isActive('production') }">
-          <ClipboardDocumentCheckIcon class="nav-icon" />
-          <span class="nav-text">生产计划</span>
-        </RouterLink>
-        <RouterLink v-if="canAccess('production:view')" to="/production-config" class="nav-item" :class="{ active: isActive('production-config') }">
-          <ClipboardDocumentListIcon class="nav-icon" />
-          <span class="nav-text">生产配置</span>
-        </RouterLink>
-        <RouterLink v-if="canAccess('sales:view')" to="/sales" class="nav-item" :class="{ active: isActive('sales') }">
-          <ChartBarIcon class="nav-icon" />
-          <span class="nav-text">销售管理</span>
-        </RouterLink>
-        <RouterLink v-if="canAccess('auth:user:view')" to="/sys-users" class="nav-item" :class="{ active: isActive('sys-users') }">
-          <UserGroupIcon class="nav-icon" />
-          <span class="nav-text">用户管理</span>
+        <RouterLink
+          v-for="item in visibleMenuItems"
+          :key="item.name"
+          :to="item.path"
+          class="nav-item"
+          :class="{ active: isActive(item.name) }"
+        >
+          <component :is="item.icon" class="nav-icon" />
+          <span class="nav-text">{{ item.title }}</span>
         </RouterLink>
       </nav>
 
@@ -159,7 +133,9 @@ import {
   ChartBarIcon,
   MagnifyingGlassIcon,
   ChevronDownIcon,
-  UserGroupIcon
+  UserGroupIcon,
+  ShieldCheckIcon,
+  LockClosedIcon
 } from '@heroicons/vue/24/outline'
 
 const authStore = useAuthStore()
@@ -174,34 +150,117 @@ const productResults = ref<Product[]>([])
 const stockResults = ref<StockItem[]>([])
 let searchTimer: number | undefined
 
+type MenuItem = {
+  name: string
+  path: string
+  title: string
+  icon: unknown
+  permissions: string[]
+  requireAll?: boolean
+  breadcrumb: {
+    main: string
+    sub: string
+  }
+}
+
+const menuItems: MenuItem[] = [
+  {
+    name: 'dashboard',
+    path: '/dashboard',
+    title: '控制台首页',
+    icon: HomeIcon,
+    permissions: ['dashboard:view'],
+    breadcrumb: { main: '控制台首页', sub: '实时概览' }
+  },
+  {
+    name: 'inventory',
+    path: '/inventory',
+    title: '库存管理',
+    icon: CubeIcon,
+    permissions: ['stock:view', 'stock:record:view', 'stock:batch:view'],
+    breadcrumb: { main: '库存管理', sub: '库存总览' }
+  },
+  {
+    name: 'products',
+    path: '/products',
+    title: '产品管理',
+    icon: TagIcon,
+    permissions: ['product:view'],
+    breadcrumb: { main: '产品管理', sub: '产品列表' }
+  },
+  {
+    name: 'purchase',
+    path: '/purchase',
+    title: '采购管理',
+    icon: ShoppingCartIcon,
+    permissions: ['purchase:view'],
+    breadcrumb: { main: '采购管理', sub: '手动采购' }
+  },
+  {
+    name: 'suppliers',
+    path: '/suppliers',
+    title: '供应商管理',
+    icon: TruckIcon,
+    permissions: ['supplier:view'],
+    breadcrumb: { main: '供应商管理', sub: '供货规则' }
+  },
+  {
+    name: 'production',
+    path: '/production',
+    title: '生产计划',
+    icon: ClipboardDocumentCheckIcon,
+    permissions: ['production:view'],
+    breadcrumb: { main: '生产管理', sub: '生产计划' }
+  },
+  {
+    name: 'production-config',
+    path: '/production-config',
+    title: '生产配置',
+    icon: ClipboardDocumentListIcon,
+    permissions: ['production:view'],
+    breadcrumb: { main: '生产配置', sub: '成品配方' }
+  },
+  {
+    name: 'sales',
+    path: '/sales',
+    title: '销售管理',
+    icon: ChartBarIcon,
+    permissions: ['sales:view'],
+    breadcrumb: { main: '销售管理', sub: '订单出库' }
+  },
+  {
+    name: 'sys-users',
+    path: '/sys-users',
+    title: '用户管理',
+    icon: UserGroupIcon,
+    permissions: ['auth:user:view'],
+    breadcrumb: { main: '系统设置', sub: '用户管理' }
+  },
+  {
+    name: 'roles',
+    path: '/roles',
+    title: '角色管理',
+    icon: ShieldCheckIcon,
+    permissions: ['auth:role:view'],
+    breadcrumb: { main: '系统设置', sub: '角色管理' }
+  },
+  {
+    name: 'permissions',
+    path: '/permissions',
+    title: '权限管理',
+    icon: LockClosedIcon,
+    permissions: ['auth:permission:view'],
+    breadcrumb: { main: '系统设置', sub: '权限管理' }
+  }
+]
+
 const hasSearchResults = computed(() => productResults.value.length > 0 || stockResults.value.length > 0)
 
+const visibleMenuItems = computed(() => menuItems.filter(canAccessMenuItem))
+
 const breadcrumb = computed(() => {
-  if (route.name === 'inventory') {
-    return { main: '库存管理', sub: '库存总览' }
-  }
-  if (route.name === 'products') {
-    return { main: '产品管理', sub: '产品列表' }
-  }
-  if (route.name === 'purchase') {
-    return { main: '采购管理', sub: '手动采购' }
-  }
-  if (route.name === 'suppliers') {
-    return { main: '供应商管理', sub: '供货规则' }
-  }
-  if (route.name === 'production-config') {
-    return { main: '生产配置', sub: '成品配方' }
-  }
-  if (route.name === 'production') {
-    return { main: '生产管理', sub: '生产计划' }
-  }
-  if (route.name === 'sales') {
-    return { main: '销售管理', sub: '订单出库' }
-  }
-  if (route.name === 'sys-users') {
-    return { main: '系统设置', sub: '用户管理' }
-  }
-  return { main: '控制台首页', sub: '实时概览' }
+  const matched = menuItems.find((item) => item.name === route.name)
+  return matched?.breadcrumb ?? { main: '控制台首页', sub: '实时概览' }
 })
 
 function canAccess(permission: string) {
@@ -210,6 +269,15 @@ function canAccess(permission: string) {
 
 function canAccessAny(permissions: string[]) {
   return authStore.hasAnyPermission(permissions)
+}
+
+function canAccessMenuItem(item: MenuItem) {
+  if (item.permissions.length === 0) {
+    return true
+  }
+  return item.requireAll
+    ? item.permissions.every((permission) => canAccess(permission))
+    : canAccessAny(item.permissions)
 }
 
 function isActive(name: string) {

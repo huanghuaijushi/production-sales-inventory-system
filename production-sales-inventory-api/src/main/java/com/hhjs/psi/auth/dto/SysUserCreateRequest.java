@@ -4,6 +4,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+import java.util.List;
+
 public record SysUserCreateRequest(
         @NotBlank(message = "Username is required")
         @Size(min = 3, max = 50, message = "Username length must be between 3 and 50")
@@ -16,6 +18,8 @@ public record SysUserCreateRequest(
 
         @NotBlank(message = "Nickname is required")
         @Size(max = 80, message = "Nickname length must be less than or equal to 80")
-        String nickname
+        String nickname,
+
+        List<String> roleCodes
 ) {
 }

@@ -62,6 +62,20 @@ public class Role {
     protected Role() {
     }
 
+    public static Role create(String code, String name, String description, Boolean enabled, int sortOrder) {
+        Role role = new Role();
+        role.updateProfile(code, name, description, enabled, sortOrder);
+        return role;
+    }
+
+    public void updateProfile(String code, String name, String description, Boolean enabled, int sortOrder) {
+        this.code = code;
+        this.name = name;
+        this.description = description;
+        this.enabled = enabled;
+        this.sortOrder = sortOrder;
+    }
+
     public boolean isEnabled() {
         return Boolean.TRUE.equals(enabled);
     }

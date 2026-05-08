@@ -64,6 +64,7 @@
               <td>{{ formatDateTime(user.createdAt) }}</td>
               <td>
                 <div class="row-actions">
+                  <button v-if="canUpdateUser" type="button" class="text-button" @click="openRoleModal(user)">编辑角色</button>
                   <button v-if="canUpdateUser" type="button" class="text-button" @click="openPasswordModal(user)">重置密码</button>
                   <button
                     v-if="canDisableUser && user.status === 'ACTIVE'"
@@ -110,11 +111,47 @@
             <span>初始密码</span>
             <input v-model="createForm.password" type="password" placeholder="至少 8 位，包含字母和数字" />
           </label>
+          <div class="role-picker">
+            <span>分配角色</span>
+            <div class="role-options">
+              <label v-for="role in roleOptions" :key="role.code" class="role-option">
+                <input v-model="createForm.roleCodes" type="checkbox" :value="role.code" />
+                <span>{{ role.name }}（{{ role.code }}）</span>
+              </label>
+            </div>
+          </div>
         </div>
         <div class="modal-actions">
           <button type="button" class="secondary-button" @click="closeCreateModal">取消</button>
           <button type="button" class="primary-button" :disabled="submitting" @click="createUser">
             {{ submitting ? '创建中...' : '创建账号' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="roleModalOpen && selectedUser" class="modal-backdrop">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>编辑角色</h2>
+          <button type="button" class="icon-button" @click="closeRoleModal">×</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-help">为「{{ selectedUser.nickname }}」选择角色，菜单和按钮权限会随角色一起变化。</p>
+          <div class="role-picker">
+            <span>角色列表</span>
+            <div class="role-options">
+              <label v-for="role in roleOptions" :key="role.code" class="role-option">
+                <input v-model="editingRoleCodes" type="checkbox" :value="role.code" />
+                <span>{{ role.name }}（{{ role.code }}）</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="secondary-button" @click="closeRoleModal">取消</button>
+          <button type="button" class="primary-button" :disabled="submitting" @click="saveUserRoles">
+            {{ submitting ? '保存中...' : '保存角色' }}
           </button>
         </div>
       </div>
@@ -149,15 +186,18 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ApiError } from '@/api/http'
 import { sysUserApi } from '@/api/sysUser'
 import { useAuthStore } from '@/stores/auth'
-import type { SysUserProfile } from '@/types/auth'
+import type { RoleOption, SysUserProfile } from '@/types/auth'
 
 const authStore = useAuthStore()
 const users = ref<SysUserProfile[]>([])
+const roleOptions = ref<RoleOption[]>([])
 const loading = ref(false)
 const submitting = ref(false)
 const createModalOpen = ref(false)
+const roleModalOpen = ref(false)
 const passwordModalOpen = ref(false)
 const selectedUser = ref<SysUserProfile | null>(null)
+const editingRoleCodes = ref<string[]>([])
 const newPassword = ref('')
 const query = ref('')
 const message = ref('')
@@ -170,7 +210,8 @@ const pageState = reactive({
 const createForm = reactive({
   username: '',
   nickname: '',
-  password: ''
+  password: '',
+  roleCodes: [] as string[]
 })
 let searchTimer: number | undefined
 let messageTimer: number | undefined
@@ -184,8 +225,9 @@ watch(query, () => {
   searchTimer = window.setTimeout(() => loadUsers(true), 300)
 })
 
-onMounted(() => {
-  loadUsers(true)
+onMounted(async () => {
+  await loadRoleOptions()
+  await loadUsers(true)
 })
 
 async function loadUsers(resetPage = false) {
@@ -207,6 +249,14 @@ async function loadUsers(resetPage = false) {
   }
 }
 
+async function loadRoleOptions() {
+  try {
+    roleOptions.value = await sysUserApi.getRoleOptions()
+  } catch (error) {
+    showMessage(getErrorMessage(error, '加载角色失败'))
+  }
+}
+
 function changePage(page: number) {
   pageState.number = page
   loadUsers()
@@ -216,6 +266,7 @@ function openCreateModal() {
   createForm.username = ''
   createForm.nickname = ''
   createForm.password = ''
+  createForm.roleCodes = []
   createModalOpen.value = true
 }
 
@@ -235,13 +286,43 @@ async function createUser() {
     await sysUserApi.createUser({
       username: createForm.username,
       nickname: createForm.nickname,
-      password: createForm.password
+      password: createForm.password,
+      roleCodes: createForm.roleCodes
     })
     showMessage('用户账号已创建。')
     closeCreateModal()
     await loadUsers(true)
   } catch (error) {
     showMessage(getErrorMessage(error, '创建用户失败'))
+  } finally {
+    submitting.value = false
+  }
+}
+
+function openRoleModal(user: SysUserProfile) {
+  selectedUser.value = user
+  editingRoleCodes.value = [...user.roles]
+  roleModalOpen.value = true
+}
+
+function closeRoleModal() {
+  roleModalOpen.value = false
+  selectedUser.value = null
+  editingRoleCodes.value = []
+}
+
+async function saveUserRoles() {
+  if (!selectedUser.value) return
+  submitting.value = true
+  try {
+    await sysUserApi.updateUserRoles(selectedUser.value.id, {
+      roleCodes: editingRoleCodes.value
+    })
+    showMessage('用户角色已更新。')
+    closeRoleModal()
+    await loadUsers()
+  } catch (error) {
+    showMessage(getErrorMessage(error, '更新用户角色失败'))
   } finally {
     submitting.value = false
   }
@@ -314,6 +395,10 @@ function validateUserForm(username: string, nickname: string, password: string) 
   if (!nickname.trim()) return '请填写用户昵称。'
   if (nickname.trim().length > 80) return '用户昵称不能超过 80 个字符。'
   return validatePassword(password)
+}
+
+function isRoleSelected(roleCode: string) {
+  return createForm.roleCodes.includes(roleCode)
 }
 
 function validatePassword(password: string) {
@@ -658,6 +743,36 @@ label span {
   color: #334155;
   font-size: 13px;
   font-weight: 700;
+}
+
+.role-picker {
+  display: grid;
+  gap: 10px;
+}
+
+.role-options {
+  display: grid;
+  gap: 10px;
+}
+
+.role-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #f8fafc;
+}
+
+.role-option input {
+  width: auto;
+  margin-top: 2px;
+}
+
+.role-option span {
+  margin-bottom: 0;
+  font-weight: 500;
 }
 
 .modal-actions {
