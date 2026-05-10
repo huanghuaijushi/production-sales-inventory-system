@@ -98,6 +98,12 @@ http://你的Mac局域网IP:8080/api/v1/auth/status
 - Mac 防火墙是否拦截 8080。
 - `.env.production` 是否还是旧 IP。
 
+如果手机不在同一个局域网，可以使用 Cloudflare Tunnel 做临时内网穿透，详见：
+
+```text
+docs/mobile-tunnel-guide.md
+```
+
 ## App 资源构建
 
 构建 App 资源：
