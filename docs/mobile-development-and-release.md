@@ -175,66 +175,55 @@ production-sales-inventory-mobile-172.30.24.5.apk
 
 ## Android 配置信息
 
-当前 AppID：
+AppID、Android 包名、DCloud Android AppKey 属于应用发布配置。不要把真实值写入 Git 文档。
+
+本地查看位置：
 
 ```text
-__UNI__B05BB5F
+production-sales-inventory-mobile/manifest.json
+production-sales-inventory-mobile/src/manifest.json
 ```
 
-当前 Android 包名：
-
-```text
-com.hhjs.psi.mobile
-```
-
-当前 DCloud Android AppKey：
-
-```text
-1387ea548cc32e8269184d05b9e829e3
-```
-
-AppKey 配置位置：
+Android 离线打包工程中的 AppKey 配置位置：
 
 ```text
 production-sales-inventory-android/simpleDemo/src/main/AndroidManifest.xml
 ```
 
-对应字段：
+配置示例：
 
 ```xml
 <meta-data
     android:name="dcloud_appkey"
-    android:value="1387ea548cc32e8269184d05b9e829e3" />
+    android:value="${DCloud 后台生成的 Android AppKey}" />
 ```
+
+真实值只保存在：
+
+```text
+DCloud 开发者后台
+本机 Android 离线打包工程
+本机证书文件
+```
+
+注意：如果 AppKey、证书密码、签名指纹已经被提交到远端仓库历史，建议到 DCloud 后台重新生成 AppKey，并重新生成发布证书。
 
 ## 签名证书
 
-证书文件位置：
+证书文件只保存在本机，不提交 Git。
+
+本机证书目录示例：
 
 ```text
-production-sales-inventory-mobile/certs/psi-mobile-release.keystore
+production-sales-inventory-mobile/certs/
 ```
 
 Git 已忽略该目录，不提交证书。
 
-证书信息：
+证书别名、证书库密码、证书私钥密码、SHA1、SHA256 不写入仓库文档。需要查看时在本机执行：
 
-```text
-证书别名：psi_mobile
-证书库密码：PsiMobile@2026
-证书私钥密码：PsiMobile@2026
-```
-
-签名 SHA1：
-
-```text
-98:57:7E:D3:3F:CC:CD:3B:0F:4C:CE:1B:29:46:3E:01:3E:82:F1:F4
-```
-
-签名 SHA256：
-
-```text
-AB:BA:6F:B6:5C:0F:D0:B5:01:F1:B5:6B:1A:33:B8:02:B3:FC:70:68:92:74:9E:FD:89:E9:3A:3D:F5:D5:24:84
+```bash
+keytool -list -v -keystore production-sales-inventory-mobile/certs/你的证书文件.keystore
 ```
 
 验证 APK 签名：
