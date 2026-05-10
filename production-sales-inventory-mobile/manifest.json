@@ -1,0 +1,16 @@
+{
+	"name": "产销存移动端",
+	"appid": "__UNI__B05BB5F",
+	"description": "产销存系统移动端一期",
+	"versionName": "0.1.0",
+	"versionCode": "100",
+	"transformPx": false,
+	"app-plus": {
+		"usingComponents": true,
+		"nvueStyleCompiler": "uni-app",
+		"compilerVersion": 3
+	},
+	"h5": {
+		"title": "产销存移动端"
+	}
+}

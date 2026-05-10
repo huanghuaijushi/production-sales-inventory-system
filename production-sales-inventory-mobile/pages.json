@@ -1,0 +1,58 @@
+{
+  "pages": [
+    {
+      "path": "pages/login/index",
+      "style": {
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/home/index",
+      "style": {
+        "navigationBarTitleText": "工作台"
+      }
+    },
+    {
+      "path": "pages/scan/index",
+      "style": {
+        "navigationBarTitleText": "扫码"
+      }
+    },
+    {
+      "path": "pages/inventory/index",
+      "style": {
+        "navigationBarTitleText": "库存查询"
+      }
+    },
+    {
+      "path": "pages/stock-in/index",
+      "style": {
+        "navigationBarTitleText": "入库"
+      }
+    },
+    {
+      "path": "pages/stock-out/index",
+      "style": {
+        "navigationBarTitleText": "出库"
+      }
+    },
+    {
+      "path": "pages/production/index",
+      "style": {
+        "navigationBarTitleText": "生产报工"
+      }
+    },
+    {
+      "path": "pages/exception/index",
+      "style": {
+        "navigationBarTitleText": "异常上报"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "产销存移动端",
+    "navigationBarBackgroundColor": "#ffffff",
+    "backgroundColor": "#f5f7fb"
+  }
+}

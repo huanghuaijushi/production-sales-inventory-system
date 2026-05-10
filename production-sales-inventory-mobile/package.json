@@ -1,0 +1,45 @@
+{
+  "name": "production-sales-inventory-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:h5": "uni -p h5",
+    "build:h5:dev": "uni build -p h5 --mode development",
+    "build:h5": "uni build -p h5",
+    "build:app": "uni build -p app --mode production",
+    "type-check": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@dcloudio/uni-app": "3.0.0-alpha-5000820260430001",
+    "@dcloudio/uni-app-plus": "3.0.0-alpha-5000820260430001",
+    "@dcloudio/uni-components": "3.0.0-alpha-5000820260430001",
+    "@dcloudio/uni-h5": "3.0.0-alpha-5000820260430001",
+    "@dcloudio/uni-mp-weixin": "3.0.0-alpha-5000820260430001",
+    "@dcloudio/uni-ui": "^1.5.6",
+    "pinia": "2.3.1",
+    "vue": "3.5.34"
+  },
+  "overrides": {
+    "@vue/shared": "3.5.34",
+    "@vue/runtime-core": "3.5.34",
+    "@vue/runtime-dom": "3.5.34",
+    "@vue/reactivity": "3.5.34",
+    "@vue/compiler-core": "3.5.34",
+    "@vue/compiler-dom": "3.5.34",
+    "@vue/compiler-sfc": "3.5.34",
+    "@vue/compiler-ssr": "3.5.34",
+    "@vue/server-renderer": "3.5.34"
+  },
+  "devDependencies": {
+    "@dcloudio/types": "^3.4.8",
+    "@dcloudio/uni-automator": "3.0.0-alpha-5000820260430001",
+    "@dcloudio/vite-plugin-uni": "3.0.0-alpha-5000820260430001",
+    "@types/node": "^22.14.1",
+    "@vue/tsconfig": "^0.8.0",
+    "sass": "^1.86.0",
+    "typescript": "^5.8.3",
+    "vite": "5.2.8",
+    "vue-tsc": "^2.2.10"
+  }
+}

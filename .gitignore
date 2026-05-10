@@ -9,15 +9,21 @@
 # Java / Maven
 **/target/
 **/.mvn/wrapper/maven-wrapper.jar
+.m2/
 
 # Node / frontend
 **/node_modules/
 **/dist/
 **/.vite/
+**/.npm-cache/
 
 # Environment
 .env
 *.local
+production-sales-inventory-mobile/certs/
+
+# Local Android offline packaging workspace
+production-sales-inventory-android/
 
 # Logs
 *.log
