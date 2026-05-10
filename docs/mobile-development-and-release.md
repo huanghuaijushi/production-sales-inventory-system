@@ -123,7 +123,22 @@ Android 离线工程目录：
 production-sales-inventory-android
 ```
 
-同步最新 App 资源：
+推荐使用一键脚本打包：
+
+```bash
+./scripts/build-mobile-apk.sh
+```
+
+脚本会自动完成：
+
+```text
+1. 构建 production-sales-inventory-mobile
+2. 同步 dist/build/app 到 Android 离线工程
+3. 执行 Gradle release 打包
+4. 复制生成带后端 IP 的 APK 文件
+```
+
+手动同步最新 App 资源：
 
 ```bash
 rm -rf production-sales-inventory-android/simpleDemo/src/main/assets/apps/__UNI__B05BB5F/www
@@ -307,4 +322,3 @@ production-sales-inventory-android/simpleDemo/build/outputs/apk/release/producti
 - `production-sales-inventory-android`
 - `.m2`
 - `.npm-cache`
-
