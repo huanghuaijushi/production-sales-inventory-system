@@ -60,7 +60,7 @@ public interface StockRecordRepository extends JpaRepository<StockRecord, Long> 
     );
 
     @Query("""
-            SELECT sr.createdAt, sr.type, sr.quantity, sr.subType, p.type, p.costPrice, sr.amount, sr.businessAmount, sr.costAmount
+            SELECT sr.createdAt, sr.type, sr.quantity, sr.subType, p.type, p.costPrice, sr.costAmount
             FROM StockRecord sr
             JOIN sr.product p
             WHERE sr.createdAt >= :start
@@ -126,16 +126,23 @@ public interface StockRecordRepository extends JpaRepository<StockRecord, Long> 
 
     @Query(value = """
             SELECT sc.name,
-                   COALESCE(SUM(sr.business_amount), 0) AS revenue,
-                   COALESCE(SUM(sr.cost_amount), 0) AS cost,
-                   COUNT(DISTINCT so.id) AS order_count
-            FROM stock_record sr
-            LEFT JOIN sales_order so ON so.id = sr.related_order_id AND sr.related_order_type = 'SALES_ORDER'
-            LEFT JOIN sales_channel_config sc ON sc.id = so.channel_id
-            WHERE sr.type = 'OUT'
-              AND sr.sub_type = 'SALES'
-              AND sr.created_at >= :start
-              AND sr.created_at < :end
+                   COALESCE(SUM(order_costs.total_amount), 0) AS revenue,
+                   COALESCE(SUM(order_costs.cost_amount), 0) AS cost,
+                   COUNT(order_costs.order_id) AS order_count
+            FROM (
+                SELECT so.id AS order_id,
+                       so.channel_id AS channel_id,
+                       so.total_amount AS total_amount,
+                       COALESCE(SUM(sr.cost_amount), 0) AS cost_amount
+                FROM stock_record sr
+                JOIN sales_order so ON so.id = sr.related_order_id AND sr.related_order_type = 'SALES_ORDER'
+                WHERE sr.type = 'OUT'
+                  AND sr.sub_type = 'SALES'
+                  AND sr.created_at >= :start
+                  AND sr.created_at < :end
+                GROUP BY so.id, so.channel_id, so.total_amount
+            ) order_costs
+            LEFT JOIN sales_channel_config sc ON sc.id = order_costs.channel_id
             GROUP BY sc.id, sc.name
             ORDER BY revenue DESC, sc.name ASC
             """, nativeQuery = true)

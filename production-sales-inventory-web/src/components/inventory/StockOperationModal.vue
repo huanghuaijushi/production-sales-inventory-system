@@ -12,9 +12,9 @@
         <form class="modal-body" @submit.prevent="handleSubmit">
           <div class="form-grid">
             <label class="form-field">
-              <span>商品选择</span>
+              <span>库存产品选择</span>
               <select v-model.number="form.productId" required>
-                <option :value="0" disabled>请选择商品</option>
+                <option :value="0" disabled>请选择库存产品</option>
                 <option v-for="stock in stocks" :key="stock.productId" :value="stock.productId">
                   {{ stock.productName }} ({{ stock.productCode }}) - 当前库存 {{ stock.quantity }}{{ stock.unit }}
                 </option>
@@ -23,37 +23,20 @@
 
             <div v-if="selectedStock" class="price-preview-card">
               <div class="price-preview-card__header">
-                <strong>{{ selectedStock.productName }}</strong>
-                <span>{{ selectedStock.productCode }}</span>
+                <div>
+                  <strong>{{ selectedStock.productName }}</strong>
+                  <span>{{ selectedStock.productCode }}</span>
+                </div>
+                <span class="price-preview-card__badge">{{ isInbound ? '入库预估' : '出库预估' }}</span>
               </div>
               <div class="price-preview-card__grid">
-                <div v-if="isSalesOutbound">
-                  <label>建议销售单价</label>
-                  <strong>{{ formatMoney(businessUnitPrice) }}</strong>
-                </div>
-                <div v-if="isSalesOutbound">
-                  <label>本次销售单价</label>
-                  <strong>{{ formatMoney(resolvedBusinessUnitPrice) }}</strong>
-                </div>
                 <div>
-                  <label>建议成本单价</label>
+                  <label>{{ selectedBatch ? '批次成本单价' : '产品成本单价' }}</label>
                   <strong>{{ formatMoney(costUnitPrice) }}</strong>
                 </div>
                 <div>
                   <label>{{ isInbound ? '预估入库金额' : '预估成本金额' }}</label>
                   <strong>{{ formatMoney(previewCostAmount) }}</strong>
-                </div>
-                <div v-if="isSalesOutbound">
-                  <label>预估收入金额</label>
-                  <strong>{{ formatMoney(previewBusinessAmount) }}</strong>
-                </div>
-                <div v-if="isSalesOutbound">
-                  <label>预估毛利</label>
-                  <strong :class="previewProfit >= 0 ? 'profit-positive' : 'profit-negative'">{{ formatMoney(previewProfit) }}</strong>
-                </div>
-                <div v-if="!isInbound && !isSalesOutbound">
-                  <label>成本说明</label>
-                  <strong>按批次成本优先，其次商品成本</strong>
                 </div>
               </div>
             </div>
@@ -77,17 +60,6 @@
                 step="1"
                 placeholder="请输入数量"
                 required
-              />
-            </label>
-
-            <label v-if="!isInbound && isSalesOutbound" class="form-field">
-              <span>本次销售单价</span>
-              <input
-                type="number"
-                v-model.number="form.businessUnitPrice"
-                min="0"
-                step="0.01"
-                placeholder="不填则使用建议销售单价"
               />
             </label>
 
@@ -247,14 +219,6 @@ const batchPlaceholder = computed(() => {
   return '请选择批次'
 })
 
-const businessUnitPrice = computed(() => {
-  if (!selectedStock.value) return 0
-  if (selectedStock.value.salePrice && selectedStock.value.salePrice > 0) return selectedStock.value.salePrice
-  return selectedStock.value.costPrice || 0
-})
-
-const isSalesOutbound = computed(() => !props.isInbound && form.value.subType === 'SALES')
-
 const costUnitPrice = computed(() => {
   if (selectedBatch.value?.unitCost && selectedBatch.value.unitCost > 0) {
     return selectedBatch.value.unitCost
@@ -262,15 +226,7 @@ const costUnitPrice = computed(() => {
   return selectedStock.value?.costPrice || 0
 })
 
-const resolvedBusinessUnitPrice = computed(() => {
-  return form.value.businessUnitPrice != null && form.value.businessUnitPrice >= 0
-    ? form.value.businessUnitPrice
-    : businessUnitPrice.value
-})
-
 const previewCostAmount = computed(() => costUnitPrice.value * Math.max(form.value.quantity, 0))
-const previewBusinessAmount = computed(() => resolvedBusinessUnitPrice.value * Math.max(form.value.quantity, 0))
-const previewProfit = computed(() => previewBusinessAmount.value - previewCostAmount.value)
 
 function formatMoney(value: number) {
   return `¥${Number(value || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -309,7 +265,6 @@ function updateOperationTypes() {
     ]
   } else {
     operationTypes.value = [
-      { value: 'SALES', label: '销售出库' },
       { value: 'PRODUCTION_USAGE', label: '生产领料' },
       { value: 'PRODUCTION_LOSS', label: '生产报损' },
       { value: 'PACKAGING_LOSS', label: '包装报损' },
@@ -343,14 +298,8 @@ async function loadBatches(productId: number) {
   }
 }
 
-watch(isSalesOutbound, (isSales) => {
-  if (!isSales) {
-    form.value.batchId = 0
-  }
-})
-
 function getInitialSubType(): StockRecordSubType {
-  const fallback: StockRecordSubType = props.isInbound ? 'PURCHASE' : 'SALES'
+  const fallback: StockRecordSubType = props.isInbound ? 'PURCHASE' : 'INVENTORY'
   const initial = props.initialSubType ?? fallback
   const validValues = operationTypes.value.map(type => type.value)
   return validValues.includes(initial) ? initial : fallback
@@ -427,9 +376,6 @@ function normalizePayload(): StockOperationRequest {
   }
   if (!props.isInbound && form.value.batchId) {
     payload.batchId = form.value.batchId
-  }
-  if (!props.isInbound && form.value.businessUnitPrice != null) {
-    payload.businessUnitPrice = form.value.businessUnitPrice
   }
   if (form.value.remark?.trim()) {
     payload.remark = form.value.remark.trim()
@@ -534,6 +480,77 @@ onMounted(() => {
   color: #64748b;
   font-size: 12px;
   line-height: 1.5;
+}
+
+.price-preview-card {
+  padding: 14px;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.price-preview-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.price-preview-card__header div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.price-preview-card__header strong {
+  color: #0f172a;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.price-preview-card__header span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.price-preview-card__badge {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #e0f2fe;
+  color: #0369a1 !important;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.price-preview-card__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.price-preview-card__grid > div {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.price-preview-card__grid label {
+  display: block;
+  margin-bottom: 6px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.price-preview-card__grid strong {
+  color: #0f172a;
+  font-size: 18px;
+  line-height: 1.2;
 }
 
 .form-field input,

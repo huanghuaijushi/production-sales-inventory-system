@@ -19,7 +19,6 @@ public record StockOperationRequest(
         @Positive(message = "Quantity must be greater than 0")
         Integer quantity,
         Long relatedOrderId,
-        BigDecimal businessUnitPrice,
         BigDecimal costUnitPrice,
         Long batchId,
         @Size(max = 64, message = "Batch number must be at most 64 characters")

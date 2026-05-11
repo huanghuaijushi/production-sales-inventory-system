@@ -185,7 +185,6 @@ export interface StockOperationRequest {
   subType: StockRecordSubType
   quantity: number
   relatedOrderId?: number
-  businessUnitPrice?: number
   batchId?: number
   batchNo?: string
   productionDate?: string
@@ -209,8 +208,6 @@ export interface StockRecord {
   type: 'IN' | 'OUT' | 'ADJUST'
   subType: StockRecordSubType
   quantity: number
-  businessUnitPrice?: number | null
-  businessAmount?: number | null
   costUnitPrice?: number | null
   costAmount?: number | null
   beforeQuantity: number

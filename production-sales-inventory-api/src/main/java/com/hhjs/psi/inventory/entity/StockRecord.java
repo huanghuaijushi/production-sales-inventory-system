@@ -44,18 +44,6 @@ public class StockRecord {
     @Column(nullable = false)
     private Integer quantity;
 
-    @Column(name = "unit_price", precision = 12, scale = 2)
-    private BigDecimal unitPrice;
-
-    @Column(name = "amount", precision = 14, scale = 2)
-    private BigDecimal amount;
-
-    @Column(name = "business_unit_price", precision = 12, scale = 2)
-    private BigDecimal businessUnitPrice;
-
-    @Column(name = "business_amount", precision = 14, scale = 2)
-    private BigDecimal businessAmount;
-
     @Column(name = "cost_unit_price", precision = 12, scale = 2)
     private BigDecimal costUnitPrice;
 
@@ -156,17 +144,9 @@ public class StockRecord {
     }
 
     public void setAmountSnapshot(BigDecimal unitPrice) {
-        setAmountSnapshot(unitPrice, unitPrice);
-    }
-
-    public void setAmountSnapshot(BigDecimal costUnitPrice, BigDecimal businessUnitPrice) {
         BigDecimal quantityAbs = BigDecimal.valueOf(Math.abs(this.quantity));
-        this.costUnitPrice = normalizeMoney(costUnitPrice);
+        this.costUnitPrice = normalizeMoney(unitPrice);
         this.costAmount = this.costUnitPrice.multiply(quantityAbs);
-        this.businessUnitPrice = businessUnitPrice == null ? null : normalizeMoney(businessUnitPrice);
-        this.businessAmount = this.businessUnitPrice == null ? null : this.businessUnitPrice.multiply(quantityAbs);
-        this.unitPrice = this.businessUnitPrice == null ? this.costUnitPrice : this.businessUnitPrice;
-        this.amount = this.businessAmount == null ? this.costAmount : this.businessAmount;
     }
 
     private BigDecimal normalizeMoney(BigDecimal value) {
@@ -195,22 +175,6 @@ public class StockRecord {
 
     public Integer getQuantity() {
         return quantity;
-    }
-
-    public BigDecimal getUnitPrice() {
-        return unitPrice;
-    }
-
-    public BigDecimal getAmount() {
-        return amount;
-    }
-
-    public BigDecimal getBusinessUnitPrice() {
-        return businessUnitPrice;
-    }
-
-    public BigDecimal getBusinessAmount() {
-        return businessAmount;
     }
 
     public BigDecimal getCostUnitPrice() {

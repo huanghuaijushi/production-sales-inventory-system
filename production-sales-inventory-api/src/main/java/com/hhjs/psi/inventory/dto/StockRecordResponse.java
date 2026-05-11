@@ -17,8 +17,6 @@ public record StockRecordResponse(
         StockRecordType type,
         StockRecordSubType subType,
         Integer quantity,
-        BigDecimal businessUnitPrice,
-        BigDecimal businessAmount,
         BigDecimal costUnitPrice,
         BigDecimal costAmount,
         Integer beforeQuantity,

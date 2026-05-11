@@ -270,21 +270,19 @@ public class SalesOrderService {
                     break;
                 }
                 int outboundQuantity = Math.min(remaining, batch.getAvailableQuantity());
-                BigDecimal allocatedPrice = allocateBusinessUnitPrice(item, component);
                 inventoryService.outboundFromLocked(new StockOperationRequest(
                         component.getProduct().getId(),
                         null,
                         StockRecordSubType.SALES,
                         outboundQuantity,
                         order.getId(),
-                        allocatedPrice,
                         null,
                         batch.getId(),
                         order.getOrderNo(),
                         null,
                         null,
                         "销售出库: %s / %s / %s".formatted(order.getOrderNo(), item.getGoodsName(), normalizeCustomerName(order))
-                ), allocatedPrice);
+                ));
                 remaining -= outboundQuantity;
             }
         }
@@ -313,13 +311,6 @@ public class SalesOrderService {
         BigDecimal base = component.getQuantityPerUnit().multiply(BigDecimal.valueOf(item.getQuantity()));
         BigDecimal withLoss = base.multiply(BigDecimal.ONE.add(component.getLossRate()));
         return withLoss.setScale(0, java.math.RoundingMode.CEILING).intValue();
-    }
-
-    private BigDecimal allocateBusinessUnitPrice(SalesOrderItem item, SalesGoodsComponent component) {
-        if (item.getSalesGoods().getComponents().size() == 1) {
-            return item.getUnitPrice().divide(component.getQuantityPerUnit(), 2, java.math.RoundingMode.HALF_UP);
-        }
-        return BigDecimal.ZERO;
     }
 
     private void ensurePending(SalesOrder order, String message) {

@@ -312,8 +312,7 @@ function exportInventoryWorkbook(items: StockItem[], fileName: string) {
     锁定库存: item.lockedQuantity,
     预警库存: item.alertQuantity,
     库存状态: stockStatusLabel(item),
-    成本价: Number(item.costPrice || 0),
-    销售价: Number(item.salePrice || 0)
+    成本价: Number(item.costPrice || 0)
   }))
   const worksheet = XLSX.utils.json_to_sheet(rows)
   worksheet['!cols'] = [
@@ -323,7 +322,6 @@ function exportInventoryWorkbook(items: StockItem[], fileName: string) {
     { wch: 12 },
     { wch: 14 },
     { wch: 8 },
-    { wch: 10 },
     { wch: 10 },
     { wch: 10 },
     { wch: 10 },
