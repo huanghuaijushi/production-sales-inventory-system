@@ -6,7 +6,10 @@ import com.hhjs.psi.inventory.dto.BusinessFlowTrendItemResponse;
 import com.hhjs.psi.inventory.dto.InventoryDashboardResponse;
 import com.hhjs.psi.inventory.dto.InventoryValueTrendItemResponse;
 import com.hhjs.psi.inventory.dto.StockBatchResponse;
+import com.hhjs.psi.inventory.dto.StockCheckOrderResponse;
+import com.hhjs.psi.inventory.dto.StockCheckRequest;
 import com.hhjs.psi.inventory.dto.StockItemResponse;
+import com.hhjs.psi.inventory.dto.StockLossRequest;
 import com.hhjs.psi.inventory.dto.StockOperationRequest;
 import com.hhjs.psi.inventory.dto.StockRecordResponse;
 import com.hhjs.psi.inventory.dto.StockTrendItemResponse;
@@ -94,11 +97,6 @@ public class InventoryController {
         return ApiResponse.ok(inventoryService.updateStock(stockId, request));
     }
 
-    @PostMapping("/operation")
-    public ApiResponse<StockRecordResponse> performStockOperation(@Valid @RequestBody StockOperationRequest request) {
-        return ApiResponse.ok(inventoryService.performStockOperation(request));
-    }
-
     @PostMapping("/inbound")
     public ApiResponse<StockRecordResponse> inbound(@Valid @RequestBody StockOperationRequest request) {
         return ApiResponse.ok(inventoryService.inbound(request));
@@ -107,6 +105,24 @@ public class InventoryController {
     @PostMapping("/outbound")
     public ApiResponse<StockRecordResponse> outbound(@Valid @RequestBody StockOperationRequest request) {
         return ApiResponse.ok(inventoryService.outbound(request));
+    }
+
+    @PostMapping("/loss")
+    public ApiResponse<StockRecordResponse> reportLoss(@Valid @RequestBody StockLossRequest request) {
+        return ApiResponse.ok(inventoryService.reportLoss(request));
+    }
+
+    @PostMapping("/check")
+    public ApiResponse<StockCheckOrderResponse> quickCheck(@Valid @RequestBody StockCheckRequest request) {
+        return ApiResponse.ok(inventoryService.quickCheck(request));
+    }
+
+    @GetMapping("/check-orders")
+    public ApiResponse<PageResponse<StockCheckOrderResponse>> getStockCheckOrders(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return ApiResponse.ok(PageResponse.from(inventoryService.getStockCheckOrders(page, size)));
     }
 
     @GetMapping("/records")

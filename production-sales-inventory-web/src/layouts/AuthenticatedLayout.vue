@@ -126,6 +126,7 @@ import { productApi, type Product } from '@/api/product'
 import { inventoryApi, type StockItem } from '@/api/inventory'
 import {
   HomeIcon,
+  ArchiveBoxIcon,
   CubeIcon,
   TagIcon,
   ShoppingCartIcon,
@@ -178,7 +179,7 @@ const menuItems: MenuItem[] = [
     name: 'inventory',
     path: '/inventory',
     title: '库存管理',
-    icon: CubeIcon,
+    icon: ArchiveBoxIcon,
     permissions: ['stock:view', 'stock:record:view', 'stock:batch:view'],
     breadcrumb: { main: '库存管理', sub: '库存总览' }
   },
@@ -186,7 +187,7 @@ const menuItems: MenuItem[] = [
     name: 'products',
     path: '/products',
     title: '库存产品',
-    icon: TagIcon,
+    icon: CubeIcon,
     permissions: ['product:view'],
     breadcrumb: { main: '库存产品', sub: '产品列表' }
   },

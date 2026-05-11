@@ -39,6 +39,8 @@
     <div class="filter-actions">
       <button type="button" class="btn btn-primary" @click="handleInbound">新增入库</button>
       <button type="button" class="btn btn-outline" @click="handleOutbound">新增出库</button>
+      <button type="button" class="btn btn-outline" @click="handleLoss">新增报损</button>
+      <button type="button" class="btn btn-outline" @click="handleCheck">库存盘点</button>
       <button type="button" class="btn btn-secondary" @click="handleExport">导出报表</button>
     </div>
   </section>
@@ -65,6 +67,8 @@ const emit = defineEmits<{
   (e: 'search'): void
   (e: 'inbound'): void
   (e: 'outbound'): void
+  (e: 'loss'): void
+  (e: 'check'): void
   (e: 'export'): void
 }>()
 
@@ -107,6 +111,14 @@ function handleInbound() {
 
 function handleOutbound() {
   emit('outbound')
+}
+
+function handleLoss() {
+  emit('loss')
+}
+
+function handleCheck() {
+  emit('check')
 }
 
 function handleExport() {

@@ -438,9 +438,60 @@ CREATE TABLE `stock_record` (
   CONSTRAINT `fk_stock_record_batch` FOREIGN KEY (`batch_id`) REFERENCES `stock_batch` (`id`) ON DELETE RESTRICT,
   CONSTRAINT `fk_stock_record_operator` FOREIGN KEY (`operator_id`) REFERENCES `sys_user` (`id`) ON DELETE RESTRICT,
   CONSTRAINT `fk_stock_record_product` FOREIGN KEY (`product_id`) REFERENCES `product` (`id`) ON DELETE RESTRICT,
-  CONSTRAINT `ck_stock_record_sub_type` CHECK ((`sub_type` in (_utf8mb4'PRODUCTION',_utf8mb4'PURCHASE',_utf8mb4'SALES',_utf8mb4'PRODUCTION_USAGE',_utf8mb4'PRODUCTION_LOSS',_utf8mb4'PACKAGING_LOSS',_utf8mb4'SHIPPING_LOSS',_utf8mb4'INVENTORY'))),
+  CONSTRAINT `ck_stock_record_sub_type` CHECK ((`sub_type` in (_utf8mb4'PRODUCTION',_utf8mb4'PURCHASE',_utf8mb4'SALES',_utf8mb4'PRODUCTION_USAGE',_utf8mb4'INTERNAL_USAGE',_utf8mb4'OTHER_OUTBOUND',_utf8mb4'PRODUCTION_LOSS',_utf8mb4'PACKAGING_LOSS',_utf8mb4'SHIPPING_LOSS',_utf8mb4'EXPIRED_LOSS',_utf8mb4'DAMAGE_LOSS',_utf8mb4'OTHER_LOSS',_utf8mb4'INVENTORY',_utf8mb4'INVENTORY_GAIN',_utf8mb4'INVENTORY_LOSS'))),
   CONSTRAINT `ck_stock_record_type` CHECK ((`type` in (_utf8mb4'IN',_utf8mb4'OUT',_utf8mb4'ADJUST')))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='出入库记录表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `stock_check_order`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `stock_check_order` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `check_no` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '盘点单号',
+  `status` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '状态：DRAFT-草稿, CONFIRMED-已确认, CANCELLED-已取消',
+  `operator_id` bigint NOT NULL COMMENT '盘点人ID',
+  `operator_name` varchar(80) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '盘点人姓名',
+  `remark` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
+  `confirmed_at` datetime(6) DEFAULT NULL COMMENT '确认时间',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_stock_check_order_no` (`check_no`),
+  KEY `fk_stock_check_order_operator` (`operator_id`),
+  KEY `idx_stock_check_order_status` (`status`),
+  KEY `idx_stock_check_order_created_at` (`created_at`),
+  CONSTRAINT `fk_stock_check_order_operator` FOREIGN KEY (`operator_id`) REFERENCES `sys_user` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `ck_stock_check_order_status` CHECK ((`status` in (_utf8mb4'DRAFT',_utf8mb4'CONFIRMED',_utf8mb4'CANCELLED')))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='库存盘点单表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `stock_check_order_item`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `stock_check_order_item` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `order_id` bigint NOT NULL COMMENT '盘点单ID',
+  `product_id` bigint NOT NULL COMMENT '库存产品ID',
+  `batch_id` bigint NOT NULL COMMENT '批次ID',
+  `batch_no` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '批次号快照',
+  `system_quantity` int NOT NULL COMMENT '系统可用数量',
+  `actual_quantity` int NOT NULL COMMENT '实盘数量',
+  `difference_quantity` int NOT NULL COMMENT '差异数量：实盘-系统',
+  `result_type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '结果：GAIN-盘盈, LOSS-盘亏, MATCH-一致',
+  `stock_record_id` bigint DEFAULT NULL COMMENT '确认后生成的库存流水ID',
+  `remark` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  KEY `idx_stock_check_item_order` (`order_id`),
+  KEY `idx_stock_check_item_product` (`product_id`),
+  KEY `idx_stock_check_item_batch` (`batch_id`),
+  KEY `idx_stock_check_item_record` (`stock_record_id`),
+  CONSTRAINT `fk_stock_check_item_order` FOREIGN KEY (`order_id`) REFERENCES `stock_check_order` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_stock_check_item_product` FOREIGN KEY (`product_id`) REFERENCES `product` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_stock_check_item_batch` FOREIGN KEY (`batch_id`) REFERENCES `stock_batch` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_stock_check_item_record` FOREIGN KEY (`stock_record_id`) REFERENCES `stock_record` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `ck_stock_check_item_actual_quantity` CHECK ((`actual_quantity` >= 0)),
+  CONSTRAINT `ck_stock_check_item_result_type` CHECK ((`result_type` in (_utf8mb4'GAIN',_utf8mb4'LOSS',_utf8mb4'MATCH')))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='库存盘点单明细表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `supplier`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;

@@ -12,8 +12,12 @@ import com.hhjs.psi.inventory.dto.InventoryDistributionItemResponse;
 import com.hhjs.psi.inventory.dto.InventoryDashboardResponse;
 import com.hhjs.psi.inventory.dto.InventoryValueTrendItemResponse;
 import com.hhjs.psi.inventory.dto.ProfitOverviewResponse;
+import com.hhjs.psi.inventory.dto.StockCheckOrderItemResponse;
+import com.hhjs.psi.inventory.dto.StockCheckOrderResponse;
+import com.hhjs.psi.inventory.dto.StockCheckRequest;
 import com.hhjs.psi.inventory.dto.StockItemResponse;
 import com.hhjs.psi.inventory.dto.StockBatchResponse;
+import com.hhjs.psi.inventory.dto.StockLossRequest;
 import com.hhjs.psi.inventory.dto.StockOperationRequest;
 import com.hhjs.psi.inventory.dto.StockRecordResponse;
 import com.hhjs.psi.inventory.dto.StockTrendItemResponse;
@@ -23,10 +27,14 @@ import com.hhjs.psi.inventory.entity.Product;
 import com.hhjs.psi.inventory.entity.ProductType;
 import com.hhjs.psi.inventory.entity.Stock;
 import com.hhjs.psi.inventory.entity.StockBatch;
+import com.hhjs.psi.inventory.entity.StockCheckOrder;
+import com.hhjs.psi.inventory.entity.StockCheckOrderItem;
+import com.hhjs.psi.inventory.entity.StockCheckOrderStatus;
 import com.hhjs.psi.inventory.entity.StockRecord;
 import com.hhjs.psi.inventory.entity.StockRecordSubType;
 import com.hhjs.psi.inventory.entity.StockRecordType;
 import com.hhjs.psi.inventory.repository.StockBatchRepository;
+import com.hhjs.psi.inventory.repository.StockCheckOrderRepository;
 import com.hhjs.psi.inventory.repository.StockRecordRepository;
 import com.hhjs.psi.inventory.repository.StockRepository;
 import com.hhjs.psi.production.repository.ProductionStepRecordRepository;
@@ -39,6 +47,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -59,17 +68,20 @@ public class InventoryService {
     private final StockRepository stockRepository;
     private final StockBatchRepository stockBatchRepository;
     private final StockRecordRepository stockRecordRepository;
+    private final StockCheckOrderRepository stockCheckOrderRepository;
     private final ProductionStepRecordRepository productionStepRecordRepository;
 
     public InventoryService(
             StockRepository stockRepository,
             StockBatchRepository stockBatchRepository,
             StockRecordRepository stockRecordRepository,
+            StockCheckOrderRepository stockCheckOrderRepository,
             ProductionStepRecordRepository productionStepRecordRepository
     ) {
         this.stockRepository = stockRepository;
         this.stockBatchRepository = stockBatchRepository;
         this.stockRecordRepository = stockRecordRepository;
+        this.stockCheckOrderRepository = stockCheckOrderRepository;
         this.productionStepRecordRepository = productionStepRecordRepository;
     }
 
@@ -806,15 +818,15 @@ public class InventoryService {
     }
 
     @Transactional
-    public StockRecordResponse performStockOperation(StockOperationRequest request) {
-        if (request.type() == null) {
-            throw BusinessException.badRequest("Operation type is required");
-        }
-        return performStockOperation(request, request.type());
-    }
-
-    @Transactional
     public StockRecordResponse inbound(StockOperationRequest request) {
+        Set<StockRecordSubType> allowedInboundTypes = Set.of(
+                StockRecordSubType.PURCHASE,
+                StockRecordSubType.PRODUCTION,
+                StockRecordSubType.INVENTORY
+        );
+        if (!allowedInboundTypes.contains(request.subType())) {
+            throw BusinessException.badRequest("请使用对应业务入口处理该入库类型");
+        }
         return performStockOperation(request, StockRecordType.IN);
     }
 
@@ -824,7 +836,113 @@ public class InventoryService {
 
     @Transactional
     public StockRecordResponse outbound(StockOperationRequest request) {
+        Set<StockRecordSubType> allowedOutboundTypes = Set.of(
+                StockRecordSubType.PRODUCTION_USAGE,
+                StockRecordSubType.INTERNAL_USAGE,
+                StockRecordSubType.OTHER_OUTBOUND
+        );
+        if (!allowedOutboundTypes.contains(request.subType())) {
+            throw BusinessException.badRequest("请使用销售发货、报损或盘点入口处理该出库类型");
+        }
         return performStockOperation(request, StockRecordType.OUT);
+    }
+
+    @Transactional
+    public StockRecordResponse reportLoss(StockLossRequest request) {
+        Set<StockRecordSubType> allowedLossTypes = Set.of(
+                StockRecordSubType.PRODUCTION_LOSS,
+                StockRecordSubType.PACKAGING_LOSS,
+                StockRecordSubType.SHIPPING_LOSS,
+                StockRecordSubType.EXPIRED_LOSS,
+                StockRecordSubType.DAMAGE_LOSS,
+                StockRecordSubType.OTHER_LOSS
+        );
+        if (!allowedLossTypes.contains(request.lossType())) {
+            throw BusinessException.badRequest("不支持的报损类型");
+        }
+
+        return performStockOperation(new StockOperationRequest(
+                request.productId(),
+                StockRecordType.OUT,
+                request.lossType(),
+                request.quantity(),
+                null,
+                null,
+                request.batchId(),
+                null,
+                null,
+                null,
+                normalizeFilter(request.remark())
+        ), StockRecordType.OUT);
+    }
+
+    @Transactional
+    public StockCheckOrderResponse quickCheck(StockCheckRequest request) {
+        StockBatch batch = stockBatchRepository.findByIdForUpdate(request.batchId())
+                .orElseThrow(() -> BusinessException.badRequest("批次不存在"));
+        if (!batch.getProduct().getId().equals(request.productId())) {
+            throw BusinessException.badRequest("批次库存产品和当前库存产品不一致");
+        }
+
+        var currentSysUser = SecurityUtils.requireCurrentSysUser();
+        StockCheckOrder order = StockCheckOrder.create(
+                generateCheckNo(),
+                currentSysUser.id(),
+                currentSysUser.username(),
+                normalizeFilter(request.remark())
+        );
+        StockCheckOrderItem item = StockCheckOrderItem.create(
+                batch.getProduct(),
+                batch,
+                batch.getAvailableQuantity(),
+                request.actualQuantity(),
+                normalizeFilter(request.remark())
+        );
+        order.addItem(item);
+        stockCheckOrderRepository.save(order);
+
+        int difference = item.getDifferenceQuantity();
+        if (difference > 0) {
+            StockRecordResponse record = performStockOperation(new StockOperationRequest(
+                    request.productId(),
+                    StockRecordType.IN,
+                    StockRecordSubType.INVENTORY_GAIN,
+                    difference,
+                    order.getId(),
+                    batch.getUnitCost(),
+                    null,
+                    batch.getBatchNo(),
+                    batch.getProductionDate(),
+                    batch.getExpiryDate(),
+                    "盘点盘盈: " + order.getCheckNo()
+            ), StockRecordType.IN);
+            item.setStockRecord(stockRecordRepository.getReferenceById(record.id()));
+        } else if (difference < 0) {
+            StockRecordResponse record = performStockOperation(new StockOperationRequest(
+                    request.productId(),
+                    StockRecordType.OUT,
+                    StockRecordSubType.INVENTORY_LOSS,
+                    Math.abs(difference),
+                    order.getId(),
+                    null,
+                    batch.getId(),
+                    null,
+                    null,
+                    null,
+                    "盘点盘亏: " + order.getCheckNo()
+            ), StockRecordType.OUT);
+            item.setStockRecord(stockRecordRepository.getReferenceById(record.id()));
+        }
+
+        order.confirm(Instant.now());
+        return toStockCheckOrderResponse(stockCheckOrderRepository.save(order));
+    }
+
+    @Transactional(readOnly = true)
+    public Page<StockCheckOrderResponse> getStockCheckOrders(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        return stockCheckOrderRepository.findPage(pageable)
+                .map(this::toStockCheckOrderResponse);
     }
 
     @Transactional
@@ -919,14 +1037,25 @@ public class InventoryService {
         }
 
         Set<StockRecordSubType> allowedSubTypes = switch (type) {
-            case IN -> Set.of(StockRecordSubType.PURCHASE, StockRecordSubType.PRODUCTION, StockRecordSubType.INVENTORY);
+            case IN -> Set.of(
+                    StockRecordSubType.PURCHASE,
+                    StockRecordSubType.PRODUCTION,
+                    StockRecordSubType.INVENTORY,
+                    StockRecordSubType.INVENTORY_GAIN
+            );
             case OUT -> Set.of(
                     StockRecordSubType.SALES,
                     StockRecordSubType.PRODUCTION_USAGE,
+                    StockRecordSubType.INTERNAL_USAGE,
+                    StockRecordSubType.OTHER_OUTBOUND,
                     StockRecordSubType.PRODUCTION_LOSS,
                     StockRecordSubType.PACKAGING_LOSS,
                     StockRecordSubType.SHIPPING_LOSS,
-                    StockRecordSubType.INVENTORY
+                    StockRecordSubType.EXPIRED_LOSS,
+                    StockRecordSubType.DAMAGE_LOSS,
+                    StockRecordSubType.OTHER_LOSS,
+                    StockRecordSubType.INVENTORY,
+                    StockRecordSubType.INVENTORY_LOSS
             );
             case ADJUST -> Set.of(StockRecordSubType.INVENTORY);
         };
@@ -1114,7 +1243,8 @@ public class InventoryService {
             case PURCHASE -> "PURCHASE_ORDER";
             case SALES -> "SALES_ORDER";
             case PRODUCTION, PRODUCTION_USAGE, PRODUCTION_LOSS -> "PRODUCTION_ORDER";
-            case PACKAGING_LOSS, SHIPPING_LOSS, INVENTORY -> "INVENTORY_OPERATION";
+            case INTERNAL_USAGE, OTHER_OUTBOUND, PACKAGING_LOSS, SHIPPING_LOSS, EXPIRED_LOSS,
+                    DAMAGE_LOSS, OTHER_LOSS, INVENTORY, INVENTORY_GAIN, INVENTORY_LOSS -> "INVENTORY_OPERATION";
         };
     }
 
@@ -1295,6 +1425,43 @@ public class InventoryService {
 
     private String normalizeFilter(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private String generateCheckNo() {
+        String timestamp = java.time.LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS"));
+        int random = ThreadLocalRandom.current().nextInt(1000, 10000);
+        return "CHK%s%d".formatted(timestamp, random);
+    }
+
+    private StockCheckOrderResponse toStockCheckOrderResponse(StockCheckOrder order) {
+        return new StockCheckOrderResponse(
+                order.getId(),
+                order.getCheckNo(),
+                order.getStatus(),
+                order.getOperatorName(),
+                order.getRemark(),
+                order.getConfirmedAt(),
+                order.getCreatedAt(),
+                order.getItems().stream().map(this::toStockCheckOrderItemResponse).toList()
+        );
+    }
+
+    private StockCheckOrderItemResponse toStockCheckOrderItemResponse(StockCheckOrderItem item) {
+        Product product = item.getProduct();
+        return new StockCheckOrderItemResponse(
+                item.getId(),
+                product.getId(),
+                product.getCode(),
+                product.getName(),
+                item.getBatch().getId(),
+                item.getBatchNo(),
+                item.getSystemQuantity(),
+                item.getActualQuantity(),
+                item.getDifferenceQuantity(),
+                item.getResultType(),
+                item.getStockRecord() == null ? null : item.getStockRecord().getId(),
+                item.getRemark()
+        );
     }
 
     private int normalizeTrendDays(int days) {

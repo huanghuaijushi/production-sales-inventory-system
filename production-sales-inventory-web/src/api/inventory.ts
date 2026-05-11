@@ -174,10 +174,17 @@ export type StockRecordSubType =
   | 'PURCHASE'
   | 'SALES'
   | 'PRODUCTION_USAGE'
+  | 'INTERNAL_USAGE'
+  | 'OTHER_OUTBOUND'
   | 'PRODUCTION_LOSS'
   | 'PACKAGING_LOSS'
   | 'SHIPPING_LOSS'
+  | 'EXPIRED_LOSS'
+  | 'DAMAGE_LOSS'
+  | 'OTHER_LOSS'
   | 'INVENTORY'
+  | 'INVENTORY_GAIN'
+  | 'INVENTORY_LOSS'
 
 export interface StockOperationRequest {
   productId: number
@@ -196,6 +203,47 @@ export interface StockUpdateRequest {
   quantity: number
   alertQuantity: number
   remark?: string | undefined
+}
+
+export interface StockLossRequest {
+  productId: number
+  batchId: number
+  lossType: StockRecordSubType
+  quantity: number
+  remark?: string
+}
+
+export interface StockCheckRequest {
+  productId: number
+  batchId: number
+  actualQuantity: number
+  remark?: string
+}
+
+export interface StockCheckOrderItem {
+  id: number
+  productId: number
+  productCode: string
+  productName: string
+  batchId: number
+  batchNo: string
+  systemQuantity: number
+  actualQuantity: number
+  differenceQuantity: number
+  resultType: 'GAIN' | 'LOSS' | 'MATCH'
+  stockRecordId: number | null
+  remark: string | null
+}
+
+export interface StockCheckOrder {
+  id: number
+  checkNo: string
+  status: 'DRAFT' | 'CONFIRMED' | 'CANCELLED'
+  operatorName: string
+  remark: string | null
+  confirmedAt: string | null
+  createdAt: string
+  items: StockCheckOrderItem[]
 }
 
 export interface StockRecord {
@@ -297,6 +345,15 @@ export const inventoryApi = {
 
   outbound: (req: StockOperationRequest) =>
     request<StockRecord>('/inventory/outbound', { method: 'POST', body: req }),
+
+  reportLoss: (req: StockLossRequest) =>
+    request<StockRecord>('/inventory/loss', { method: 'POST', body: req }),
+
+  quickCheck: (req: StockCheckRequest) =>
+    request<StockCheckOrder>('/inventory/check', { method: 'POST', body: req }),
+
+  getStockCheckOrders: (page: number = 0, size: number = 20) =>
+    request<PageResponse<StockCheckOrder>>(`/inventory/check-orders?page=${page}&size=${size}`),
 
   getStockRecords: (page: number = 0, size: number = 20) =>
     request<PageResponse<StockRecord>>(`/inventory/records?page=${page}&size=${size}`)

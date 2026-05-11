@@ -213,9 +213,9 @@ const selectedBatch = computed(() => {
 })
 
 const batchPlaceholder = computed(() => {
-  if (!form.value.productId) return '请先选择商品'
+  if (!form.value.productId) return '请先选择库存产品'
   if (batchesLoading.value) return '正在加载批次'
-  if (batches.value.length === 0) return '该商品暂无可用批次'
+  if (batches.value.length === 0) return '该库存产品暂无可用批次'
   return '请选择批次'
 })
 
@@ -266,10 +266,8 @@ function updateOperationTypes() {
   } else {
     operationTypes.value = [
       { value: 'PRODUCTION_USAGE', label: '生产领料' },
-      { value: 'PRODUCTION_LOSS', label: '生产报损' },
-      { value: 'PACKAGING_LOSS', label: '包装报损' },
-      { value: 'SHIPPING_LOSS', label: '运输报损' },
-      { value: 'INVENTORY', label: '盘亏出库' }
+      { value: 'INTERNAL_USAGE', label: '内部领用' },
+      { value: 'OTHER_OUTBOUND', label: '其他出库' }
     ]
   }
   form.value.subType = getInitialSubType()

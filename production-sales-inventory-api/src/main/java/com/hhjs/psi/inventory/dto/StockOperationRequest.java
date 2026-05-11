@@ -28,4 +28,20 @@ public record StockOperationRequest(
         @Size(max = 500, message = "Remark must be at most 500 characters")
         String remark
 ) {
+    public StockOperationRequest(
+            Long productId,
+            StockRecordType type,
+            StockRecordSubType subType,
+            Integer quantity,
+            Long relatedOrderId,
+            BigDecimal ignoredBusinessUnitPrice,
+            BigDecimal costUnitPrice,
+            Long batchId,
+            String batchNo,
+            LocalDate productionDate,
+            LocalDate expiryDate,
+            String remark
+    ) {
+        this(productId, type, subType, quantity, relatedOrderId, costUnitPrice, batchId, batchNo, productionDate, expiryDate, remark);
+    }
 }

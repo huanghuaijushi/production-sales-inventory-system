@@ -13,6 +13,8 @@
       @update:filters="updateFilters"
       @inbound="openInboundModal"
       @outbound="openOutboundModal"
+      @loss="openLossModal"
+      @check="openCheckModal"
       @export="exportInventoryReport"
     />
 
@@ -101,6 +103,18 @@
       @close="closeStockEditModal"
       @success="onStockEditSuccess"
     />
+
+    <StockLossModal
+      :is-open="lossModalOpen"
+      @close="closeLossModal"
+      @success="onLossSuccess"
+    />
+
+    <StockCheckModal
+      :is-open="checkModalOpen"
+      @close="closeCheckModal"
+      @success="onCheckSuccess"
+    />
   </main>
 </template>
 
@@ -113,6 +127,8 @@ import InventoryTableCard from '@/components/inventory/InventoryTableCard.vue'
 import InventoryPagination from '@/components/inventory/InventoryPagination.vue'
 import StockOperationModal from '@/components/inventory/StockOperationModal.vue'
 import StockEditModal from '@/components/inventory/StockEditModal.vue'
+import StockLossModal from '@/components/inventory/StockLossModal.vue'
+import StockCheckModal from '@/components/inventory/StockCheckModal.vue'
 import { inventoryApi, type StockItem, type StockRecord, type PageResponse, type StockRecordSubType } from '@/api/inventory'
 
 const route = useRoute()
@@ -125,6 +141,8 @@ const modalOpen = ref(false)
 const isInbound = ref(true)
 const initialOperationSubType = ref<StockRecordSubType | undefined>()
 const stockEditModalOpen = ref(false)
+const lossModalOpen = ref(false)
+const checkModalOpen = ref(false)
 const selectedStockItem = ref<StockItem | null>(null)
 const totalElements = ref(0)
 const totalPages = ref(0)
@@ -209,6 +227,34 @@ function closeStockEditModal() {
   selectedStockItem.value = null
 }
 
+function openLossModal() {
+  lossModalOpen.value = true
+}
+
+function closeLossModal() {
+  lossModalOpen.value = false
+}
+
+function onLossSuccess() {
+  closeLossModal()
+  loadData()
+  loadRecords()
+}
+
+function openCheckModal() {
+  checkModalOpen.value = true
+}
+
+function closeCheckModal() {
+  checkModalOpen.value = false
+}
+
+function onCheckSuccess() {
+  closeCheckModal()
+  loadData()
+  loadRecords()
+}
+
 function onStockEditSuccess() {
   closeStockEditModal()
   loadData()
@@ -261,16 +307,14 @@ onMounted(() => {
 
 function routeSubType(): StockRecordSubType | undefined {
   const value = route.query.subType
-  const allowed: StockRecordSubType[] = [
-    'PRODUCTION',
-    'PURCHASE',
-    'SALES',
-    'PRODUCTION_USAGE',
-    'PRODUCTION_LOSS',
-    'PACKAGING_LOSS',
-    'SHIPPING_LOSS',
-    'INVENTORY'
-  ]
+  const action = route.query.action
+  const allowedInbound: StockRecordSubType[] = ['PURCHASE', 'PRODUCTION', 'INVENTORY']
+  const allowedOutbound: StockRecordSubType[] = ['PRODUCTION_USAGE', 'INTERNAL_USAGE', 'OTHER_OUTBOUND']
+  const allowed = action === 'inbound'
+    ? allowedInbound
+    : action === 'outbound'
+      ? allowedOutbound
+      : []
   return typeof value === 'string' && allowed.includes(value as StockRecordSubType)
     ? value as StockRecordSubType
     : undefined
@@ -282,6 +326,10 @@ function applyRouteAction() {
     openInboundModal(routeSubType())
   } else if (action === 'outbound') {
     openOutboundModal(routeSubType())
+  } else if (action === 'loss') {
+    openLossModal()
+  } else if (action === 'check') {
+    openCheckModal()
   }
 }
 
@@ -291,10 +339,17 @@ function recordTypeLabel(type: StockRecord['type'], subType: StockRecord['subTyp
     PRODUCTION: '生产',
     SALES: '销售',
     PRODUCTION_USAGE: '生产领用',
+    INTERNAL_USAGE: '内部领用',
+    OTHER_OUTBOUND: '其他出库',
     PRODUCTION_LOSS: '生产损耗',
     PACKAGING_LOSS: '包装损耗',
     SHIPPING_LOSS: '运输损耗',
-    INVENTORY: '盘点'
+    EXPIRED_LOSS: '过期报损',
+    DAMAGE_LOSS: '破损报损',
+    OTHER_LOSS: '其他报损',
+    INVENTORY: '盘点',
+    INVENTORY_GAIN: '盘盈',
+    INVENTORY_LOSS: '盘亏'
   }
   return `${type === 'IN' ? '入库' : type === 'OUT' ? '出库' : '调整'} · ${subTypeMap[subType]}`
 }

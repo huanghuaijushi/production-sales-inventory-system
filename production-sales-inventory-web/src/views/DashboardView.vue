@@ -663,9 +663,9 @@ function handleQuickAction(action: QuickActionType) {
     purchase: { name: 'purchase', query: { action: 'create' } },
     materialIssue: { name: 'production', query: { action: 'material-issue' } },
     productionInbound: { name: 'production', query: { action: 'inbound' } },
-    salesOutbound: { name: 'inventory', query: { action: 'outbound', subType: 'SALES' } },
-    inventoryCheck: { name: 'inventory', query: { action: 'inbound', subType: 'INVENTORY' } },
-    stockLoss: { name: 'inventory', query: { action: 'outbound', subType: 'INVENTORY' } }
+    salesOutbound: { name: 'sales' },
+    inventoryCheck: { name: 'inventory', query: { action: 'check' } },
+    stockLoss: { name: 'inventory', query: { action: 'loss' } }
   }
   router.push(routeMap[action])
 }
