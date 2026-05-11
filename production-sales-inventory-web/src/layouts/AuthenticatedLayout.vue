@@ -3,9 +3,11 @@
     <aside class="sidebar">
       <div class="sidebar-header">
         <div class="logo">
-          <div class="logo-icon">HH</div>
+          <div class="logo-icon">
+            <img src="/brand/logo.png" alt="莞瑞" />
+          </div>
           <div class="logo-text">
-            <div class="logo-title">HHJS</div>
+            <div class="logo-title">莞瑞</div>
             <div class="logo-subtitle">产销存系统</div>
           </div>
         </div>
@@ -42,21 +44,21 @@
           <input
             v-model="globalSearchQuery"
             type="text"
-            placeholder="搜索商品、库存或 SKU"
+            placeholder="搜索库存产品、库存或 SKU"
             @focus="openSearchPanel"
             @keyup.enter="submitGlobalSearch"
           />
 
           <div v-if="searchPanelOpen" class="search-panel">
             <div v-if="globalSearchQuery.trim().length === 0" class="search-empty">
-              输入商品名称、SKU、分类或规格进行搜索
+              输入库存产品名称、SKU、分类或规格进行搜索
             </div>
             <div v-else-if="globalSearchLoading" class="search-empty">
               正在搜索...
             </div>
             <template v-else>
               <div v-if="productResults.length > 0" class="search-group">
-                <div class="search-group-title">产品</div>
+                <div class="search-group-title">库存产品</div>
                 <button
                   v-for="product in productResults"
                   :key="`product-${product.id}`"
@@ -90,7 +92,7 @@
               </div>
 
               <div class="search-actions">
-                <button type="button" @click="goProductSearch(globalSearchQuery)">查产品</button>
+                <button type="button" @click="goProductSearch(globalSearchQuery)">查库存产品</button>
                 <button type="button" @click="goInventorySearch(globalSearchQuery)">查库存</button>
               </div>
             </template>
@@ -183,10 +185,18 @@ const menuItems: MenuItem[] = [
   {
     name: 'products',
     path: '/products',
-    title: '产品管理',
+    title: '库存产品',
     icon: TagIcon,
     permissions: ['product:view'],
-    breadcrumb: { main: '产品管理', sub: '产品列表' }
+    breadcrumb: { main: '库存产品', sub: '产品列表' }
+  },
+  {
+    name: 'goods',
+    path: '/goods',
+    title: '商品管理',
+    icon: TagIcon,
+    permissions: ['sales:view'],
+    breadcrumb: { main: '商品管理', sub: '销售商品' }
   },
   {
     name: 'purchase',
@@ -415,7 +425,8 @@ watch(globalSearchQuery, () => {
 }
 .sidebar-header { padding: 24px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
 .logo { display: flex; align-items: center; gap: 12px; }
-.logo-icon { width: 40px; height: 40px; background: #1890ff; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; }
+.logo-icon { width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #ffffff; overflow: hidden; }
+.logo-icon img { width: 100%; height: 100%; object-fit: contain; }
 .logo-text { color: white; }
 .logo-title { font-size: 18px; font-weight: 600; line-height: 1.2; }
 .logo-subtitle { font-size: 12px; opacity: 0.8; line-height: 1.2; }

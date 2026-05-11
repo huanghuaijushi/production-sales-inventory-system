@@ -60,7 +60,6 @@ public class ProductService {
                 normalizeOptional(request.getSpecification()),
                 request.getUnit().trim(),
                 toBigDecimal(request.getCostPrice()),
-                toBigDecimal(request.getSalePrice()),
                 request.getAlertQuantity(),
                 normalizeOptional(request.getDescription())
         );
@@ -95,7 +94,6 @@ public class ProductService {
                 normalizeOptional(request.getSpecification()),
                 request.getUnit().trim(),
                 toBigDecimal(request.getCostPrice()),
-                toBigDecimal(request.getSalePrice()),
                 request.getAlertQuantity(),
                 normalizeOptional(request.getDescription())
         );
@@ -138,7 +136,6 @@ public class ProductService {
                 product.getUnit(),
                 product.getSpecification(),
                 toDouble(product.getCostPrice()),
-                toDouble(product.getSalePrice()),
                 product.getAlertQuantity(),
                 product.getDescription()
         );

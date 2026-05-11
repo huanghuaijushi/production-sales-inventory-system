@@ -60,7 +60,7 @@ public interface StockRecordRepository extends JpaRepository<StockRecord, Long> 
     );
 
     @Query("""
-            SELECT sr.createdAt, sr.type, sr.quantity, sr.subType, p.type, p.costPrice, p.salePrice, sr.amount, sr.businessAmount, sr.costAmount
+            SELECT sr.createdAt, sr.type, sr.quantity, sr.subType, p.type, p.costPrice, sr.amount, sr.businessAmount, sr.costAmount
             FROM StockRecord sr
             JOIN sr.product p
             WHERE sr.createdAt >= :start

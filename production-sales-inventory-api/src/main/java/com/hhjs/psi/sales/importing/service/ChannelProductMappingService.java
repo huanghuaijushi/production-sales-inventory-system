@@ -1,9 +1,6 @@
 package com.hhjs.psi.sales.importing.service;
 
 import com.hhjs.psi.common.exception.BusinessException;
-import com.hhjs.psi.inventory.entity.Product;
-import com.hhjs.psi.inventory.entity.ProductType;
-import com.hhjs.psi.inventory.repository.ProductRepository;
 import com.hhjs.psi.sales.importing.dto.ChannelProductMappingRequest;
 import com.hhjs.psi.sales.importing.dto.ChannelProductMappingResponse;
 import com.hhjs.psi.sales.importing.entity.ChannelProductMapping;
@@ -11,6 +8,8 @@ import com.hhjs.psi.sales.importing.entity.ChannelProductMatchType;
 import com.hhjs.psi.sales.importing.entity.SalesChannelConfig;
 import com.hhjs.psi.sales.importing.repository.ChannelProductMappingRepository;
 import com.hhjs.psi.sales.importing.repository.SalesChannelConfigRepository;
+import com.hhjs.psi.sales.goods.entity.SalesGoods;
+import com.hhjs.psi.sales.goods.repository.SalesGoodsRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,12 +21,12 @@ public class ChannelProductMappingService {
 
     private final ChannelProductMappingRepository mappingRepository;
     private final SalesChannelConfigRepository channelRepository;
-    private final ProductRepository productRepository;
+    private final SalesGoodsRepository salesGoodsRepository;
 
-    public ChannelProductMappingService(ChannelProductMappingRepository mappingRepository, SalesChannelConfigRepository channelRepository, ProductRepository productRepository) {
+    public ChannelProductMappingService(ChannelProductMappingRepository mappingRepository, SalesChannelConfigRepository channelRepository, SalesGoodsRepository salesGoodsRepository) {
         this.mappingRepository = mappingRepository;
         this.channelRepository = channelRepository;
-        this.productRepository = productRepository;
+        this.salesGoodsRepository = salesGoodsRepository;
     }
 
     @Transactional(readOnly = true)
@@ -41,20 +40,20 @@ public class ChannelProductMappingService {
     @Transactional
     public ChannelProductMappingResponse create(ChannelProductMappingRequest request) {
         SalesChannelConfig channel = findChannel(request.channelId());
-        Product product = findFinishedProduct(request.productId());
+        SalesGoods salesGoods = findSalesGoods(request.salesGoodsId());
         ChannelProductMapping mapping = ChannelProductMapping.create(
                 channel,
                 normalizeRequired(request.externalProductName()),
                 normalizeOptional(request.externalSpecName()),
                 normalizeOptional(request.externalSkuCode()),
-                product,
+                salesGoods,
                 normalizeMultiplier(request.quantityMultiplier()),
                 normalizeDefaultUnitPrice(request.defaultUnitPrice()),
                 parseMatchType(request.matchType()),
                 request.priority(),
                 normalizeOptional(request.remark())
         );
-        mapping.update(mapping.getExternalProductName(), mapping.getExternalSpecName(), mapping.getExternalSkuCode(), product, mapping.getQuantityMultiplier(), mapping.getDefaultUnitPrice(), mapping.getMatchType(), request.enabled(), mapping.getPriority(), mapping.getRemark());
+        mapping.update(mapping.getExternalProductName(), mapping.getExternalSpecName(), mapping.getExternalSkuCode(), salesGoods, mapping.getQuantityMultiplier(), mapping.getDefaultUnitPrice(), mapping.getMatchType(), request.enabled(), mapping.getPriority(), mapping.getRemark());
         return ChannelProductMappingResponse.from(mappingRepository.save(mapping));
     }
 
@@ -62,12 +61,12 @@ public class ChannelProductMappingService {
     public ChannelProductMappingResponse update(Long id, ChannelProductMappingRequest request) {
         ChannelProductMapping mapping = mappingRepository.findById(id)
                 .orElseThrow(() -> BusinessException.badRequest("商品映射不存在: " + id));
-        Product product = findFinishedProduct(request.productId());
+        SalesGoods salesGoods = findSalesGoods(request.salesGoodsId());
         mapping.update(
                 normalizeRequired(request.externalProductName()),
                 normalizeOptional(request.externalSpecName()),
                 normalizeOptional(request.externalSkuCode()),
-                product,
+                salesGoods,
                 normalizeMultiplier(request.quantityMultiplier()),
                 normalizeDefaultUnitPrice(request.defaultUnitPrice()),
                 parseMatchType(request.matchType()),
@@ -82,12 +81,12 @@ public class ChannelProductMappingService {
         return channelRepository.findById(id).orElseThrow(() -> BusinessException.badRequest("销售渠道不存在: " + id));
     }
 
-    private Product findFinishedProduct(Long id) {
-        Product product = productRepository.findById(id).orElseThrow(() -> BusinessException.badRequest("商品不存在: " + id));
-        if (product.getType() != ProductType.FINISHED_PRODUCT) {
-            throw BusinessException.badRequest("只能映射到成品商品: " + product.getName());
+    private SalesGoods findSalesGoods(Long id) {
+        SalesGoods salesGoods = salesGoodsRepository.findWithDetailsById(id).orElseThrow(() -> BusinessException.badRequest("销售商品不存在: " + id));
+        if (!Boolean.TRUE.equals(salesGoods.getEnabled())) {
+            throw BusinessException.badRequest("销售商品已停用: " + salesGoods.getName());
         }
-        return product;
+        return salesGoods;
     }
 
     private ChannelProductMatchType parseMatchType(String value) {

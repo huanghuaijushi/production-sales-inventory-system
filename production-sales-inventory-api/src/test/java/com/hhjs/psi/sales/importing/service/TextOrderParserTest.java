@@ -28,7 +28,7 @@ class TextOrderParserTest {
         List<TextOrderParser.ParsedOrder> orders = parser.parse(text);
         assertEquals(1, orders.size());
 
-        WechatTextOrderParser.ParsedOrder order = orders.getFirst();
+        TextOrderParser.ParsedOrder order = orders.getFirst();
         assertEquals("WX001", order.externalOrderNo());
         assertEquals("张三", order.customerName());
         assertEquals("13800000000", order.customerPhone());
@@ -36,7 +36,7 @@ class TextOrderParserTest {
         assertEquals("尽快发货", order.buyerMessage());
         assertEquals(1, order.items().size());
 
-        WechatTextOrderParser.ParsedItem item = order.items().getFirst();
+        TextOrderParser.ParsedItem item = order.items().getFirst();
         assertEquals("蛋黄鲜肉粽（188g）", item.productName());
         assertEquals("188g", item.specName());
         assertEquals(new BigDecimal("10"), item.quantity());
@@ -47,7 +47,7 @@ class TextOrderParserTest {
     void shouldParseMultipleItemsSeparatedByCommaAndSemicolon() {
         String text = "商品：蛋黄鲜肉粽x10，豆沙粽×5；蜜枣粽*3";
 
-        List<WechatTextOrderParser.ParsedItem> items = parser.parseItemCandidates(text);
+        List<TextOrderParser.ParsedItem> items = parser.parseItemCandidates(text);
         assertEquals(3, items.size());
         assertEquals("蛋黄鲜肉粽", items.get(0).productName());
         assertEquals(new BigDecimal("10"), items.get(0).quantity());
@@ -59,7 +59,7 @@ class TextOrderParserTest {
 
     @Test
     void shouldExtractSpecSkuQuantityAndPriceFromComplexItemLine() {
-        WechatTextOrderParser.ParsedItem item = parser.parseItemLine("品名：蛋黄鲜肉粽(188g/袋) sku:ZONG001 数量: 12 单价: 15.80");
+        TextOrderParser.ParsedItem item = parser.parseItemLine("品名：蛋黄鲜肉粽(188g/袋) sku:ZONG001 数量: 12 单价: 15.80");
 
         assertEquals("蛋黄鲜肉粽(188g/袋)", item.productName());
         assertEquals("188g/袋", item.specName());
@@ -77,7 +77,7 @@ class TextOrderParserTest {
                 豆沙粽 5个
                 """;
 
-        WechatTextOrderParser.ParsedOrder order = parser.parse(text).getFirst();
+        TextOrderParser.ParsedOrder order = parser.parse(text).getFirst();
         assertTrue(order.externalOrderNo().startsWith("TEXT-"));
         assertEquals("李四", order.customerName());
         assertEquals("13911112222", order.customerPhone());
@@ -96,7 +96,7 @@ class TextOrderParserTest {
                 蛋黄鲜肉粽*4个
                 """;
 
-        WechatTextOrderParser.ParsedOrder order = parser.parse(text).getFirst();
+        TextOrderParser.ParsedOrder order = parser.parse(text).getFirst();
         assertEquals("郑美灵", order.customerName());
         assertEquals("17284238509", order.customerPhone());
         assertEquals("广东省 东莞市 石排镇 向西村石崇工业园旭柏彩印厂[9606]", order.customerAddress());
@@ -108,7 +108,7 @@ class TextOrderParserTest {
 
     @Test
     void shouldKeepNullSpecWhenItemHasNoSpec() {
-        WechatTextOrderParser.ParsedItem item = parser.parseItemLine("豆沙粽 x8");
+        TextOrderParser.ParsedItem item = parser.parseItemLine("豆沙粽 x8");
         assertEquals("豆沙粽", item.productName());
         assertNull(item.specName());
         assertEquals(new BigDecimal("8"), item.quantity());
@@ -128,7 +128,7 @@ class TextOrderParserTest {
                 商品：豆沙粽x3
                 """;
 
-        List<WechatTextOrderParser.ParsedOrder> orders = parser.parse(text);
+        List<TextOrderParser.ParsedOrder> orders = parser.parse(text);
         assertEquals(2, orders.size());
         assertEquals("A001", orders.get(0).externalOrderNo());
         assertEquals("A002", orders.get(1).externalOrderNo());

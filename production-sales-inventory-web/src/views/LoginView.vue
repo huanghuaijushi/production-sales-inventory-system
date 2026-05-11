@@ -2,8 +2,9 @@
   <main class="login-page">
     <section class="login-brand" aria-label="系统介绍">
       <div class="login-brand__content">
-        <div class="login-brand__badge">HHJS PSI</div>
-        <h1>HHJS 产销存系统</h1>
+        <img class="login-brand__logo" src="/brand/logo.png" alt="莞瑞" />
+        <div class="login-brand__badge">GUANRUI PSI</div>
+        <h1>莞瑞产销存系统</h1>
         <div class="login-brand__mark" aria-hidden="true"></div>
         <p>
           覆盖采购、销售、生产、库存和往来资料，帮助团队实时掌握经营状态和业务变化。
@@ -26,9 +27,9 @@
       <div class="login-card">
         <div class="login-mobile-brand">
           <div class="login-mobile-brand__logo" aria-hidden="true">
-            <span></span>
+            <img src="/brand/logo.png" alt="" />
           </div>
-          <h2>HHJS 产销存系统</h2>
+          <h2>莞瑞产销存系统</h2>
         </div>
 
         <header class="login-header">
@@ -105,7 +106,7 @@
         </form>
 
         <footer class="login-footer">
-          <span>&copy; 2026 HHJS 产销存系统</span>
+          <span>&copy; 2026 莞瑞产销存系统</span>
           <nav aria-label="登录页辅助链接">
             <a href="#" @click.prevent>服务协议</a>
             <a href="#" @click.prevent>隐私政策</a>

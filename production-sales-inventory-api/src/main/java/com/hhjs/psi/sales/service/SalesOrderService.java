@@ -4,15 +4,15 @@ import com.hhjs.psi.auth.repository.SysUserRepository;
 import com.hhjs.psi.auth.security.SecurityUtils;
 import com.hhjs.psi.common.exception.BusinessException;
 import com.hhjs.psi.inventory.dto.StockOperationRequest;
-import com.hhjs.psi.inventory.entity.Product;
-import com.hhjs.psi.inventory.entity.ProductType;
 import com.hhjs.psi.inventory.entity.Stock;
 import com.hhjs.psi.inventory.entity.StockBatch;
 import com.hhjs.psi.inventory.entity.StockRecordSubType;
-import com.hhjs.psi.inventory.repository.ProductRepository;
 import com.hhjs.psi.inventory.repository.StockBatchRepository;
 import com.hhjs.psi.inventory.repository.StockRepository;
 import com.hhjs.psi.inventory.service.InventoryService;
+import com.hhjs.psi.sales.goods.entity.SalesGoods;
+import com.hhjs.psi.sales.goods.entity.SalesGoodsComponent;
+import com.hhjs.psi.sales.goods.repository.SalesGoodsRepository;
 import com.hhjs.psi.sales.dto.SalesOrderItemRequest;
 import com.hhjs.psi.sales.dto.SalesOrderItemResponse;
 import com.hhjs.psi.sales.dto.SalesOrderRequest;
@@ -49,7 +49,7 @@ public class SalesOrderService {
     private static final DateTimeFormatter ORDER_NO_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
 
     private final SalesOrderRepository salesOrderRepository;
-    private final ProductRepository productRepository;
+    private final SalesGoodsRepository salesGoodsRepository;
     private final StockRepository stockRepository;
     private final StockBatchRepository stockBatchRepository;
     private final SysUserRepository sysUserRepository;
@@ -58,7 +58,7 @@ public class SalesOrderService {
 
     public SalesOrderService(
             SalesOrderRepository salesOrderRepository,
-            ProductRepository productRepository,
+            SalesGoodsRepository salesGoodsRepository,
             StockRepository stockRepository,
             StockBatchRepository stockBatchRepository,
             SysUserRepository sysUserRepository,
@@ -66,7 +66,7 @@ public class SalesOrderService {
             SalesChannelConfigRepository salesChannelConfigRepository
     ) {
         this.salesOrderRepository = salesOrderRepository;
-        this.productRepository = productRepository;
+        this.salesGoodsRepository = salesGoodsRepository;
         this.stockRepository = stockRepository;
         this.stockBatchRepository = stockBatchRepository;
         this.sysUserRepository = sysUserRepository;
@@ -207,94 +207,119 @@ public class SalesOrderService {
     }
 
     private List<SalesOrderItem> buildItems(List<SalesOrderItemRequest> requests) {
-        Set<Long> productIds = new HashSet<>();
+        Set<Long> salesGoodsIds = new HashSet<>();
         List<SalesOrderItem> items = new ArrayList<>();
         for (SalesOrderItemRequest request : requests) {
-            if (!productIds.add(request.productId())) {
+            if (!salesGoodsIds.add(request.salesGoodsId())) {
                 throw BusinessException.badRequest("同一销售单不能重复添加同一个商品");
             }
-            Product product = productRepository.findById(request.productId())
-                    .orElseThrow(() -> BusinessException.badRequest("商品不存在: " + request.productId()));
-            if (!Boolean.TRUE.equals(product.getEnabled())) {
-                throw BusinessException.badRequest("商品已停用: " + product.getName());
+            SalesGoods salesGoods = salesGoodsRepository.findWithDetailsById(request.salesGoodsId())
+                    .orElseThrow(() -> BusinessException.badRequest("销售商品不存在: " + request.salesGoodsId()));
+            if (!Boolean.TRUE.equals(salesGoods.getEnabled())) {
+                throw BusinessException.badRequest("销售商品已停用: " + salesGoods.getName());
             }
-            if (product.getType() != ProductType.FINISHED_PRODUCT) {
-                throw BusinessException.badRequest("销售单只能销售成品，原料请通过库存出库或生产领料处理: " + product.getName());
+            if (salesGoods.getComponents().isEmpty()) {
+                throw BusinessException.badRequest("销售商品未配置库存组成，不能销售: " + salesGoods.getName());
             }
             BigDecimal unitPrice = request.unitPrice() == null ? BigDecimal.ZERO : request.unitPrice();
             if (unitPrice.compareTo(BigDecimal.ZERO) < 0) {
                 throw BusinessException.badRequest("销售单价不能小于0");
             }
-            items.add(SalesOrderItem.create(product, request.quantity(), unitPrice));
+            items.add(SalesOrderItem.create(salesGoods, request.quantity(), unitPrice));
         }
         return items;
     }
 
     private void lockOrderItems(List<SalesOrderItem> items) {
         for (SalesOrderItem item : items) {
-            Stock stock = stockRepository.findByProductIdForUpdate(item.getProduct().getId())
-                    .orElseThrow(() -> BusinessException.badRequest("商品库存不存在: " + item.getProductName()));
-            if (stock.getAvailableQuantity() < item.getQuantity()) {
-                throw BusinessException.badRequest("成品可用库存不足: " + item.getProductName() + "，可用 " + stock.getAvailableQuantity());
+            for (SalesGoodsComponent component : item.getSalesGoods().getComponents()) {
+                int requiredQuantity = requiredInventoryQuantity(item, component);
+                Stock stock = stockRepository.findByProductIdForUpdate(component.getProduct().getId())
+                        .orElseThrow(() -> BusinessException.badRequest("库存产品不存在: " + component.getProduct().getName()));
+                if (stock.getAvailableQuantity() < requiredQuantity) {
+                    throw BusinessException.badRequest("库存产品可用库存不足: " + component.getProduct().getName() + "，需 " + requiredQuantity + "，可用 " + stock.getAvailableQuantity());
+                }
+                stock.lockQuantity(requiredQuantity);
+                stockRepository.save(stock);
             }
-            stock.lockQuantity(item.getQuantity());
-            stockRepository.save(stock);
         }
     }
 
 
     private void unlockOrderItems(List<SalesOrderItem> items) {
         for (SalesOrderItem item : items) {
-            Stock stock = stockRepository.findByProductIdForUpdate(item.getProduct().getId())
-                    .orElseThrow(() -> BusinessException.badRequest("商品库存不存在: " + item.getProductName()));
-            stock.unlockQuantity(item.getQuantity());
-            stockRepository.save(stock);
+            for (SalesGoodsComponent component : item.getSalesGoods().getComponents()) {
+                int requiredQuantity = requiredInventoryQuantity(item, component);
+                Stock stock = stockRepository.findByProductIdForUpdate(component.getProduct().getId())
+                        .orElseThrow(() -> BusinessException.badRequest("库存产品不存在: " + component.getProduct().getName()));
+                stock.unlockQuantity(requiredQuantity);
+                stockRepository.save(stock);
+            }
         }
     }
 
     private void shipItem(SalesOrder order, SalesOrderItem item) {
-        int remaining = item.getQuantity();
-        List<StockBatch> batches = stockBatchRepository.findAvailableByProductId(item.getProduct().getId());
-        if (batches.stream().mapToInt(StockBatch::getAvailableQuantity).sum() < remaining) {
-            throw BusinessException.badRequest("成品批次可用库存不足: " + item.getProductName());
-        }
-        for (StockBatch batch : batches) {
-            if (remaining <= 0) {
-                break;
+        for (SalesGoodsComponent component : item.getSalesGoods().getComponents()) {
+            int remaining = requiredInventoryQuantity(item, component);
+            List<StockBatch> batches = stockBatchRepository.findAvailableByProductId(component.getProduct().getId());
+            if (batches.stream().mapToInt(StockBatch::getAvailableQuantity).sum() < remaining) {
+                throw BusinessException.badRequest("库存产品批次可用库存不足: " + component.getProduct().getName());
             }
-            int outboundQuantity = Math.min(remaining, batch.getAvailableQuantity());
-            inventoryService.outboundFromLocked(new StockOperationRequest(
-                    item.getProduct().getId(),
-                    null,
-                    StockRecordSubType.SALES,
-                    outboundQuantity,
-                    order.getId(),
-                    item.getUnitPrice(),
-                    null,
-                    batch.getId(),
-                    order.getOrderNo(),
-                    null,
-                    null,
-                    "销售出库: %s / %s".formatted(order.getOrderNo(), normalizeCustomerName(order))
-            ), item.getUnitPrice());
-            remaining -= outboundQuantity;
+            for (StockBatch batch : batches) {
+                if (remaining <= 0) {
+                    break;
+                }
+                int outboundQuantity = Math.min(remaining, batch.getAvailableQuantity());
+                BigDecimal allocatedPrice = allocateBusinessUnitPrice(item, component);
+                inventoryService.outboundFromLocked(new StockOperationRequest(
+                        component.getProduct().getId(),
+                        null,
+                        StockRecordSubType.SALES,
+                        outboundQuantity,
+                        order.getId(),
+                        allocatedPrice,
+                        null,
+                        batch.getId(),
+                        order.getOrderNo(),
+                        null,
+                        null,
+                        "销售出库: %s / %s / %s".formatted(order.getOrderNo(), item.getGoodsName(), normalizeCustomerName(order))
+                ), allocatedPrice);
+                remaining -= outboundQuantity;
+            }
         }
     }
 
     private void ensureOrderItemsLocked(SalesOrder order) {
         for (SalesOrderItem item : order.getItems()) {
-            Stock stock = stockRepository.findByProductIdForUpdate(item.getProduct().getId())
-                    .orElseThrow(() -> BusinessException.badRequest("商品库存不存在: " + item.getProductName()));
-            if (stock.getLockedQuantity() >= item.getQuantity()) {
-                continue;
+            for (SalesGoodsComponent component : item.getSalesGoods().getComponents()) {
+                int requiredQuantity = requiredInventoryQuantity(item, component);
+                Stock stock = stockRepository.findByProductIdForUpdate(component.getProduct().getId())
+                        .orElseThrow(() -> BusinessException.badRequest("库存产品不存在: " + component.getProduct().getName()));
+                if (stock.getLockedQuantity() >= requiredQuantity) {
+                    continue;
+                }
+                int needLock = requiredQuantity - stock.getLockedQuantity();
+                if (stock.getAvailableQuantity() < needLock) {
+                    throw BusinessException.badRequest("库存产品未锁定且可用库存不足，无法发货: " + component.getProduct().getName() + "，需补锁 " + needLock + "，当前可用 " + stock.getAvailableQuantity());
+                }
+                stock.lockQuantity(needLock);
+                stockRepository.save(stock);
             }
-            int needLock = item.getQuantity() - stock.getLockedQuantity();
-            if (stock.getAvailableQuantity() < needLock) {
-                throw BusinessException.badRequest("商品未锁定且可用库存不足，无法发货: " + item.getProductName() + "，需补锁 " + needLock + "，当前可用 " + stock.getAvailableQuantity());
-            }
-            stock.lockQuantity(needLock);
-            stockRepository.save(stock);
         }
+    }
+
+    private int requiredInventoryQuantity(SalesOrderItem item, SalesGoodsComponent component) {
+        BigDecimal base = component.getQuantityPerUnit().multiply(BigDecimal.valueOf(item.getQuantity()));
+        BigDecimal withLoss = base.multiply(BigDecimal.ONE.add(component.getLossRate()));
+        return withLoss.setScale(0, java.math.RoundingMode.CEILING).intValue();
+    }
+
+    private BigDecimal allocateBusinessUnitPrice(SalesOrderItem item, SalesGoodsComponent component) {
+        if (item.getSalesGoods().getComponents().size() == 1) {
+            return item.getUnitPrice().divide(component.getQuantityPerUnit(), 2, java.math.RoundingMode.HALF_UP);
+        }
+        return BigDecimal.ZERO;
     }
 
     private void ensurePending(SalesOrder order, String message) {
@@ -345,12 +370,12 @@ public class SalesOrderService {
     private SalesOrderItemResponse toItemResponse(SalesOrderItem item) {
         return new SalesOrderItemResponse(
                 item.getId(),
-                item.getProduct().getId(),
-                item.getProductCode(),
-                item.getProductName(),
-                item.getProductSpecification(),
-                item.getProductUnit(),
-                item.getProductCategory(),
+                item.getSalesGoods().getId(),
+                item.getGoodsCode(),
+                item.getGoodsName(),
+                item.getGoodsSpecification(),
+                item.getGoodsUnit(),
+                item.getGoodsCategory(),
                 item.getExternalProductName(),
                 item.getExternalSpecName(),
                 item.getExternalQuantity(),

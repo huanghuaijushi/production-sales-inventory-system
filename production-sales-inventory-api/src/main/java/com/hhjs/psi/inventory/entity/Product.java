@@ -44,9 +44,6 @@ public class Product {
     @Column(name = "cost_price", precision = 10, scale = 2)
     private BigDecimal costPrice;
 
-    @Column(name = "sale_price", precision = 10, scale = 2)
-    private BigDecimal salePrice;
-
     @Column(name = "alert_quantity", nullable = false)
     private Integer alertQuantity = 0;
 
@@ -78,7 +75,6 @@ public class Product {
             String specification,
             String unit,
             BigDecimal costPrice,
-            BigDecimal salePrice,
             Integer alertQuantity,
             String description
     ) {
@@ -90,7 +86,6 @@ public class Product {
         product.specification = specification;
         product.unit = unit;
         product.costPrice = costPrice;
-        product.salePrice = salePrice;
         product.alertQuantity = alertQuantity == null ? 0 : alertQuantity;
         product.description = description;
         product.enabled = true;
@@ -105,7 +100,6 @@ public class Product {
             String specification,
             String unit,
             BigDecimal costPrice,
-            BigDecimal salePrice,
             Integer alertQuantity,
             String description
     ) {
@@ -116,7 +110,6 @@ public class Product {
         this.specification = specification;
         this.unit = unit;
         this.costPrice = costPrice;
-        this.salePrice = salePrice;
         this.alertQuantity = alertQuantity == null ? 0 : alertQuantity;
         this.description = description;
     }
@@ -159,10 +152,6 @@ public class Product {
 
     public BigDecimal getCostPrice() {
         return costPrice;
-    }
-
-    public BigDecimal getSalePrice() {
-        return salePrice;
     }
 
     public Integer getAlertQuantity() {

@@ -662,10 +662,9 @@ public class InventoryService {
             StockRecordSubType subType = (StockRecordSubType) row[3];
             ProductType productType = (ProductType) row[4];
             BigDecimal costPrice = normalizeMoney((BigDecimal) row[5]);
-            BigDecimal salePrice = normalizeMoney((BigDecimal) row[6]);
-            BigDecimal recordAmount = row.length > 7 && row[7] != null ? normalizeMoney((BigDecimal) row[7]) : null;
-            BigDecimal businessAmount = row.length > 8 && row[8] != null ? normalizeMoney((BigDecimal) row[8]) : null;
-            BigDecimal costAmount = row.length > 9 && row[9] != null ? normalizeMoney((BigDecimal) row[9]) : null;
+            BigDecimal recordAmount = row.length > 6 && row[6] != null ? normalizeMoney((BigDecimal) row[6]) : null;
+            BigDecimal businessAmount = row.length > 7 && row[7] != null ? normalizeMoney((BigDecimal) row[7]) : null;
+            BigDecimal costAmount = row.length > 8 && row[8] != null ? normalizeMoney((BigDecimal) row[8]) : null;
             InventoryValueTrendAggregate aggregate = aggregates.computeIfAbsent(recordDate, ignored -> new InventoryValueTrendAggregate());
 
             if (productType == ProductType.RAW_MATERIAL && type == StockRecordType.IN && subType == StockRecordSubType.PURCHASE) {
@@ -675,8 +674,7 @@ public class InventoryService {
             } else if (productType == ProductType.FINISHED_PRODUCT && type == StockRecordType.IN && subType == StockRecordSubType.PRODUCTION) {
                 aggregate.finishedProductInboundAmount = aggregate.finishedProductInboundAmount.add(fallbackAmount(costAmount, recordAmount, costPrice, quantity));
             } else if (productType == ProductType.FINISHED_PRODUCT && type == StockRecordType.OUT && subType == StockRecordSubType.SALES) {
-                BigDecimal unitPrice = salePrice.signum() > 0 ? salePrice : costPrice;
-                aggregate.finishedProductSalesAmount = aggregate.finishedProductSalesAmount.add(fallbackAmount(businessAmount, recordAmount, unitPrice, quantity));
+                aggregate.finishedProductSalesAmount = aggregate.finishedProductSalesAmount.add(fallbackAmount(businessAmount, recordAmount, costPrice, quantity));
             }
         });
 
@@ -1020,7 +1018,6 @@ public class InventoryService {
                 stock.getAvailableQuantity(),
                 product.getAlertQuantity(),
                 product.getCostPrice(),
-                product.getSalePrice(),
                 stock.isLowStock()
         );
     }
@@ -1106,9 +1103,6 @@ public class InventoryService {
     private BigDecimal resolveBusinessUnitPrice(Product product, StockRecordType type, StockRecordSubType subType, BigDecimal businessUnitPriceSnapshot) {
         if (businessUnitPriceSnapshot != null) {
             return normalizeMoney(businessUnitPriceSnapshot);
-        }
-        if (type == StockRecordType.OUT && subType == StockRecordSubType.SALES) {
-            return firstPositiveMoney(product.getSalePrice(), product.getCostPrice());
         }
         return null;
     }

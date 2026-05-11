@@ -2,8 +2,8 @@
   <div class="product-management">
     <div class="page-header">
       <div>
-        <h1>产品管理</h1>
-        <p>维护产品资料和分类字典，新增商品时从已有分类中选择。</p>
+        <h1>库存产品</h1>
+        <p>维护仓库里真实入库、出库和计成本的库存产品资料。</p>
       </div>
     </div>
 
@@ -40,7 +40,7 @@
 
       <section class="product-list-card">
         <div class="product-list-card__header">
-          <h2>产品列表</h2>
+          <h2>库存产品列表</h2>
         </div>
 
         <div class="product-toolbar">
@@ -48,7 +48,7 @@
             <input
               type="text"
               v-model="searchQuery"
-              placeholder="搜索产品名称、编码或规格"
+              placeholder="搜索库存产品名称、编码或规格"
               @input="handleSearch()"
             />
             <MagnifyingGlassIcon class="search-icon" />
@@ -71,7 +71,7 @@
           <button class="btn btn-outline" type="button" @click="resetProductFilters">重置</button>
           <button class="btn btn-primary product-create-btn" type="button" @click="openCreateModal">
             <PlusIcon class="icon" />
-            新增产品
+            新增库存产品
           </button>
         </div>
 
@@ -79,8 +79,8 @@
           <table>
             <thead>
               <tr>
-                <th>产品编码</th>
-                <th>产品名称</th>
+                <th>库存产品编码</th>
+                <th>库存产品名称</th>
                 <th>类型</th>
                 <th>分类</th>
                 <th>规格型号</th>
@@ -302,16 +302,6 @@
               </label>
 
               <label class="form-field">
-                <span>销售价</span>
-                <input
-                  type="number"
-                  v-model.number="createForm.salePrice"
-                  step="0.01"
-                  placeholder="可选"
-                />
-              </label>
-
-              <label class="form-field">
                 <span>预警数量</span>
                 <input
                   type="number"
@@ -426,16 +416,6 @@
                 <input
                   type="number"
                   v-model.number="editForm.costPrice"
-                  step="0.01"
-                  placeholder="可选"
-                />
-              </label>
-
-              <label class="form-field">
-                <span>销售价</span>
-                <input
-                  type="number"
-                  v-model.number="editForm.salePrice"
                   step="0.01"
                   placeholder="可选"
                 />
@@ -613,7 +593,6 @@ const editForm = ref<ProductRequest>({
   unit: '',
   specification: '',
   costPrice: undefined,
-  salePrice: undefined,
   alertQuantity: 0,
   description: ''
 })
@@ -763,7 +742,6 @@ const editProduct = async (product: Product) => {
     unit: product.unit,
     specification: product.specification || '',
     costPrice: product.costPrice,
-    salePrice: product.salePrice,
     alertQuantity: product.alertQuantity ?? 0,
     description: product.description || ''
   }

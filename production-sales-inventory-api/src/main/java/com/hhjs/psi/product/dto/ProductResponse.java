@@ -9,7 +9,6 @@ public class ProductResponse {
     private String unit;
     private String specification;
     private Double costPrice;
-    private Double salePrice;
     private Integer alertQuantity;
     private String description;
 
@@ -24,7 +23,6 @@ public class ProductResponse {
             String unit,
             String specification,
             Double costPrice,
-            Double salePrice,
             Integer alertQuantity,
             String description
     ) {
@@ -36,7 +34,6 @@ public class ProductResponse {
         this.unit = unit;
         this.specification = specification;
         this.costPrice = costPrice;
-        this.salePrice = salePrice;
         this.alertQuantity = alertQuantity;
         this.description = description;
     }
@@ -65,9 +62,6 @@ public class ProductResponse {
 
     public Double getCostPrice() { return costPrice; }
     public void setCostPrice(Double costPrice) { this.costPrice = costPrice; }
-
-    public Double getSalePrice() { return salePrice; }
-    public void setSalePrice(Double salePrice) { this.salePrice = salePrice; }
 
     public Integer getAlertQuantity() { return alertQuantity; }
     public void setAlertQuantity(Integer alertQuantity) { this.alertQuantity = alertQuantity; }

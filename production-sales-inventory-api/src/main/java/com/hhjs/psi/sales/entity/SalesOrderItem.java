@@ -1,7 +1,7 @@
 package com.hhjs.psi.sales.entity;
 
-import com.hhjs.psi.inventory.entity.Product;
 import com.hhjs.psi.sales.importing.entity.ChannelProductMapping;
+import com.hhjs.psi.sales.goods.entity.SalesGoods;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -30,23 +30,23 @@ public class SalesOrderItem {
     private SalesOrder order;
 
     @ManyToOne(fetch = LAZY)
-    @JoinColumn(name = "product_id", nullable = false)
-    private Product product;
+    @JoinColumn(name = "sales_goods_id", nullable = false)
+    private SalesGoods salesGoods;
 
-    @Column(name = "product_code", length = 64)
-    private String productCode;
+    @Column(name = "goods_code", length = 64)
+    private String goodsCode;
 
-    @Column(name = "product_name", nullable = false, length = 120)
-    private String productName;
+    @Column(name = "goods_name", nullable = false, length = 120)
+    private String goodsName;
 
-    @Column(name = "product_specification", length = 64)
-    private String productSpecification;
+    @Column(name = "goods_specification", length = 64)
+    private String goodsSpecification;
 
-    @Column(name = "product_unit", length = 20)
-    private String productUnit;
+    @Column(name = "goods_unit", length = 20)
+    private String goodsUnit;
 
-    @Column(name = "product_category", length = 64)
-    private String productCategory;
+    @Column(name = "goods_category", length = 64)
+    private String goodsCategory;
 
     @Column(name = "external_product_name", length = 255)
     private String externalProductName;
@@ -77,12 +77,12 @@ public class SalesOrderItem {
     protected SalesOrderItem() {
     }
 
-    public static SalesOrderItem create(Product product, Integer quantity, BigDecimal unitPrice) {
-        return create(product, quantity, unitPrice, null, null, null, null);
+    public static SalesOrderItem create(SalesGoods salesGoods, Integer quantity, BigDecimal unitPrice) {
+        return create(salesGoods, quantity, unitPrice, null, null, null, null);
     }
 
     public static SalesOrderItem create(
-            Product product,
+            SalesGoods salesGoods,
             Integer quantity,
             BigDecimal unitPrice,
             String externalProductName,
@@ -91,12 +91,12 @@ public class SalesOrderItem {
             ChannelProductMapping mapping
     ) {
         SalesOrderItem item = new SalesOrderItem();
-        item.product = product;
-        item.productCode = product.getCode();
-        item.productName = product.getName();
-        item.productSpecification = product.getSpecification();
-        item.productUnit = product.getUnit();
-        item.productCategory = product.getCategory();
+        item.salesGoods = salesGoods;
+        item.goodsCode = salesGoods.getCode();
+        item.goodsName = salesGoods.getName();
+        item.goodsSpecification = salesGoods.getSpecification();
+        item.goodsUnit = salesGoods.getUnit();
+        item.goodsCategory = salesGoods.getCategory();
         item.externalProductName = externalProductName;
         item.externalSpecName = externalSpecName;
         item.externalQuantity = externalQuantity;
@@ -119,28 +119,28 @@ public class SalesOrderItem {
         return order;
     }
 
-    public Product getProduct() {
-        return product;
+    public SalesGoods getSalesGoods() {
+        return salesGoods;
     }
 
-    public String getProductCode() {
-        return productCode;
+    public String getGoodsCode() {
+        return goodsCode;
     }
 
-    public String getProductName() {
-        return productName;
+    public String getGoodsName() {
+        return goodsName;
     }
 
-    public String getProductSpecification() {
-        return productSpecification;
+    public String getGoodsSpecification() {
+        return goodsSpecification;
     }
 
-    public String getProductUnit() {
-        return productUnit;
+    public String getGoodsUnit() {
+        return goodsUnit;
     }
 
-    public String getProductCategory() {
-        return productCategory;
+    public String getGoodsCategory() {
+        return goodsCategory;
     }
 
     public String getExternalProductName() {

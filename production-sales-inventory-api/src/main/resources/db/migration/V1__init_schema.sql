@@ -96,7 +96,6 @@ CREATE TABLE `product` (
   `specification` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '规格（如：100g/个、5kg/袋）',
   `unit` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '单位（个、袋、斤、kg等）',
   `cost_price` decimal(10,2) DEFAULT NULL COMMENT '成本价',
-  `sale_price` decimal(10,2) DEFAULT NULL COMMENT '销售价',
   `alert_quantity` int NOT NULL DEFAULT '0' COMMENT '库存预警数量',
   `shelf_life_days` int DEFAULT NULL COMMENT '保质期（天）',
   `description` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '描述',
@@ -326,7 +325,7 @@ CREATE TABLE `sales_order` (
   KEY `idx_sales_order_date` (`order_date`),
   KEY `idx_sales_order_status_order_date` (`status`,`order_date`),
   CONSTRAINT `fk_sales_order_operator` FOREIGN KEY (`operator_id`) REFERENCES `sys_user` (`id`) ON DELETE RESTRICT,
-  CONSTRAINT `ck_sales_order_channel` CHECK ((`channel` in (_utf8mb4'DOUYIN',_utf8mb4'PINDUODUO',_utf8mb4'OFFLINE'))),
+  CONSTRAINT `ck_sales_order_channel` CHECK ((`channel` in (_utf8mb4'DOUYIN',_utf8mb4'PINDUODUO',_utf8mb4'OFFLINE',_utf8mb4'WECHAT_GROUP',_utf8mb4'CONTRACT'))),
   CONSTRAINT `ck_sales_order_status` CHECK ((`status` in (_utf8mb4'PENDING',_utf8mb4'SHIPPED',_utf8mb4'COMPLETED',_utf8mb4'CANCELLED')))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='销售订单表';
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -336,22 +335,25 @@ DROP TABLE IF EXISTS `sales_order_item`;
 CREATE TABLE `sales_order_item` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `order_id` bigint NOT NULL COMMENT '订单ID',
-  `product_id` bigint NOT NULL COMMENT '产品ID',
-  `product_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '商品编码快照',
-  `product_name` varchar(120) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '产品名称',
-  `product_specification` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '产品规格',
-  `product_unit` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '商品单位快照',
-  `product_category` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '商品分类快照',
+  `sales_goods_id` bigint NOT NULL COMMENT '销售商品ID',
+  `goods_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '销售商品编码快照',
+  `goods_name` varchar(120) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '销售商品名称快照',
+  `goods_specification` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '销售商品规格快照',
+  `goods_unit` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '销售商品单位快照',
+  `goods_category` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '销售商品分类快照',
+  `external_product_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '外部商品名称',
+  `external_spec_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '外部规格名称',
+  `external_quantity` decimal(12,4) DEFAULT NULL COMMENT '外部数量',
+  `mapping_id` bigint DEFAULT NULL COMMENT '商品匹配规则ID',
   `quantity` int NOT NULL COMMENT '数量',
   `unit_price` decimal(10,2) NOT NULL COMMENT '单价',
   `subtotal` decimal(10,2) NOT NULL COMMENT '小计',
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
   KEY `idx_sales_order_item_order` (`order_id`),
-  KEY `idx_sales_order_item_product` (`product_id`),
-  KEY `idx_sales_order_item_product_category` (`product_id`,`product_category`),
-  CONSTRAINT `fk_sales_order_item_order` FOREIGN KEY (`order_id`) REFERENCES `sales_order` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_sales_order_item_product` FOREIGN KEY (`product_id`) REFERENCES `product` (`id`) ON DELETE RESTRICT
+  KEY `idx_sales_order_item_goods` (`sales_goods_id`),
+  KEY `idx_sales_order_item_mapping` (`mapping_id`),
+  CONSTRAINT `fk_sales_order_item_order` FOREIGN KEY (`order_id`) REFERENCES `sales_order` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='销售订单明细表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `stock`;
@@ -544,6 +546,65 @@ CREATE TABLE IF NOT EXISTS `sales_channel_config` (
   CONSTRAINT `ck_sales_channel_config_source_type` CHECK ((`source_type` in (_utf8mb4'EXCEL',_utf8mb4'TEXT',_utf8mb4'MANUAL',_utf8mb4'CONTRACT',_utf8mb4'API')))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='销售渠道配置表';
 
+CREATE TABLE IF NOT EXISTS `sales_goods` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `code` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '销售商品编码',
+  `name` varchar(120) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '销售商品名称',
+  `category` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '销售商品分类',
+  `specification` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '销售商品规格',
+  `unit` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '销售单位',
+  `default_price` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '默认销售价',
+  `enabled` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否启用',
+  `remark` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_sales_goods_code` (`code`),
+  KEY `idx_sales_goods_enabled` (`enabled`, `code`),
+  KEY `idx_sales_goods_category` (`category`),
+  CONSTRAINT `ck_sales_goods_enabled` CHECK ((`enabled` in (0,1))),
+  CONSTRAINT `ck_sales_goods_default_price` CHECK ((`default_price` >= 0))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='销售商品表';
+
+CREATE TABLE IF NOT EXISTS `sales_goods_component` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `sales_goods_id` bigint NOT NULL COMMENT '销售商品ID',
+  `product_id` bigint NOT NULL COMMENT '扣减的库存产品ID',
+  `quantity_per_unit` decimal(12,4) NOT NULL COMMENT '销售1件商品消耗库存产品数量',
+  `loss_rate` decimal(6,4) NOT NULL DEFAULT '0.0000' COMMENT '销售扣减损耗率',
+  `remark` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_sales_goods_component_product` (`sales_goods_id`,`product_id`),
+  KEY `idx_sales_goods_component_product` (`product_id`),
+  CONSTRAINT `fk_sales_goods_component_goods` FOREIGN KEY (`sales_goods_id`) REFERENCES `sales_goods` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_sales_goods_component_product` FOREIGN KEY (`product_id`) REFERENCES `product` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `ck_sales_goods_component_quantity` CHECK ((`quantity_per_unit` > 0)),
+  CONSTRAINT `ck_sales_goods_component_loss_rate` CHECK (((`loss_rate` >= 0) and (`loss_rate` <= 1)))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='销售商品库存组成表';
+
+CREATE TABLE IF NOT EXISTS `sales_goods_channel_price` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `sales_goods_id` bigint NOT NULL COMMENT '销售商品ID',
+  `channel_id` bigint NOT NULL COMMENT '销售渠道ID',
+  `price` decimal(10,2) NOT NULL COMMENT '渠道销售价',
+  `enabled` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否启用',
+  `remark` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_sales_goods_channel_price` (`sales_goods_id`,`channel_id`),
+  KEY `idx_sales_goods_channel_price_channel` (`channel_id`, `enabled`),
+  CONSTRAINT `fk_sales_goods_channel_price_goods` FOREIGN KEY (`sales_goods_id`) REFERENCES `sales_goods` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_sales_goods_channel_price_channel` FOREIGN KEY (`channel_id`) REFERENCES `sales_channel_config` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `ck_sales_goods_channel_price_enabled` CHECK ((`enabled` in (0,1))),
+  CONSTRAINT `ck_sales_goods_channel_price_price` CHECK ((`price` >= 0))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='销售商品渠道价格表';
+
+ALTER TABLE `sales_order_item`
+  ADD CONSTRAINT `fk_sales_order_item_goods` FOREIGN KEY (`sales_goods_id`) REFERENCES `sales_goods` (`id`) ON DELETE RESTRICT;
+
 CREATE TABLE IF NOT EXISTS `order_import_batch` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `batch_no` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '导入批次号',
@@ -605,13 +666,13 @@ CREATE TABLE IF NOT EXISTS `external_order_raw` (
   CONSTRAINT `ck_external_order_status` CHECK ((`status` in (_utf8mb4'WAIT_MATCH',_utf8mb4'READY',_utf8mb4'ERROR',_utf8mb4'CONVERTED',_utf8mb4'SKIPPED')))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='外部原始订单表';
 
-CREATE TABLE IF NOT EXISTS `channel_product_mapping` (
+CREATE TABLE IF NOT EXISTS `sales_goods_match_rule` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `channel_id` bigint NOT NULL COMMENT '销售渠道ID',
   `external_product_name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '外部商品名称',
   `external_spec_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '外部规格名称',
   `external_sku_code` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '外部SKU编码',
-  `product_id` bigint NOT NULL COMMENT '系统商品ID',
+  `sales_goods_id` bigint NOT NULL COMMENT '匹配到的销售商品ID',
   `quantity_multiplier` decimal(12,4) NOT NULL DEFAULT '1.0000' COMMENT '数量换算倍数',
   `default_unit_price` decimal(10,2) DEFAULT NULL COMMENT '外部销售规格默认成交价',
   `match_type` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'EXACT' COMMENT '匹配类型',
@@ -621,14 +682,14 @@ CREATE TABLE IF NOT EXISTS `channel_product_mapping` (
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
-  KEY `idx_channel_product_mapping_channel` (`channel_id`, `enabled`, `priority`),
-  KEY `idx_channel_product_mapping_product` (`product_id`),
-  CONSTRAINT `fk_channel_product_mapping_channel` FOREIGN KEY (`channel_id`) REFERENCES `sales_channel_config` (`id`) ON DELETE RESTRICT,
-  CONSTRAINT `fk_channel_product_mapping_product` FOREIGN KEY (`product_id`) REFERENCES `product` (`id`) ON DELETE RESTRICT,
-  CONSTRAINT `ck_channel_product_mapping_enabled` CHECK ((`enabled` in (0,1))),
-  CONSTRAINT `ck_channel_product_mapping_multiplier` CHECK ((`quantity_multiplier` > 0)),
-  CONSTRAINT `ck_channel_product_mapping_match_type` CHECK ((`match_type` in (_utf8mb4'EXACT',_utf8mb4'CONTAINS')))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='渠道商品映射表';
+  KEY `idx_sales_goods_match_rule_channel` (`channel_id`, `enabled`, `priority`),
+  KEY `idx_sales_goods_match_rule_goods` (`sales_goods_id`),
+  CONSTRAINT `fk_sales_goods_match_rule_channel` FOREIGN KEY (`channel_id`) REFERENCES `sales_channel_config` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_sales_goods_match_rule_goods` FOREIGN KEY (`sales_goods_id`) REFERENCES `sales_goods` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `ck_sales_goods_match_rule_enabled` CHECK ((`enabled` in (0,1))),
+  CONSTRAINT `ck_sales_goods_match_rule_multiplier` CHECK ((`quantity_multiplier` > 0)),
+  CONSTRAINT `ck_sales_goods_match_rule_match_type` CHECK ((`match_type` in (_utf8mb4'EXACT',_utf8mb4'CONTAINS')))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='外部商品匹配销售商品规则表';
 
 CREATE TABLE IF NOT EXISTS `external_order_item_raw` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -638,9 +699,9 @@ CREATE TABLE IF NOT EXISTS `external_order_item_raw` (
   `external_sku_code` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '外部SKU编码',
   `external_quantity` decimal(12,4) NOT NULL DEFAULT '1.0000' COMMENT '外部数量',
   `external_unit_price` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '外部单价',
-  `matched_product_id` bigint DEFAULT NULL COMMENT '匹配到的系统商品ID',
-  `matched_product_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '匹配商品编码快照',
-  `matched_product_name` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '匹配商品名称快照',
+  `matched_sales_goods_id` bigint DEFAULT NULL COMMENT '匹配到的销售商品ID',
+  `matched_goods_code` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '匹配销售商品编码快照',
+  `matched_goods_name` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '匹配销售商品名称快照',
   `mapping_id` bigint DEFAULT NULL COMMENT '使用的映射规则ID',
   `converted_quantity` int DEFAULT NULL COMMENT '换算后的系统数量',
   `match_status` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'UNMATCHED' COMMENT '匹配状态',
@@ -649,12 +710,12 @@ CREATE TABLE IF NOT EXISTS `external_order_item_raw` (
   `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
   KEY `idx_external_order_item_order` (`external_order_id`),
-  KEY `idx_external_order_item_matched_product` (`matched_product_id`),
+  KEY `idx_external_order_item_matched_goods` (`matched_sales_goods_id`),
   KEY `idx_external_order_item_mapping` (`mapping_id`),
   KEY `idx_external_order_item_match_status` (`match_status`),
   CONSTRAINT `fk_external_order_item_order` FOREIGN KEY (`external_order_id`) REFERENCES `external_order_raw` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_external_order_item_product` FOREIGN KEY (`matched_product_id`) REFERENCES `product` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `fk_external_order_item_mapping` FOREIGN KEY (`mapping_id`) REFERENCES `channel_product_mapping` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_external_order_item_sales_goods` FOREIGN KEY (`matched_sales_goods_id`) REFERENCES `sales_goods` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_external_order_item_mapping` FOREIGN KEY (`mapping_id`) REFERENCES `sales_goods_match_rule` (`id`) ON DELETE SET NULL,
   CONSTRAINT `ck_external_order_item_match_status` CHECK ((`match_status` in (_utf8mb4'MATCHED',_utf8mb4'UNMATCHED',_utf8mb4'AMBIGUOUS',_utf8mb4'ERROR'))),
   CONSTRAINT `ck_external_order_item_quantity` CHECK ((`external_quantity` > 0)),
   CONSTRAINT `ck_external_order_item_converted_quantity` CHECK (((`converted_quantity` is null) or (`converted_quantity` > 0)))
@@ -673,12 +734,7 @@ ALTER TABLE `sales_order`
   ADD CONSTRAINT `fk_sales_order_import_batch` FOREIGN KEY (`import_batch_id`) REFERENCES `order_import_batch` (`id`) ON DELETE SET NULL;
 
 ALTER TABLE `sales_order_item`
-  ADD COLUMN `external_product_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '外部商品名称' AFTER `product_category`,
-  ADD COLUMN `external_spec_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '外部规格名称' AFTER `external_product_name`,
-  ADD COLUMN `external_quantity` decimal(12,4) DEFAULT NULL COMMENT '外部数量' AFTER `external_spec_name`,
-  ADD COLUMN `mapping_id` bigint DEFAULT NULL COMMENT '商品映射规则ID' AFTER `external_quantity`,
-  ADD KEY `idx_sales_order_item_mapping` (`mapping_id`),
-  ADD CONSTRAINT `fk_sales_order_item_mapping` FOREIGN KEY (`mapping_id`) REFERENCES `channel_product_mapping` (`id`) ON DELETE SET NULL;
+  ADD CONSTRAINT `fk_sales_order_item_mapping` FOREIGN KEY (`mapping_id`) REFERENCES `sales_goods_match_rule` (`id`) ON DELETE SET NULL;
 
 INSERT INTO sales_channel_config (code, name, source_type, enabled, sort_order, remark)
 VALUES
@@ -831,4 +887,3 @@ SELECT su.id, r.id
 FROM `sys_user` su
 JOIN `role` r ON r.code = 'SUPER_ADMIN'
 WHERE su.username = 'admin';
-

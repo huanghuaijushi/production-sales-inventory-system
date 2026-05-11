@@ -8,9 +8,9 @@ import java.util.List;
 
 public interface ChannelProductMappingRepository extends JpaRepository<ChannelProductMapping, Long> {
 
-    @EntityGraph(attributePaths = {"channel", "product"})
+    @EntityGraph(attributePaths = {"channel", "salesGoods"})
     List<ChannelProductMapping> findByChannelIdOrderByPriorityAscIdAsc(Long channelId);
 
-    @EntityGraph(attributePaths = {"channel", "product"})
+    @EntityGraph(attributePaths = {"channel", "salesGoods"})
     List<ChannelProductMapping> findByChannelIdAndEnabledTrueOrderByPriorityAscIdAsc(Long channelId);
 }

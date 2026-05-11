@@ -171,7 +171,7 @@ public class OrderImportService {
                 validateReadyOrder(externalOrder);
                 List<SalesOrderItem> items = externalOrder.getItems().stream()
                         .map(item -> SalesOrderItem.create(
-                                item.getMatchedProduct(),
+                                item.getMatchedSalesGoods(),
                                 item.getConvertedQuantity(),
                                 resolveImportedUnitPrice(item),
                                 item.getExternalProductName(),
@@ -260,7 +260,7 @@ public class OrderImportService {
                     item.markUnmatched("换算后的商品数量必须大于0");
                     return;
                 }
-                item.applyMatched(mapping, mapping.getProduct(), convertedQuantity, "已匹配商品映射规则");
+                item.applyMatched(mapping, mapping.getSalesGoods(), convertedQuantity, "已匹配商品映射规则");
                 return;
             }
         }
@@ -285,7 +285,7 @@ public class OrderImportService {
             throw BusinessException.badRequest("订单“" + externalOrder.getExternalOrderNo() + "”没有可生成的商品明细");
         }
         for (ExternalOrderItemRaw item : externalOrder.getItems()) {
-            if (item.getMatchedProduct() == null) {
+            if (item.getMatchedSalesGoods() == null) {
                 throw BusinessException.badRequest("订单“" + externalOrder.getExternalOrderNo() + "”存在未匹配商品：" + item.getExternalProductName());
             }
             if (item.getConvertedQuantity() == null || item.getConvertedQuantity() <= 0) {
@@ -304,8 +304,8 @@ public class OrderImportService {
         if (item.getMapping() != null && item.getMapping().getDefaultUnitPrice() != null && item.getConvertedQuantity() != null && item.getConvertedQuantity() > 0) {
             return item.getMapping().getDefaultUnitPrice().divide(java.math.BigDecimal.valueOf(item.getConvertedQuantity()), 2, RoundingMode.HALF_UP);
         }
-        if (item.getMatchedProduct() != null && item.getMatchedProduct().getSalePrice() != null) {
-            return item.getMatchedProduct().getSalePrice();
+        if (item.getMatchedSalesGoods() != null && item.getMatchedSalesGoods().getDefaultPrice() != null) {
+            return item.getMatchedSalesGoods().getDefaultPrice();
         }
         return java.math.BigDecimal.ZERO;
     }

@@ -5,6 +5,7 @@ import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue'
 import DashboardView from '@/views/DashboardView.vue'
 import InventoryView from '@/views/InventoryView.vue'
 import ProductManagementView from '@/views/ProductManagementView.vue'
+import GoodsManagementView from '@/views/GoodsManagementView.vue'
 import PurchaseManagementView from '@/views/PurchaseManagementView.vue'
 import SupplierManagementView from '@/views/SupplierManagementView.vue'
 import ProductionPlanView from '@/views/ProductionPlanView.vue'
@@ -60,6 +61,11 @@ const router = createRouter({
           path: 'products',
           name: 'products',
           component: ProductManagementView
+        },
+        {
+          path: 'goods',
+          name: 'goods',
+          component: GoodsManagementView
         },
         {
           path: 'purchase',

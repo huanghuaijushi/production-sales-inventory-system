@@ -14,9 +14,9 @@ public record ExternalOrderItemRawResponse(
         BigDecimal resolvedUnitPrice,
         BigDecimal resolvedSubtotal,
         String priceSource,
-        Long matchedProductId,
-        String matchedProductCode,
-        String matchedProductName,
+        Long matchedSalesGoodsId,
+        String matchedGoodsCode,
+        String matchedGoodsName,
         Long mappingId,
         Integer convertedQuantity,
         String matchStatus,
@@ -33,9 +33,9 @@ public record ExternalOrderItemRawResponse(
                 resolveUnitPrice(item),
                 resolveSubtotal(item),
                 resolvePriceSource(item),
-                item.getMatchedProduct() == null ? null : item.getMatchedProduct().getId(),
-                item.getMatchedProductCode(),
-                item.getMatchedProductName(),
+                item.getMatchedSalesGoods() == null ? null : item.getMatchedSalesGoods().getId(),
+                item.getMatchedGoodsCode(),
+                item.getMatchedGoodsName(),
                 item.getMapping() == null ? null : item.getMapping().getId(),
                 item.getConvertedQuantity(),
                 item.getMatchStatus().name(),
@@ -50,8 +50,8 @@ public record ExternalOrderItemRawResponse(
         if (item.getMapping() != null && item.getMapping().getDefaultUnitPrice() != null && item.getConvertedQuantity() != null && item.getConvertedQuantity() > 0) {
             return item.getMapping().getDefaultUnitPrice().divide(BigDecimal.valueOf(item.getConvertedQuantity()), 2, java.math.RoundingMode.HALF_UP);
         }
-        if (item.getMatchedProduct() != null && item.getMatchedProduct().getSalePrice() != null) {
-            return item.getMatchedProduct().getSalePrice();
+        if (item.getMatchedSalesGoods() != null && item.getMatchedSalesGoods().getDefaultPrice() != null) {
+            return item.getMatchedSalesGoods().getDefaultPrice();
         }
         return BigDecimal.ZERO;
     }
@@ -68,8 +68,8 @@ public record ExternalOrderItemRawResponse(
         if (item.getMapping() != null && item.getMapping().getDefaultUnitPrice() != null) {
             return "MAPPING_DEFAULT";
         }
-        if (item.getMatchedProduct() != null && item.getMatchedProduct().getSalePrice() != null) {
-            return "PRODUCT_SALE_PRICE";
+        if (item.getMatchedSalesGoods() != null && item.getMatchedSalesGoods().getDefaultPrice() != null) {
+            return "SALES_GOODS_DEFAULT_PRICE";
         }
         return "NONE";
     }

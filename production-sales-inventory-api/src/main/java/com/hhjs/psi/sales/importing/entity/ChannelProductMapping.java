@@ -1,6 +1,6 @@
 package com.hhjs.psi.sales.importing.entity;
 
-import com.hhjs.psi.inventory.entity.Product;
+import com.hhjs.psi.sales.goods.entity.SalesGoods;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -19,7 +19,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
-@Table(name = "channel_product_mapping")
+@Table(name = "sales_goods_match_rule")
 public class ChannelProductMapping {
 
     @Id
@@ -40,8 +40,8 @@ public class ChannelProductMapping {
     private String externalSkuCode;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_id", nullable = false)
-    private Product product;
+    @JoinColumn(name = "sales_goods_id", nullable = false)
+    private SalesGoods salesGoods;
 
     @Column(name = "quantity_multiplier", nullable = false, precision = 12, scale = 4)
     private BigDecimal quantityMultiplier;
@@ -78,7 +78,7 @@ public class ChannelProductMapping {
             String externalProductName,
             String externalSpecName,
             String externalSkuCode,
-            Product product,
+            SalesGoods salesGoods,
             BigDecimal quantityMultiplier,
             BigDecimal defaultUnitPrice,
             ChannelProductMatchType matchType,
@@ -90,7 +90,7 @@ public class ChannelProductMapping {
         mapping.externalProductName = externalProductName;
         mapping.externalSpecName = externalSpecName;
         mapping.externalSkuCode = externalSkuCode;
-        mapping.product = product;
+        mapping.salesGoods = salesGoods;
         mapping.quantityMultiplier = quantityMultiplier;
         mapping.defaultUnitPrice = defaultUnitPrice;
         mapping.matchType = matchType;
@@ -104,7 +104,7 @@ public class ChannelProductMapping {
             String externalProductName,
             String externalSpecName,
             String externalSkuCode,
-            Product product,
+            SalesGoods salesGoods,
             BigDecimal quantityMultiplier,
             BigDecimal defaultUnitPrice,
             ChannelProductMatchType matchType,
@@ -115,7 +115,7 @@ public class ChannelProductMapping {
         this.externalProductName = externalProductName;
         this.externalSpecName = externalSpecName;
         this.externalSkuCode = externalSkuCode;
-        this.product = product;
+        this.salesGoods = salesGoods;
         this.quantityMultiplier = quantityMultiplier;
         this.defaultUnitPrice = defaultUnitPrice;
         this.matchType = matchType;
@@ -173,8 +173,8 @@ public class ChannelProductMapping {
         return externalSkuCode;
     }
 
-    public Product getProduct() {
-        return product;
+    public SalesGoods getSalesGoods() {
+        return salesGoods;
     }
 
     public BigDecimal getQuantityMultiplier() {

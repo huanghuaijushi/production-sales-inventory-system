@@ -154,7 +154,10 @@ onMounted(async () => {
 async function loadRoles() {
   roles.value = await sysUserApi.getRoles()
   if (!selectedRole.value && roles.value.length > 0) {
-    selectRole(roles.value[0])
+    const firstRole = roles.value[0]
+    if (firstRole) {
+      selectRole(firstRole)
+    }
   }
 }
 

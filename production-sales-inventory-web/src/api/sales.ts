@@ -2,12 +2,12 @@ import { request } from './http'
 
 export interface SalesOrderItem {
   id: number
-  productId: number
-  productCode: string
-  productName: string
-  productSpecification?: string | undefined
-  productUnit?: string | undefined
-  productCategory?: string | undefined
+  salesGoodsId: number
+  salesGoodsCode: string
+  salesGoodsName: string
+  salesGoodsSpecification?: string | undefined
+  salesGoodsUnit?: string | undefined
+  salesGoodsCategory?: string | undefined
   externalProductName?: string | undefined
   externalSpecName?: string | undefined
   externalQuantity?: number | undefined
@@ -44,7 +44,7 @@ export interface SalesOrder {
 }
 
 export interface SalesOrderItemRequest {
-  productId: number
+  salesGoodsId: number
   quantity: number
   unitPrice: number
 }
@@ -89,11 +89,11 @@ export interface ChannelProductMapping {
   externalProductName: string
   externalSpecName?: string | undefined
   externalSkuCode?: string | undefined
-  productId: number
-  productCode: string
-  productName: string
-  productSpecification?: string | undefined
-  productUnit?: string | undefined
+  salesGoodsId: number
+  salesGoodsCode: string
+  salesGoodsName: string
+  salesGoodsSpecification?: string | undefined
+  salesGoodsUnit?: string | undefined
   quantityMultiplier: number
   defaultUnitPrice?: number | undefined
   matchType: 'EXACT' | 'CONTAINS'
@@ -109,7 +109,7 @@ export interface ChannelProductMappingRequest {
   externalProductName: string
   externalSpecName?: string | undefined
   externalSkuCode?: string | undefined
-  productId: number
+  salesGoodsId: number
   quantityMultiplier: number
   defaultUnitPrice?: number | undefined
   matchType: 'EXACT' | 'CONTAINS'
@@ -127,10 +127,10 @@ export interface ExternalOrderItemRaw {
   externalUnitPrice: number
   resolvedUnitPrice?: number | undefined
   resolvedSubtotal?: number | undefined
-  priceSource?: 'IMPORTED' | 'MAPPING_DEFAULT' | 'PRODUCT_SALE_PRICE' | 'NONE' | undefined
-  matchedProductId?: number | undefined
-  matchedProductCode?: string | undefined
-  matchedProductName?: string | undefined
+  priceSource?: 'IMPORTED' | 'MAPPING_DEFAULT' | 'SALES_GOODS_DEFAULT_PRICE' | 'NONE' | undefined
+  matchedSalesGoodsId?: number | undefined
+  matchedGoodsCode?: string | undefined
+  matchedGoodsName?: string | undefined
   mappingId?: number | undefined
   convertedQuantity?: number | undefined
   matchStatus: 'MATCHED' | 'UNMATCHED' | 'AMBIGUOUS' | 'ERROR'

@@ -9,7 +9,6 @@ export interface Product {
   unit: string
   specification?: string | undefined
   costPrice?: number | undefined
-  salePrice?: number | undefined
   alertQuantity: number
   description?: string | undefined
 }
@@ -22,7 +21,6 @@ export interface ProductRequest {
   specification?: string | undefined
   unit: string
   costPrice?: number | undefined
-  salePrice?: number | undefined
   alertQuantity?: number | undefined
   description?: string | undefined
 }

@@ -1,6 +1,6 @@
 package com.hhjs.psi.sales.importing.entity;
 
-import com.hhjs.psi.inventory.entity.Product;
+import com.hhjs.psi.sales.goods.entity.SalesGoods;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -46,14 +46,14 @@ public class ExternalOrderItemRaw {
     private BigDecimal externalUnitPrice;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "matched_product_id")
-    private Product matchedProduct;
+    @JoinColumn(name = "matched_sales_goods_id")
+    private SalesGoods matchedSalesGoods;
 
-    @Column(name = "matched_product_code", length = 64)
-    private String matchedProductCode;
+    @Column(name = "matched_goods_code", length = 64)
+    private String matchedGoodsCode;
 
-    @Column(name = "matched_product_name", length = 120)
-    private String matchedProductName;
+    @Column(name = "matched_goods_name", length = 120)
+    private String matchedGoodsName;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "mapping_id")
@@ -95,11 +95,11 @@ public class ExternalOrderItemRaw {
         this.externalOrder = externalOrder;
     }
 
-    public void applyMatched(ChannelProductMapping mapping, Product product, Integer convertedQuantity, String message) {
+    public void applyMatched(ChannelProductMapping mapping, SalesGoods salesGoods, Integer convertedQuantity, String message) {
         this.mapping = mapping;
-        this.matchedProduct = product;
-        this.matchedProductCode = product.getCode();
-        this.matchedProductName = product.getName();
+        this.matchedSalesGoods = salesGoods;
+        this.matchedGoodsCode = salesGoods.getCode();
+        this.matchedGoodsName = salesGoods.getName();
         this.convertedQuantity = convertedQuantity;
         this.matchStatus = ExternalOrderItemMatchStatus.MATCHED;
         this.matchMessage = message;
@@ -107,9 +107,9 @@ public class ExternalOrderItemRaw {
 
     public void markUnmatched(String message) {
         this.mapping = null;
-        this.matchedProduct = null;
-        this.matchedProductCode = null;
-        this.matchedProductName = null;
+        this.matchedSalesGoods = null;
+        this.matchedGoodsCode = null;
+        this.matchedGoodsName = null;
         this.convertedQuantity = null;
         this.matchStatus = ExternalOrderItemMatchStatus.UNMATCHED;
         this.matchMessage = message;
@@ -131,9 +131,9 @@ public class ExternalOrderItemRaw {
     public String getExternalSkuCode() { return externalSkuCode; }
     public BigDecimal getExternalQuantity() { return externalQuantity; }
     public BigDecimal getExternalUnitPrice() { return externalUnitPrice; }
-    public Product getMatchedProduct() { return matchedProduct; }
-    public String getMatchedProductCode() { return matchedProductCode; }
-    public String getMatchedProductName() { return matchedProductName; }
+    public SalesGoods getMatchedSalesGoods() { return matchedSalesGoods; }
+    public String getMatchedGoodsCode() { return matchedGoodsCode; }
+    public String getMatchedGoodsName() { return matchedGoodsName; }
     public ChannelProductMapping getMapping() { return mapping; }
     public Integer getConvertedQuantity() { return convertedQuantity; }
     public ExternalOrderItemMatchStatus getMatchStatus() { return matchStatus; }

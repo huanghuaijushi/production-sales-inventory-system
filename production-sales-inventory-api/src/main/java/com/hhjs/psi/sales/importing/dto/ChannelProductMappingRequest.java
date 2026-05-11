@@ -17,8 +17,8 @@ public record ChannelProductMappingRequest(
         String externalSpecName,
         @Size(max = 120, message = "外部SKU编码最多120个字符")
         String externalSkuCode,
-        @NotNull(message = "系统商品不能为空")
-        Long productId,
+        @NotNull(message = "销售商品不能为空")
+        Long salesGoodsId,
         @NotNull(message = "数量换算倍数不能为空")
         @DecimalMin(value = "0.0001", message = "数量换算倍数必须大于0")
         BigDecimal quantityMultiplier,

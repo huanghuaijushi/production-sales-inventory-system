@@ -29,8 +29,6 @@ public class ProductRequest {
 
     private Double costPrice;
 
-    private Double salePrice;
-
     private Integer alertQuantity;
 
     private String description;
@@ -59,9 +57,6 @@ public class ProductRequest {
 
     public Double getCostPrice() { return costPrice; }
     public void setCostPrice(Double costPrice) { this.costPrice = costPrice; }
-
-    public Double getSalePrice() { return salePrice; }
-    public void setSalePrice(Double salePrice) { this.salePrice = salePrice; }
 
     public Integer getAlertQuantity() { return alertQuantity; }
     public void setAlertQuantity(Integer alertQuantity) { this.alertQuantity = alertQuantity; }

@@ -8,7 +8,7 @@ import java.math.BigDecimal;
 
 public record SalesOrderItemRequest(
         @NotNull(message = "商品不能为空")
-        Long productId,
+        Long salesGoodsId,
         @NotNull(message = "数量不能为空")
         @Positive(message = "数量必须大于0")
         Integer quantity,

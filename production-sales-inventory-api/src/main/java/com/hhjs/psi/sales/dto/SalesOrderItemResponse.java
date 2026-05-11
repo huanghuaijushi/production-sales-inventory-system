@@ -4,12 +4,12 @@ import java.math.BigDecimal;
 
 public record SalesOrderItemResponse(
         Long id,
-        Long productId,
-        String productCode,
-        String productName,
-        String productSpecification,
-        String productUnit,
-        String productCategory,
+        Long salesGoodsId,
+        String salesGoodsCode,
+        String salesGoodsName,
+        String salesGoodsSpecification,
+        String salesGoodsUnit,
+        String salesGoodsCategory,
         String externalProductName,
         String externalSpecName,
         BigDecimal externalQuantity,
