@@ -17,6 +17,8 @@ public class ProductRequest {
     @NotNull(message = "产品类型不能为空")
     private String type;
 
+    private Long categoryId;
+
     @Size(max = 64, message = "产品类别长度不能超过64个字符")
     private String category;
 
@@ -48,6 +50,9 @@ public class ProductRequest {
 
     public String getCategory() { return category; }
     public void setCategory(String category) { this.category = category; }
+
+    public Long getCategoryId() { return categoryId; }
+    public void setCategoryId(Long categoryId) { this.categoryId = categoryId; }
 
     public String getSpecification() { return specification; }
     public void setSpecification(String specification) { this.specification = specification; }

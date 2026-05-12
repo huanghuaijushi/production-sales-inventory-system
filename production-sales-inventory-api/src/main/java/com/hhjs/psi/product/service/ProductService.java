@@ -8,6 +8,7 @@ import com.hhjs.psi.inventory.repository.ProductRepository;
 import com.hhjs.psi.inventory.repository.StockRepository;
 import com.hhjs.psi.product.dto.ProductRequest;
 import com.hhjs.psi.product.dto.ProductResponse;
+import com.hhjs.psi.product.entity.ProductCategory;
 import com.hhjs.psi.product.repository.ProductCategoryRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -50,7 +51,7 @@ public class ProductService {
         }
 
         ProductType productType = parseProductType(request.getType());
-        String category = validateCategory(request.getCategory(), productType);
+        ProductCategory category = resolveCategory(request, productType);
 
         Product product = Product.create(
                 code,
@@ -84,7 +85,7 @@ public class ProductService {
         }
 
         ProductType productType = parseProductType(request.getType());
-        String category = validateCategory(request.getCategory(), productType);
+        ProductCategory category = resolveCategory(request, productType);
 
         product.updateBasicInfo(
                 code,
@@ -132,6 +133,7 @@ public class ProductService {
                 product.getCode(),
                 product.getName(),
                 product.getType().name(),
+                product.getCategoryId(),
                 product.getCategory(),
                 product.getUnit(),
                 product.getSpecification(),
@@ -149,17 +151,30 @@ public class ProductService {
         };
     }
 
-    private String validateCategory(String category, ProductType productType) {
-        String normalizedCategory = normalizeOptional(category);
+    private ProductCategory resolveCategory(ProductRequest request, ProductType productType) {
+        if (request.getCategoryId() != null) {
+            ProductCategory category = productCategoryRepository.findByIdAndEnabledTrue(request.getCategoryId())
+                    .orElseThrow(() -> BusinessException.badRequest("分类不存在或未启用: " + request.getCategoryId()));
+            validateCategoryType(category, productType);
+            return category;
+        }
+
+        String normalizedCategory = normalizeOptional(request.getCategory());
         if (normalizedCategory == null) {
             return null;
         }
-        boolean exists = productCategoryRepository.findEnabledByOptionalType(productType).stream()
-                .anyMatch(item -> item.getName().equals(normalizedCategory));
-        if (!exists) {
-            throw BusinessException.badRequest("分类不存在或未启用: " + normalizedCategory);
+        ProductCategory category = productCategoryRepository.findEnabledByOptionalType(productType).stream()
+                .filter(item -> item.getName().equals(normalizedCategory))
+                .findFirst()
+                .orElseThrow(() -> BusinessException.badRequest("分类不存在或未启用: " + normalizedCategory));
+        validateCategoryType(category, productType);
+        return category;
+    }
+
+    private void validateCategoryType(ProductCategory category, ProductType productType) {
+        if (category.getType() != null && category.getType() != productType) {
+            throw BusinessException.badRequest("分类不适用于当前产品类型: " + category.getName());
         }
-        return normalizedCategory;
     }
 
     private BigDecimal toBigDecimal(Double value) {

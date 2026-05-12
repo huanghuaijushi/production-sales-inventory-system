@@ -27,6 +27,13 @@ public interface ProductionOrderRepository extends JpaRepository<ProductionOrder
             """)
     Optional<ProductionOrder> findByIdWithProduct(Long id);
 
+    @Query("""
+            SELECT po.id FROM ProductionOrder po
+            WHERE LOWER(po.orderNo) LIKE LOWER(CONCAT('%', :query, '%'))
+               OR LOWER(po.batchNo) LIKE LOWER(CONCAT('%', :query, '%'))
+            """)
+    List<Long> findIdsByOrderNoOrBatchNo(String query);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT po FROM ProductionOrder po

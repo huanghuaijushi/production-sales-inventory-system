@@ -10,6 +10,7 @@ public record StockItemResponse(
         String productCode,
         String productName,
         ProductType productType,
+        Long categoryId,
         String category,
         String specification,
         String unit,

@@ -4,10 +4,14 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import com.hhjs.psi.product.entity.ProductCategory;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -32,8 +36,9 @@ public class Product {
     @Column(nullable = false, length = 20)
     private ProductType type;
 
-    @Column(length = 64)
-    private String category;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private ProductCategory category;
 
     @Column(length = 64)
     private String specification;
@@ -71,7 +76,7 @@ public class Product {
             String code,
             String name,
             ProductType type,
-            String category,
+            ProductCategory category,
             String specification,
             String unit,
             BigDecimal costPrice,
@@ -96,7 +101,7 @@ public class Product {
             String code,
             String name,
             ProductType type,
-            String category,
+            ProductCategory category,
             String specification,
             String unit,
             BigDecimal costPrice,
@@ -139,6 +144,14 @@ public class Product {
     }
 
     public String getCategory() {
+        return category == null ? null : category.getName();
+    }
+
+    public Long getCategoryId() {
+        return category == null ? null : category.getId();
+    }
+
+    public ProductCategory getCategoryEntity() {
         return category;
     }
 

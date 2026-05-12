@@ -220,18 +220,37 @@
             </div>
           </section>
 
-          <div class="detail-grid">
-            <section class="panel">
+          <section class="panel">
               <div class="panel-header">
                 <div>
-                  <h2>记录工序与损耗</h2>
-                  <p>按固定工序一步一步推进，损耗会自动扣减本步合格数量。</p>
+                  <h2>{{ isCompleted ? '生产已完成' : canInbound ? '成品入库' : '记录工序与损耗' }}</h2>
+                  <p>{{ isCompleted ? '该工单已完成入库，工序记录和领料记录可在下方查看。' : canInbound ? '所有工序已完成，填写最终合格入库数量并生成成品批次。' : '按工序路线一步一步推进，当前节点会自动高亮。' }}</p>
+                </div>
+                <RouterLink class="secondary-button config-link" to="/production-config#route-config">
+                  编辑工序路线
+                </RouterLink>
+              </div>
+              <div class="route-timeline">
+                <div
+                  v-for="step in routeSteps"
+                  :key="step.stepCode"
+                  class="route-step"
+                  :class="`route-step--${routeStepState(step.stepCode)}`"
+                >
+                  <span class="route-node">{{ routeStepIndex(step.stepCode) + 1 }}</span>
+                  <div>
+                    <strong>{{ step.stepName }}</strong>
+                    <div class="route-step-metrics">
+                      <span>合格 {{ step.completedQuantity || 0 }}{{ detail.order.productUnit }}</span>
+                      <span v-if="step.allowLoss">损耗 {{ step.lossQuantity || 0 }}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="step-progress-panel">
                 <div>
                   <span>当前工序</span>
-                  <strong>{{ currentStepDisplay ? stepLabel(currentStepDisplay) : '工序已完成' }}</strong>
+                  <strong>{{ isCompleted ? '已完成' : currentStepDisplay ? stepLabel(currentStepDisplay) : '工序已完成' }}</strong>
                 </div>
                 <div>
                   <span>本步可处理</span>
@@ -242,51 +261,49 @@
                   <strong>{{ currentStepQualifiedQuantity }}{{ detail.order.productUnit }}</strong>
                 </div>
               </div>
-              <div class="form-grid">
-                <label>
-                  <span>本次损耗</span>
-                  <input v-model.number="stepForm.lossQuantity" type="number" min="0" step="1" />
-                </label>
-                <label>
-                  <span>损耗原因</span>
-                  <input v-model="stepForm.lossReason" type="text" placeholder="如破损、封口失败、胀包" />
-                </label>
+              <div v-if="isCompleted" class="completion-summary">
+                <strong>已入库 {{ detail.order.inboundQuantity }}{{ detail.order.productUnit }}</strong>
+                <span>计划 {{ detail.order.plannedQuantity }}{{ detail.order.productUnit }}，合格 {{ detail.order.completedQuantity }}{{ detail.order.productUnit }}，损耗 {{ detail.order.lossQuantity }}{{ detail.order.productUnit }}</span>
               </div>
-              <button type="button" class="primary-button full-button" :disabled="!canRecordStep" @click="recordStep">
-                保存并进入下一步
-              </button>
-            </section>
-
-            <section class="panel">
-              <div class="panel-header">
-                <div>
-                  <h2>成品入库</h2>
-                  <p>只填写最终合格入库数量，系统会生成成品批次。</p>
+              <template v-else-if="!canInbound">
+                <div class="form-grid">
+                  <label>
+                    <span>本次损耗</span>
+                    <input v-model.number="stepForm.lossQuantity" type="number" min="0" step="1" :disabled="!currentRouteStep?.allowLoss" />
+                  </label>
+                  <label>
+                    <span>损耗原因</span>
+                    <input v-model="stepForm.lossReason" type="text" placeholder="如破损、封口失败、胀包" />
+                  </label>
                 </div>
-              </div>
-              <div class="form-grid">
-                <label>
-                  <span>入库数量</span>
-                  <input v-model.number="inboundForm.quantity" type="number" min="1" step="1" />
-                </label>
-                <label>
-                  <span>生产日期</span>
-                  <input v-model="inboundForm.productionDate" type="date" />
-                </label>
-                <label>
-                  <span>到期日期</span>
-                  <input v-model="inboundForm.expiryDate" type="date" />
-                </label>
-                <label>
-                  <span>备注</span>
-                  <input v-model="inboundForm.remark" type="text" placeholder="入库说明" />
-                </label>
-              </div>
-              <button type="button" class="primary-button full-button" :disabled="!canInbound" @click="inboundProduction">
-                完成入库
-              </button>
-            </section>
-          </div>
+                <button type="button" class="primary-button full-button" :disabled="!canRecordStep" @click="recordStep">
+                  保存并进入下一步
+                </button>
+              </template>
+              <template v-else>
+                <div class="form-grid">
+                  <label>
+                    <span>入库数量</span>
+                    <input v-model.number="inboundForm.quantity" type="number" min="1" step="1" />
+                  </label>
+                  <label>
+                    <span>生产日期</span>
+                    <input v-model="inboundForm.productionDate" type="date" />
+                  </label>
+                  <label>
+                    <span>到期日期</span>
+                    <input v-model="inboundForm.expiryDate" type="date" />
+                  </label>
+                  <label>
+                    <span>备注</span>
+                    <input v-model="inboundForm.remark" type="text" placeholder="入库说明" />
+                  </label>
+                </div>
+                <button type="button" class="primary-button full-button" :disabled="!canInbound" @click="inboundProduction">
+                  完成入库
+                </button>
+              </template>
+          </section>
 
           <div class="detail-grid">
             <section class="panel">
@@ -299,7 +316,7 @@
               <div v-if="detail.stepRecords.length === 0" class="empty-box">暂无工序记录。</div>
               <div v-for="record in detail.stepRecords" v-else :key="record.id" class="history-row">
                 <div>
-                  <strong>{{ stepLabel(record.stepType) }}</strong>
+                  <strong>{{ record.stepName || stepLabel(record.stepType) }}</strong>
                   <span>{{ formatDateTime(record.createdAt) }} · {{ record.operatorName }}</span>
                 </div>
                 <div>
@@ -330,6 +347,7 @@
               </div>
             </section>
           </div>
+
         </template>
       </main>
     </div>
@@ -400,14 +418,30 @@ const canCancel = computed(() => {
 const currentStepDisplay = computed<ProductionStepType | null>(() => {
   const order = detail.value?.order
   if (!order) return null
+  if (order.status === 'COMPLETED' || order.status === 'CANCELLED') return null
   if (order.currentStep) return order.currentStep
-  return order.status === 'PLANNED' ? 'PREPARATION' : null
+  return order.status === 'PLANNED' ? routeSteps.value[0]?.stepCode ?? 'PREPARATION' : null
+})
+const routeSteps = computed(() => detail.value?.routeSteps?.length ? detail.value.routeSteps : defaultRouteSteps())
+const currentRouteStep = computed(() => {
+  const step = currentStepDisplay.value
+  return step ? routeSteps.value.find(item => item.stepCode === step) : null
+})
+const activeRouteStepIndex = computed(() => {
+  const steps = routeSteps.value
+  if (steps.length === 0) return -1
+  const status = detail.value?.order.status
+  if (status === 'WAIT_INBOUND' || status === 'COMPLETED') return steps.length
+  const currentStep = currentStepDisplay.value
+  if (!currentStep) return 0
+  const currentIndex = routeStepIndex(currentStep)
+  return currentIndex >= 0 ? currentIndex : 0
 })
 const currentStepInputQuantity = computed(() => {
   const order = detail.value?.order
   const step = currentStepDisplay.value
   if (!order || !step) return 0
-  return step === 'PREPARATION' ? order.plannedQuantity : order.completedQuantity
+  return routeStepIndex(step) === 0 ? order.plannedQuantity : order.completedQuantity
 })
 const currentStepQualifiedQuantity = computed(() => {
   const lossQuantity = Number.isFinite(stepForm.lossQuantity) ? Number(stepForm.lossQuantity) : 0
@@ -418,6 +452,9 @@ const canRecordStep = computed(() => {
 })
 const canInbound = computed(() => {
   return detail.value?.order.status === 'WAIT_INBOUND'
+})
+const isCompleted = computed(() => {
+  return detail.value?.order.status === 'COMPLETED'
 })
 
 onMounted(() => {
@@ -680,7 +717,9 @@ function statusLabel(status: ProductionOrderStatus) {
 }
 
 function stepLabel(step: ProductionStepType) {
-  const labels: Record<ProductionStepType, string> = {
+  const routeStep = routeSteps.value.find(item => item.stepCode === step)
+  if (routeStep) return routeStep.stepName
+  const labels: Record<string, string> = {
     PREPARATION: '备料',
     WRAPPING: '包制',
     COOKING: '蒸煮',
@@ -688,7 +727,31 @@ function stepLabel(step: ProductionStepType) {
     STERILIZATION: '杀菌',
     BOXING: '装箱'
   }
-  return labels[step]
+  return labels[step] || step
+}
+
+function defaultRouteSteps() {
+  return [
+    { id: null, stepCode: 'PREPARATION', stepName: '备料', sortOrder: 10, allowLoss: true, completedQuantity: 0, lossQuantity: 0 },
+    { id: null, stepCode: 'WRAPPING', stepName: '包制', sortOrder: 20, allowLoss: true, completedQuantity: 0, lossQuantity: 0 },
+    { id: null, stepCode: 'COOKING', stepName: '蒸煮', sortOrder: 30, allowLoss: true, completedQuantity: 0, lossQuantity: 0 },
+    { id: null, stepCode: 'PACKAGING', stepName: '包装', sortOrder: 40, allowLoss: true, completedQuantity: 0, lossQuantity: 0 },
+    { id: null, stepCode: 'STERILIZATION', stepName: '杀菌', sortOrder: 50, allowLoss: true, completedQuantity: 0, lossQuantity: 0 },
+    { id: null, stepCode: 'BOXING', stepName: '装箱', sortOrder: 60, allowLoss: true, completedQuantity: 0, lossQuantity: 0 }
+  ]
+}
+
+function routeStepIndex(stepCode: ProductionStepType) {
+  return routeSteps.value.findIndex(step => step.stepCode === stepCode)
+}
+
+function routeStepState(stepCode: ProductionStepType) {
+  const index = routeStepIndex(stepCode)
+  const status = detail.value?.order.status
+  if (status === 'CANCELLED') return 'muted'
+  if (index < activeRouteStepIndex.value) return 'done'
+  if (index === activeRouteStepIndex.value) return 'current'
+  return 'pending'
 }
 
 function formatDateTime(value: string) {
@@ -839,11 +902,15 @@ textarea:focus {
 
 .primary-button,
 .secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 36px;
   border-radius: 8px;
   padding: 0 14px;
   font-weight: 700;
   cursor: pointer;
+  text-decoration: none;
 }
 
 .primary-button {
@@ -981,6 +1048,138 @@ textarea:focus {
   font-size: 16px;
 }
 
+.route-timeline {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  margin: 0 0 14px;
+  overflow-x: auto;
+  padding: 8px 2px 14px;
+}
+
+.route-step {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 8px;
+  flex: 0 0 176px;
+  min-width: 176px;
+}
+
+.route-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 20px;
+  left: 42px;
+  width: calc(100% + 12px);
+  height: 2px;
+  background: #dbe3ef;
+  z-index: -1;
+}
+
+.route-node {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 2px solid #cbd5e1;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.route-step strong {
+  display: block;
+  margin-top: 2px;
+  color: #334155;
+  font-size: 13px;
+}
+
+.route-step-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.route-step-metrics span {
+  display: inline-flex;
+  max-width: 100%;
+  border-radius: 999px;
+  padding: 3px 7px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: normal;
+}
+
+.config-link {
+  white-space: nowrap;
+}
+
+.route-step--done .route-node {
+  border-color: #16a34a;
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.route-step--done:not(:last-child)::after {
+  background: #86efac;
+}
+
+.route-step--done strong {
+  color: #15803d;
+}
+
+.route-step--done .route-step-metrics span {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.route-step--current .route-node {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.14);
+}
+
+.route-step--current:not(:last-child)::after {
+  background: #bfdbfe;
+}
+
+.route-step--current strong {
+  color: #1d4ed8;
+}
+
+.route-step--current .route-step-metrics span {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.route-step--pending .route-node {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+.route-step--pending strong {
+  color: #64748b;
+}
+
+.route-step--pending .route-step-metrics span {
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+.route-step--muted {
+  opacity: 0.55;
+}
+
 .step-progress-panel {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1007,6 +1206,29 @@ textarea:focus {
   margin-top: 6px;
   color: #0f172a;
   font-size: 16px;
+}
+
+.completion-summary {
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 12px;
+  background: #f0fdf4;
+}
+
+.completion-summary strong,
+.completion-summary span {
+  display: block;
+}
+
+.completion-summary strong {
+  color: #15803d;
+  font-size: 16px;
+}
+
+.completion-summary span {
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 13px;
 }
 
 .table-wrapper {

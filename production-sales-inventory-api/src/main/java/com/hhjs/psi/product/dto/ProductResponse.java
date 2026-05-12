@@ -5,6 +5,7 @@ public class ProductResponse {
     private String sku;
     private String name;
     private String type;
+    private Long categoryId;
     private String category;
     private String unit;
     private String specification;
@@ -19,6 +20,7 @@ public class ProductResponse {
             String sku,
             String name,
             String type,
+            Long categoryId,
             String category,
             String unit,
             String specification,
@@ -30,6 +32,7 @@ public class ProductResponse {
         this.sku = sku;
         this.name = name;
         this.type = type;
+        this.categoryId = categoryId;
         this.category = category;
         this.unit = unit;
         this.specification = specification;
@@ -53,6 +56,9 @@ public class ProductResponse {
 
     public String getCategory() { return category; }
     public void setCategory(String category) { this.category = category; }
+
+    public Long getCategoryId() { return categoryId; }
+    public void setCategoryId(Long categoryId) { this.categoryId = categoryId; }
 
     public String getUnit() { return unit; }
     public void setUnit(String unit) { this.unit = unit; }

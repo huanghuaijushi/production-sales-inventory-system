@@ -355,6 +355,14 @@ export const inventoryApi = {
   getStockCheckOrders: (page: number = 0, size: number = 20) =>
     request<PageResponse<StockCheckOrder>>(`/inventory/check-orders?page=${page}&size=${size}`),
 
-  getStockRecords: (page: number = 0, size: number = 20) =>
-    request<PageResponse<StockRecord>>(`/inventory/records?page=${page}&size=${size}`)
+  getStockRecords: (page: number = 0, size: number = 20, query?: string) => {
+    const params = new URLSearchParams({
+      page: String(page),
+      size: String(size)
+    })
+    if (query?.trim()) {
+      params.set('query', query.trim())
+    }
+    return request<PageResponse<StockRecord>>(`/inventory/records?${params.toString()}`)
+  }
 }

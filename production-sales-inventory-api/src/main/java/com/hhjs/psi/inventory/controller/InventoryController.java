@@ -128,9 +128,10 @@ public class InventoryController {
     @GetMapping("/records")
     public ApiResponse<PageResponse<StockRecordResponse>> getStockRecords(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String query
     ) {
-        return ApiResponse.ok(PageResponse.from(inventoryService.getStockRecords(page, size)));
+        return ApiResponse.ok(PageResponse.from(inventoryService.getStockRecords(page, size, query)));
     }
 
     @GetMapping("/records/product/{productId}")

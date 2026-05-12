@@ -2,8 +2,6 @@ package com.hhjs.psi.production.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -28,9 +26,11 @@ public class ProductionStepRecord {
     @JoinColumn(name = "production_order_id", nullable = false)
     private ProductionOrder productionOrder;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "step_type", nullable = false, length = 30)
-    private ProductionStepType stepType;
+    @Column(name = "step_type", nullable = false, length = 64)
+    private String stepType;
+
+    @Column(name = "step_name", nullable = false, length = 80)
+    private String stepName;
 
     @Column(name = "completed_quantity", nullable = false)
     private Integer completedQuantity;
@@ -56,7 +56,8 @@ public class ProductionStepRecord {
 
     public static ProductionStepRecord create(
             ProductionOrder productionOrder,
-            ProductionStepType stepType,
+            String stepType,
+            String stepName,
             Integer completedQuantity,
             Integer lossQuantity,
             String lossReason,
@@ -66,6 +67,7 @@ public class ProductionStepRecord {
         ProductionStepRecord record = new ProductionStepRecord();
         record.productionOrder = productionOrder;
         record.stepType = stepType;
+        record.stepName = stepName;
         record.completedQuantity = completedQuantity;
         record.lossQuantity = lossQuantity;
         record.lossReason = lossReason;
@@ -82,8 +84,12 @@ public class ProductionStepRecord {
         return productionOrder;
     }
 
-    public ProductionStepType getStepType() {
+    public String getStepType() {
         return stepType;
+    }
+
+    public String getStepName() {
+        return stepName;
     }
 
     public Integer getCompletedQuantity() {

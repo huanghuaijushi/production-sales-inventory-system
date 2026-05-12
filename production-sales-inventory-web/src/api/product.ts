@@ -5,6 +5,7 @@ export interface Product {
   sku: string
   name: string
   type: 'FINISHED_PRODUCT' | 'RAW_MATERIAL'
+  categoryId?: number | undefined
   category?: string | undefined
   unit: string
   specification?: string | undefined
@@ -17,6 +18,7 @@ export interface ProductRequest {
   code: string
   name: string
   type: string
+  categoryId?: number | undefined
   category?: string | undefined
   specification?: string | undefined
   unit: string

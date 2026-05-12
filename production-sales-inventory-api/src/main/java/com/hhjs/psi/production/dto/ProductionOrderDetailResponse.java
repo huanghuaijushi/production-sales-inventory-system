@@ -6,6 +6,7 @@ public record ProductionOrderDetailResponse(
         ProductionOrderSummaryResponse order,
         List<ProductionMaterialPlanResponse> materialPlans,
         List<ProductionMaterialIssueResponse> materialIssues,
+        List<ProductionOrderStepResponse> routeSteps,
         List<ProductionStepRecordResponse> stepRecords
 ) {
 }

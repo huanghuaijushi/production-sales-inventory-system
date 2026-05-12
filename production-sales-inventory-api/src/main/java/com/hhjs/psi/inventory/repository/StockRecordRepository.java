@@ -18,6 +18,21 @@ public interface StockRecordRepository extends JpaRepository<StockRecord, Long> 
     @Query("SELECT sr FROM StockRecord sr JOIN FETCH sr.product LEFT JOIN FETCH sr.batch ORDER BY sr.createdAt DESC")
     Page<StockRecord> findAllWithProduct(Pageable pageable);
 
+    @Query("""
+            SELECT sr FROM StockRecord sr
+            JOIN FETCH sr.product p
+            LEFT JOIN FETCH sr.batch
+            WHERE LOWER(sr.recordNo) LIKE LOWER(CONCAT('%', :query, '%'))
+               OR LOWER(COALESCE(sr.batchNo, '')) LIKE LOWER(CONCAT('%', :query, '%'))
+               OR LOWER(COALESCE(sr.relatedOrderNo, '')) LIKE LOWER(CONCAT('%', :query, '%'))
+               OR LOWER(COALESCE(sr.remark, '')) LIKE LOWER(CONCAT('%', :query, '%'))
+               OR LOWER(p.code) LIKE LOWER(CONCAT('%', :query, '%'))
+               OR LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%'))
+               OR (:relatedOrderIdsEmpty = false AND sr.relatedOrderType = 'PRODUCTION_ORDER' AND sr.relatedOrderId IN :relatedOrderIds)
+            ORDER BY sr.createdAt DESC
+            """)
+    Page<StockRecord> searchRecords(String query, List<Long> relatedOrderIds, boolean relatedOrderIdsEmpty, Pageable pageable);
+
     @Query("SELECT sr FROM StockRecord sr JOIN FETCH sr.product LEFT JOIN FETCH sr.batch WHERE sr.product.id = :productId ORDER BY sr.createdAt DESC")
     List<StockRecord> findByProductId(Long productId);
 

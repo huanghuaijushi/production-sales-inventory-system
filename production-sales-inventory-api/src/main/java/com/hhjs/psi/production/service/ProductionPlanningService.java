@@ -24,6 +24,9 @@ import com.hhjs.psi.production.dto.ProductionMaterialRequirementResponse;
 import com.hhjs.psi.production.dto.ProductionOrderCreateRequest;
 import com.hhjs.psi.production.dto.ProductionOrderDetailResponse;
 import com.hhjs.psi.production.dto.ProductionOrderSummaryResponse;
+import com.hhjs.psi.production.dto.ProductionOrderStepResponse;
+import com.hhjs.psi.production.dto.ProductionRouteStepRequest;
+import com.hhjs.psi.production.dto.ProductionRouteStepResponse;
 import com.hhjs.psi.production.dto.ProductionStepRecordRequest;
 import com.hhjs.psi.production.dto.ProductionStepRecordResponse;
 import com.hhjs.psi.production.dto.ProductionSuggestionResponse;
@@ -35,7 +38,9 @@ import com.hhjs.psi.production.entity.BomItem;
 import com.hhjs.psi.production.entity.ProductionMaterialIssue;
 import com.hhjs.psi.production.entity.ProductionMaterialPlan;
 import com.hhjs.psi.production.entity.ProductionOrder;
+import com.hhjs.psi.production.entity.ProductionOrderStep;
 import com.hhjs.psi.production.entity.ProductionOrderStatus;
+import com.hhjs.psi.production.entity.ProductionRouteStep;
 import com.hhjs.psi.production.entity.ProductionStepRecord;
 import com.hhjs.psi.production.entity.ProductionStepType;
 import com.hhjs.psi.production.entity.SupplierMaterial;
@@ -43,6 +48,8 @@ import com.hhjs.psi.production.repository.BomItemRepository;
 import com.hhjs.psi.production.repository.ProductionMaterialIssueRepository;
 import com.hhjs.psi.production.repository.ProductionMaterialPlanRepository;
 import com.hhjs.psi.production.repository.ProductionOrderRepository;
+import com.hhjs.psi.production.repository.ProductionOrderStepRepository;
+import com.hhjs.psi.production.repository.ProductionRouteStepRepository;
 import com.hhjs.psi.production.repository.ProductionStepRecordRepository;
 import com.hhjs.psi.production.repository.SupplierMaterialRepository;
 import com.hhjs.psi.inventory.service.InventoryService;
@@ -82,6 +89,8 @@ public class ProductionPlanningService {
     private final ProductionMaterialPlanRepository productionMaterialPlanRepository;
     private final ProductionMaterialIssueRepository productionMaterialIssueRepository;
     private final ProductionStepRecordRepository productionStepRecordRepository;
+    private final ProductionRouteStepRepository productionRouteStepRepository;
+    private final ProductionOrderStepRepository productionOrderStepRepository;
 
     public ProductionPlanningService(
             BomItemRepository bomItemRepository,
@@ -95,7 +104,9 @@ public class ProductionPlanningService {
             ProductionOrderRepository productionOrderRepository,
             ProductionMaterialPlanRepository productionMaterialPlanRepository,
             ProductionMaterialIssueRepository productionMaterialIssueRepository,
-            ProductionStepRecordRepository productionStepRecordRepository
+            ProductionStepRecordRepository productionStepRecordRepository,
+            ProductionRouteStepRepository productionRouteStepRepository,
+            ProductionOrderStepRepository productionOrderStepRepository
     ) {
         this.bomItemRepository = bomItemRepository;
         this.supplierMaterialRepository = supplierMaterialRepository;
@@ -109,6 +120,8 @@ public class ProductionPlanningService {
         this.productionMaterialPlanRepository = productionMaterialPlanRepository;
         this.productionMaterialIssueRepository = productionMaterialIssueRepository;
         this.productionStepRecordRepository = productionStepRecordRepository;
+        this.productionRouteStepRepository = productionRouteStepRepository;
+        this.productionOrderStepRepository = productionOrderStepRepository;
     }
 
     @Transactional(readOnly = true)
@@ -145,6 +158,7 @@ public class ProductionPlanningService {
                 normalizeOptional(request.remark())
         );
         ProductionOrder savedOrder = productionOrderRepository.save(order);
+        productionOrderStepRepository.saveAll(buildOrderSteps(savedOrder, finishedProduct));
 
         List<ProductionMaterialPlan> materialPlans = bomItems.stream()
                 .map(item -> ProductionMaterialPlan.create(
@@ -164,6 +178,7 @@ public class ProductionPlanningService {
         ensureOrderCanOperate(order);
         if (order.getStatus() == ProductionOrderStatus.PLANNED) {
             order.start();
+            order.completeStep(order.getCompletedQuantity(), 0, firstOrderStepCode(order));
         }
         return toProductionOrderDetailResponse(order);
     }
@@ -231,24 +246,30 @@ public class ProductionPlanningService {
             throw BusinessException.badRequest("所有工序已完成，请进行成品入库");
         }
 
-        ProductionStepType stepType = order.getCurrentStep();
+        String stepType = order.getCurrentStep();
+        ProductionOrderStep orderStep = getCurrentOrderStep(order, stepType);
         int inputQuantity = getCurrentStepInputQuantity(order, stepType);
+        if (!Boolean.TRUE.equals(orderStep.getAllowLoss()) && request.lossQuantity() > 0) {
+            throw BusinessException.badRequest("当前工序不允许记录损耗");
+        }
         if (request.lossQuantity() > inputQuantity) {
             throw BusinessException.badRequest("损耗数量不能超过本步可处理数量: " + inputQuantity);
         }
         int completedQuantity = inputQuantity - request.lossQuantity();
+        orderStep.complete(completedQuantity, request.lossQuantity());
 
         var currentSysUser = SecurityUtils.requireCurrentSysUser();
         ProductionStepRecord record = ProductionStepRecord.create(
                 order,
                 stepType,
+                orderStep.getStepName(),
                 completedQuantity,
                 request.lossQuantity(),
                 normalizeOptional(request.lossReason()),
                 currentSysUser.id(),
                 currentSysUser.username()
         );
-        order.completeStep(completedQuantity, request.lossQuantity(), nextStep(stepType));
+        order.completeStep(completedQuantity, request.lossQuantity(), nextStep(order, stepType));
         productionStepRecordRepository.save(record);
 
         return toProductionOrderDetailResponse(order);
@@ -306,6 +327,58 @@ public class ProductionPlanningService {
         }
         order.cancel();
         return toProductionOrderDetailResponse(order);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProductionRouteStepResponse> getProductionRouteSteps() {
+        return productionRouteStepRepository.findAllWithProduct().stream()
+                .map(this::toProductionRouteStepResponse)
+                .toList();
+    }
+
+    @Transactional
+    public ProductionRouteStepResponse createProductionRouteStep(ProductionRouteStepRequest request) {
+        Product product = getEnabledProduct(request.productId(), ProductType.FINISHED_PRODUCT, "成品不存在或已停用");
+        String stepCode = normalizeStepCode(request.stepCode());
+        if (productionRouteStepRepository.existsByProductIdAndStepCode(product.getId(), stepCode)) {
+            throw BusinessException.conflict("该成品已经存在相同工序编码");
+        }
+        ProductionRouteStep step = ProductionRouteStep.create(
+                product,
+                stepCode,
+                normalizeStepName(request.stepName()),
+                request.sortOrder(),
+                request.allowLoss()
+        );
+        return toProductionRouteStepResponse(productionRouteStepRepository.save(step));
+    }
+
+    @Transactional
+    public ProductionRouteStepResponse updateProductionRouteStep(Long routeStepId, ProductionRouteStepRequest request) {
+        ProductionRouteStep step = productionRouteStepRepository.findById(routeStepId)
+                .orElseThrow(() -> BusinessException.badRequest("工序不存在: " + routeStepId));
+        if (!step.getProduct().getId().equals(request.productId())) {
+            throw BusinessException.badRequest("工序所属成品不支持直接修改，请删除后重新添加");
+        }
+        String stepCode = normalizeStepCode(request.stepCode());
+        if (productionRouteStepRepository.existsByProductIdAndStepCodeAndIdNot(request.productId(), stepCode, routeStepId)) {
+            throw BusinessException.conflict("该成品已经存在相同工序编码");
+        }
+        step.update(
+                stepCode,
+                normalizeStepName(request.stepName()),
+                request.sortOrder(),
+                request.allowLoss(),
+                request.enabled()
+        );
+        return toProductionRouteStepResponse(productionRouteStepRepository.save(step));
+    }
+
+    @Transactional
+    public void deleteProductionRouteStep(Long routeStepId) {
+        ProductionRouteStep step = productionRouteStepRepository.findById(routeStepId)
+                .orElseThrow(() -> BusinessException.badRequest("工序不存在: " + routeStepId));
+        productionRouteStepRepository.delete(step);
     }
 
     @Transactional(readOnly = true)
@@ -735,22 +808,84 @@ public class ProductionPlanningService {
         }
     }
 
-    private int getCurrentStepInputQuantity(ProductionOrder order, ProductionStepType stepType) {
-        if (stepType == ProductionStepType.PREPARATION) {
+    private int getCurrentStepInputQuantity(ProductionOrder order, String stepType) {
+        List<ProductionOrderStep> steps = getOrderSteps(order);
+        boolean firstStep = steps.stream()
+                .min(Comparator.comparing(ProductionOrderStep::getSortOrder).thenComparing(ProductionOrderStep::getId))
+                .map(step -> step.getStepCode().equals(stepType))
+                .orElse(ProductionStepType.PREPARATION.name().equals(stepType));
+        if (firstStep) {
             return order.getPlannedQuantity();
         }
         return order.getCompletedQuantity();
     }
 
-    private ProductionStepType nextStep(ProductionStepType stepType) {
-        return switch (stepType) {
-            case PREPARATION -> ProductionStepType.WRAPPING;
-            case WRAPPING -> ProductionStepType.COOKING;
-            case COOKING -> ProductionStepType.PACKAGING;
-            case PACKAGING -> ProductionStepType.STERILIZATION;
-            case STERILIZATION -> ProductionStepType.BOXING;
+    private String firstOrderStepCode(ProductionOrder order) {
+        return getOrderSteps(order).stream()
+                .min(Comparator.comparing(ProductionOrderStep::getSortOrder).thenComparing(ProductionOrderStep::getId))
+                .map(ProductionOrderStep::getStepCode)
+                .orElse(ProductionStepType.PREPARATION.name());
+    }
+
+    private String nextStep(ProductionOrder order, String stepType) {
+        List<ProductionOrderStep> steps = getOrderSteps(order);
+        for (int index = 0; index < steps.size(); index++) {
+            if (steps.get(index).getStepCode().equals(stepType)) {
+                return index + 1 < steps.size() ? steps.get(index + 1).getStepCode() : null;
+            }
+        }
+        return switch (ProductionStepType.valueOf(stepType)) {
+            case PREPARATION -> ProductionStepType.WRAPPING.name();
+            case WRAPPING -> ProductionStepType.COOKING.name();
+            case COOKING -> ProductionStepType.PACKAGING.name();
+            case PACKAGING -> ProductionStepType.STERILIZATION.name();
+            case STERILIZATION -> ProductionStepType.BOXING.name();
             case BOXING -> null;
         };
+    }
+
+    private ProductionOrderStep getCurrentOrderStep(ProductionOrder order, String stepType) {
+        return productionOrderStepRepository.findByProductionOrderIdAndStepCode(order.getId(), stepType)
+                .orElseGet(() -> defaultOrderStep(order, stepType));
+    }
+
+    private List<ProductionOrderStep> getOrderSteps(ProductionOrder order) {
+        List<ProductionOrderStep> steps = productionOrderStepRepository.findByProductionOrderIdOrderBySortOrderAscIdAsc(order.getId());
+        return steps.isEmpty() ? defaultOrderSteps(order) : steps;
+    }
+
+    private List<ProductionOrderStep> buildOrderSteps(ProductionOrder order, Product product) {
+        List<ProductionRouteStep> routeSteps = productionRouteStepRepository.findEnabledByProductId(product.getId());
+        if (routeSteps.isEmpty()) {
+            return defaultOrderSteps(order);
+        }
+        return routeSteps.stream()
+                .map(step -> ProductionOrderStep.create(
+                        order,
+                        step.getStepCode(),
+                        step.getStepName(),
+                        step.getSortOrder(),
+                        step.getAllowLoss()
+                ))
+                .toList();
+    }
+
+    private List<ProductionOrderStep> defaultOrderSteps(ProductionOrder order) {
+        return List.of(
+                ProductionOrderStep.create(order, ProductionStepType.PREPARATION.name(), "备料", 10, true),
+                ProductionOrderStep.create(order, ProductionStepType.WRAPPING.name(), "包制", 20, true),
+                ProductionOrderStep.create(order, ProductionStepType.COOKING.name(), "蒸煮", 30, true),
+                ProductionOrderStep.create(order, ProductionStepType.PACKAGING.name(), "包装", 40, true),
+                ProductionOrderStep.create(order, ProductionStepType.STERILIZATION.name(), "杀菌", 50, true),
+                ProductionOrderStep.create(order, ProductionStepType.BOXING.name(), "装箱", 60, true)
+        );
+    }
+
+    private ProductionOrderStep defaultOrderStep(ProductionOrder order, String stepType) {
+        return defaultOrderSteps(order).stream()
+                .filter(step -> step.getStepCode().equals(stepType))
+                .findFirst()
+                .orElseGet(() -> ProductionOrderStep.create(order, stepType, stepType, 999, true));
     }
 
     private ProductionOrderDetailResponse toProductionOrderDetailResponse(ProductionOrder order) {
@@ -761,6 +896,9 @@ public class ProductionPlanningService {
                         .toList(),
                 productionMaterialIssueRepository.findByProductionOrderIdWithDetails(order.getId()).stream()
                         .map(this::toProductionMaterialIssueResponse)
+                        .toList(),
+                getOrderSteps(order).stream()
+                        .map(this::toProductionOrderStepResponse)
                         .toList(),
                 productionStepRecordRepository.findByProductionOrderId(order.getId()).stream()
                         .map(this::toProductionStepRecordResponse)
@@ -829,11 +967,39 @@ public class ProductionPlanningService {
         return new ProductionStepRecordResponse(
                 record.getId(),
                 record.getStepType(),
+                record.getStepName(),
                 record.getCompletedQuantity(),
                 record.getLossQuantity(),
                 record.getLossReason(),
                 record.getOperatorName(),
                 record.getCreatedAt()
+        );
+    }
+
+    private ProductionOrderStepResponse toProductionOrderStepResponse(ProductionOrderStep step) {
+        return new ProductionOrderStepResponse(
+                step.getId(),
+                step.getStepCode(),
+                step.getStepName(),
+                step.getSortOrder(),
+                step.getAllowLoss(),
+                step.getCompletedQuantity(),
+                step.getLossQuantity()
+        );
+    }
+
+    private ProductionRouteStepResponse toProductionRouteStepResponse(ProductionRouteStep step) {
+        Product product = step.getProduct();
+        return new ProductionRouteStepResponse(
+                step.getId(),
+                product.getId(),
+                product.getCode(),
+                product.getName(),
+                step.getStepCode(),
+                step.getStepName(),
+                step.getSortOrder(),
+                step.getAllowLoss(),
+                step.getEnabled()
         );
     }
 
@@ -957,6 +1123,20 @@ public class ProductionPlanningService {
 
     private String normalizeOptional(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private String normalizeStepCode(String value) {
+        if (value == null || value.isBlank()) {
+            throw BusinessException.badRequest("工序编码不能为空");
+        }
+        return value.trim().toUpperCase(java.util.Locale.ROOT).replaceAll("[^A-Z0-9_\\-]", "_");
+    }
+
+    private String normalizeStepName(String value) {
+        if (value == null || value.isBlank()) {
+            throw BusinessException.badRequest("工序名称不能为空");
+        }
+        return value.trim();
     }
 
     private int nullToZero(Integer value) {

@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ProductCategoryRepository extends JpaRepository<ProductCategory, Long> {
@@ -14,6 +15,8 @@ public interface ProductCategoryRepository extends JpaRepository<ProductCategory
     boolean existsByNameAndType(String name, ProductType type);
 
     boolean existsByNameAndTypeAndIdNot(String name, ProductType type, Long id);
+
+    Optional<ProductCategory> findByIdAndEnabledTrue(Long id);
 
     @Query("""
             SELECT pc FROM ProductCategory pc

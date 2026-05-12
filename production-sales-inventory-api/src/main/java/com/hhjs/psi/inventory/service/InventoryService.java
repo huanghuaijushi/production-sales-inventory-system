@@ -37,6 +37,7 @@ import com.hhjs.psi.inventory.repository.StockBatchRepository;
 import com.hhjs.psi.inventory.repository.StockCheckOrderRepository;
 import com.hhjs.psi.inventory.repository.StockRecordRepository;
 import com.hhjs.psi.inventory.repository.StockRepository;
+import com.hhjs.psi.production.repository.ProductionOrderRepository;
 import com.hhjs.psi.production.repository.ProductionStepRecordRepository;
 import com.hhjs.psi.common.exception.BusinessException;
 import org.springframework.data.domain.Page;
@@ -70,19 +71,22 @@ public class InventoryService {
     private final StockRecordRepository stockRecordRepository;
     private final StockCheckOrderRepository stockCheckOrderRepository;
     private final ProductionStepRecordRepository productionStepRecordRepository;
+    private final ProductionOrderRepository productionOrderRepository;
 
     public InventoryService(
             StockRepository stockRepository,
             StockBatchRepository stockBatchRepository,
             StockRecordRepository stockRecordRepository,
             StockCheckOrderRepository stockCheckOrderRepository,
-            ProductionStepRecordRepository productionStepRecordRepository
+            ProductionStepRecordRepository productionStepRecordRepository,
+            ProductionOrderRepository productionOrderRepository
     ) {
         this.stockRepository = stockRepository;
         this.stockBatchRepository = stockBatchRepository;
         this.stockRecordRepository = stockRecordRepository;
         this.stockCheckOrderRepository = stockCheckOrderRepository;
         this.productionStepRecordRepository = productionStepRecordRepository;
+        this.productionOrderRepository = productionOrderRepository;
     }
 
     public InventoryDashboardResponse getDashboard() {
@@ -1114,8 +1118,24 @@ public class InventoryService {
     }
 
     public Page<StockRecordResponse> getStockRecords(int page, int size) {
+        return getStockRecords(page, size, null);
+    }
+
+    public Page<StockRecordResponse> getStockRecords(int page, int size, String query) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        return stockRecordRepository.findAllWithProduct(pageable)
+        String normalizedQuery = normalizeFilter(query);
+        if (normalizedQuery == null) {
+            return stockRecordRepository.findAllWithProduct(pageable)
+                    .map(this::toStockRecordResponse);
+        }
+
+        List<Long> relatedProductionOrderIds = productionOrderRepository.findIdsByOrderNoOrBatchNo(normalizedQuery);
+        return stockRecordRepository.searchRecords(
+                        normalizedQuery,
+                        relatedProductionOrderIds.isEmpty() ? List.of(-1L) : relatedProductionOrderIds,
+                        relatedProductionOrderIds.isEmpty(),
+                        pageable
+                )
                 .map(this::toStockRecordResponse);
     }
 
@@ -1133,6 +1153,7 @@ public class InventoryService {
                 product.getCode(),
                 product.getName(),
                 product.getType(),
+                product.getCategoryId(),
                 product.getCategory(),
                 product.getSpecification(),
                 product.getUnit(),

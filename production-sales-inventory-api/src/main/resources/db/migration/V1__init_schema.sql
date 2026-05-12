@@ -84,6 +84,26 @@ CREATE TABLE `permission` (
   CONSTRAINT `ck_permission_enabled` CHECK ((`enabled` in (0,1)))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `product_category`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `product_category` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `name` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '分类名称',
+  `type` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '适用类型：FINISHED_PRODUCT-成品, RAW_MATERIAL-原料, NULL-通用',
+  `sort_order` int NOT NULL DEFAULT '0' COMMENT '排序',
+  `enabled` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否启用',
+  `remark` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '备注',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_product_category_name_type` (`name`,`type`),
+  KEY `idx_product_category_type` (`type`),
+  KEY `idx_product_category_enabled` (`enabled`),
+  CONSTRAINT `ck_product_category_enabled` CHECK ((`enabled` in (0,1))),
+  CONSTRAINT `ck_product_category_type` CHECK ((`type` is null or `type` in (_utf8mb4'FINISHED_PRODUCT',_utf8mb4'RAW_MATERIAL')))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='库存产品分类表';
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `product`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -92,7 +112,7 @@ CREATE TABLE `product` (
   `code` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '产品编码',
   `name` varchar(120) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '产品名称',
   `type` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '产品类型：FINISHED_PRODUCT-成品, RAW_MATERIAL-原料',
-  `category` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '分类（如：豆沙粽、肉粽、糯米、粽叶等）',
+  `category_id` bigint DEFAULT NULL COMMENT '产品分类ID',
   `specification` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '规格（如：100g/个、5kg/袋）',
   `unit` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '单位（个、袋、斤、kg等）',
   `cost_price` decimal(10,2) DEFAULT NULL COMMENT '成本价',
@@ -105,10 +125,32 @@ CREATE TABLE `product` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_product_code` (`code`),
   KEY `idx_product_type` (`type`),
-  KEY `idx_product_category` (`category`),
+  KEY `idx_product_category` (`category_id`),
+  CONSTRAINT `fk_product_category` FOREIGN KEY (`category_id`) REFERENCES `product_category` (`id`) ON DELETE SET NULL,
   CONSTRAINT `ck_product_enabled` CHECK ((`enabled` in (0,1))),
   CONSTRAINT `ck_product_type` CHECK ((`type` in (_utf8mb4'FINISHED_PRODUCT',_utf8mb4'RAW_MATERIAL')))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='产品表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `production_route_step`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `production_route_step` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `product_id` bigint NOT NULL COMMENT '成品ID',
+  `step_code` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '工序编码',
+  `step_name` varchar(80) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '工序名称',
+  `sort_order` int NOT NULL DEFAULT '0' COMMENT '排序',
+  `allow_loss` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否允许记录损耗',
+  `enabled` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否启用',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_production_route_step_product_code` (`product_id`,`step_code`),
+  KEY `idx_production_route_step_product` (`product_id`),
+  CONSTRAINT `fk_production_route_step_product` FOREIGN KEY (`product_id`) REFERENCES `product` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `ck_production_route_step_allow_loss` CHECK ((`allow_loss` in (0,1))),
+  CONSTRAINT `ck_production_route_step_enabled` CHECK ((`enabled` in (0,1)))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='产品生产工序模板表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `production_material_issue`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -172,7 +214,7 @@ CREATE TABLE `production_order` (
   `completed_quantity` int NOT NULL DEFAULT '0' COMMENT '已完成数量',
   `inbound_quantity` int NOT NULL DEFAULT '0' COMMENT '已入库数量',
   `loss_quantity` int NOT NULL DEFAULT '0' COMMENT '过程损耗数量',
-  `current_step` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '当前工序',
+  `current_step` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '当前工序编码',
   `status` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'PLANNED' COMMENT '状态',
   `planned_date` date DEFAULT NULL COMMENT '计划生产日期',
   `started_at` datetime(6) DEFAULT NULL COMMENT '开始时间',
@@ -191,9 +233,29 @@ CREATE TABLE `production_order` (
   KEY `idx_production_order_created_at` (`created_at`),
   CONSTRAINT `fk_production_order_operator` FOREIGN KEY (`operator_id`) REFERENCES `sys_user` (`id`) ON DELETE RESTRICT,
   CONSTRAINT `fk_production_order_product` FOREIGN KEY (`product_id`) REFERENCES `product` (`id`) ON DELETE RESTRICT,
-  CONSTRAINT `ck_production_order_status` CHECK ((`status` in (_utf8mb4'PLANNED',_utf8mb4'IN_PROGRESS',_utf8mb4'WAIT_INBOUND',_utf8mb4'COMPLETED',_utf8mb4'CANCELLED'))),
-  CONSTRAINT `ck_production_order_step` CHECK (((`current_step` is null) or (`current_step` in (_utf8mb4'PREPARATION',_utf8mb4'WRAPPING',_utf8mb4'COOKING',_utf8mb4'PACKAGING',_utf8mb4'STERILIZATION',_utf8mb4'BOXING'))))
+  CONSTRAINT `ck_production_order_status` CHECK ((`status` in (_utf8mb4'PLANNED',_utf8mb4'IN_PROGRESS',_utf8mb4'WAIT_INBOUND',_utf8mb4'COMPLETED',_utf8mb4'CANCELLED')))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='生产工单表';
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `production_order_step`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `production_order_step` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `production_order_id` bigint NOT NULL COMMENT '生产工单ID',
+  `step_code` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '工序编码快照',
+  `step_name` varchar(80) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '工序名称快照',
+  `sort_order` int NOT NULL DEFAULT '0' COMMENT '排序快照',
+  `allow_loss` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否允许记录损耗',
+  `completed_quantity` int NOT NULL DEFAULT '0' COMMENT '工序合格数量',
+  `loss_quantity` int NOT NULL DEFAULT '0' COMMENT '工序损耗数量',
+  `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_production_order_step_order_code` (`production_order_id`,`step_code`),
+  KEY `idx_production_order_step_order` (`production_order_id`),
+  CONSTRAINT `fk_production_order_step_order` FOREIGN KEY (`production_order_id`) REFERENCES `production_order` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `ck_production_order_step_allow_loss` CHECK ((`allow_loss` in (0,1)))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='生产工单工序快照表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `production_step_record`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -201,7 +263,8 @@ DROP TABLE IF EXISTS `production_step_record`;
 CREATE TABLE `production_step_record` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `production_order_id` bigint NOT NULL COMMENT '生产工单ID',
-  `step_type` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '工序',
+  `step_type` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '工序编码',
+  `step_name` varchar(80) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '工序名称',
   `completed_quantity` int NOT NULL DEFAULT '0' COMMENT '该次记录完成数量',
   `loss_quantity` int NOT NULL DEFAULT '0' COMMENT '该次记录损耗数量',
   `loss_reason` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '损耗原因',
@@ -213,8 +276,7 @@ CREATE TABLE `production_step_record` (
   KEY `idx_production_step_record_order` (`production_order_id`),
   KEY `idx_production_step_record_created_at` (`created_at`),
   CONSTRAINT `fk_production_step_record_operator` FOREIGN KEY (`operator_id`) REFERENCES `sys_user` (`id`) ON DELETE RESTRICT,
-  CONSTRAINT `fk_production_step_record_order` FOREIGN KEY (`production_order_id`) REFERENCES `production_order` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `ck_production_step_type` CHECK ((`step_type` in (_utf8mb4'PREPARATION',_utf8mb4'WRAPPING',_utf8mb4'COOKING',_utf8mb4'PACKAGING',_utf8mb4'STERILIZATION',_utf8mb4'BOXING')))
+  CONSTRAINT `fk_production_step_record_order` FOREIGN KEY (`production_order_id`) REFERENCES `production_order` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='生产工序记录表';
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `purchase_order`;

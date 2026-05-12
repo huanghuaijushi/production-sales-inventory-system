@@ -49,9 +49,8 @@ public class ProductionOrder {
     @Column(name = "loss_quantity", nullable = false)
     private Integer lossQuantity = 0;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "current_step", length = 30)
-    private ProductionStepType currentStep;
+    @Column(name = "current_step", length = 64)
+    private String currentStep;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -111,7 +110,7 @@ public class ProductionOrder {
     public void start() {
         this.status = ProductionOrderStatus.IN_PROGRESS;
         if (this.currentStep == null) {
-            this.currentStep = ProductionStepType.PREPARATION;
+            this.currentStep = ProductionStepType.PREPARATION.name();
         }
         if (this.startedAt == null) {
             this.startedAt = Instant.now();
@@ -121,7 +120,7 @@ public class ProductionOrder {
     public void completeStep(
             Integer completedQuantity,
             Integer lossQuantity,
-            ProductionStepType nextStep
+            String nextStep
     ) {
         this.completedQuantity = completedQuantity;
         this.lossQuantity += lossQuantity;
@@ -181,7 +180,7 @@ public class ProductionOrder {
         return lossQuantity;
     }
 
-    public ProductionStepType getCurrentStep() {
+    public String getCurrentStep() {
         return currentStep;
     }
 

@@ -264,9 +264,9 @@
 
               <label class="form-field">
                 <span>产品类别</span>
-                <select v-model="createForm.category">
+                <select v-model.number="createForm.categoryId">
                   <option value="">请选择分类</option>
-                  <option v-for="category in filteredCategoryOptions(createForm.type)" :key="`create-${category.id}`" :value="category.name">
+                  <option v-for="category in filteredCategoryOptions(createForm.type)" :key="`create-${category.id}`" :value="category.id">
                     {{ category.name }}
                   </option>
                 </select>
@@ -384,9 +384,9 @@
 
               <label class="form-field">
                 <span>产品类别</span>
-                <select v-model="editForm.category">
+                <select v-model.number="editForm.categoryId">
                   <option value="">请选择分类</option>
-                  <option v-for="category in filteredCategoryOptions(editForm.type)" :key="`edit-${category.id}`" :value="category.name">
+                  <option v-for="category in filteredCategoryOptions(editForm.type)" :key="`edit-${category.id}`" :value="category.id">
                     {{ category.name }}
                   </option>
                 </select>
@@ -537,20 +537,7 @@ const categoryForm = ref({
 const displayTotalPages = computed(() => Math.max(totalPages.value, 1))
 
 const normalizedCategories = computed(() => {
-  if (categories.value.length > 0) return categories.value
-
-  const categoryNames = Array.from(new Set(products.value.map(product => product.category).filter(Boolean))) as string[]
-  return categoryNames.map((name, index) => ({
-    id: -index - 1,
-    name,
-    type: products.value.find(product => product.category === name)?.type ?? null,
-    typeText: products.value.find(product => product.category === name)?.type === 'RAW_MATERIAL' ? '原料 / 包装' : '成品 / 半成品',
-    sortOrder: index + 1,
-    enabled: true,
-    remark: '来自已有产品',
-    createdAt: '',
-    updatedAt: ''
-  }))
+  return categories.value
 })
 
 const visibleCategories = computed(() => normalizedCategories.value.filter(category => {
@@ -581,7 +568,7 @@ const createForm = ref<ProductRequest>({
   code: '',
   name: '',
   type: '',
-  category: '',
+  categoryId: undefined,
   unit: ''
 })
 
@@ -589,7 +576,7 @@ const editForm = ref<ProductRequest>({
   code: '',
   name: '',
   type: '',
-  category: '',
+  categoryId: undefined,
   unit: '',
   specification: '',
   costPrice: undefined,
@@ -708,7 +695,7 @@ const handleCreateProduct = async () => {
   loading.value = true
   formMessage.value = ''
   try {
-    await productApi.createProduct(createForm.value)
+    await productApi.createProduct(normalizeProductPayload(createForm.value))
     closeCreateModal()
     await reloadCurrentProducts()
   } catch (error) {
@@ -726,7 +713,7 @@ const closeCreateModal = () => {
     code: '',
     name: '',
     type: '',
-    category: '',
+    categoryId: undefined,
     unit: ''
   }
 }
@@ -738,7 +725,7 @@ const editProduct = async (product: Product) => {
     code: product.sku,
     name: product.name,
     type: product.type,
-    category: product.category || '',
+    categoryId: product.categoryId,
     unit: product.unit,
     specification: product.specification || '',
     costPrice: product.costPrice,
@@ -757,7 +744,7 @@ const handleUpdateProduct = async () => {
   loading.value = true
   formMessage.value = ''
   try {
-    await productApi.updateProduct(editingProduct.value.id, editForm.value)
+    await productApi.updateProduct(editingProduct.value.id, normalizeProductPayload(editForm.value))
     closeEditModal()
     await reloadCurrentProducts()
   } catch (error) {
@@ -844,6 +831,14 @@ function filteredCategoryOptions(type: string) {
   return categoryOptions.value.filter(category => !category.type || category.type === type)
 }
 
+function normalizeProductPayload(payload: ProductRequest): ProductRequest {
+  return {
+    ...payload,
+    categoryId: typeof payload.categoryId === 'number' && payload.categoryId > 0 ? payload.categoryId : undefined,
+    category: undefined
+  }
+}
+
 function categoryProductCount(categoryName: string) {
   return products.value.filter(product => product.category === categoryName).length
 }
@@ -882,7 +877,7 @@ watch(
 watch(
   () => createForm.value.type,
   async (type) => {
-    createForm.value.category = ''
+    createForm.value.categoryId = undefined
     await loadCategoryOptions(type)
   }
 )
@@ -893,7 +888,7 @@ watch(
     if (!showEditModal.value) {
       return
     }
-    editForm.value.category = ''
+    editForm.value.categoryId = undefined
     await loadCategoryOptions(type)
   }
 )

@@ -9,6 +9,8 @@ import com.hhjs.psi.production.dto.ProductionMaterialIssueRequest;
 import com.hhjs.psi.production.dto.ProductionOrderCreateRequest;
 import com.hhjs.psi.production.dto.ProductionOrderDetailResponse;
 import com.hhjs.psi.production.dto.ProductionOrderSummaryResponse;
+import com.hhjs.psi.production.dto.ProductionRouteStepRequest;
+import com.hhjs.psi.production.dto.ProductionRouteStepResponse;
 import com.hhjs.psi.production.dto.ProductionStepRecordRequest;
 import com.hhjs.psi.production.dto.ProductionSuggestionResponse;
 import com.hhjs.psi.production.dto.PurchaseSuggestionGroupResponse;
@@ -95,6 +97,36 @@ public class ProductionPlanningController {
     @PostMapping("/orders/{productionOrderId}/cancel")
     public ApiResponse<ProductionOrderDetailResponse> cancelProductionOrder(@PathVariable Long productionOrderId) {
         return ApiResponse.ok(productionPlanningService.cancelProductionOrder(productionOrderId));
+    }
+
+    @PreAuthorize("hasAuthority('*') or hasAuthority('production:view')")
+    @GetMapping("/route-steps")
+    public ApiResponse<List<ProductionRouteStepResponse>> getProductionRouteSteps() {
+        return ApiResponse.ok(productionPlanningService.getProductionRouteSteps());
+    }
+
+    @PreAuthorize("hasAuthority('*') or hasAuthority('production:create')")
+    @PostMapping("/route-steps")
+    public ApiResponse<ProductionRouteStepResponse> createProductionRouteStep(
+            @Valid @RequestBody ProductionRouteStepRequest request
+    ) {
+        return ApiResponse.ok(productionPlanningService.createProductionRouteStep(request));
+    }
+
+    @PreAuthorize("hasAuthority('*') or hasAuthority('production:step-report')")
+    @PutMapping("/route-steps/{routeStepId}")
+    public ApiResponse<ProductionRouteStepResponse> updateProductionRouteStep(
+            @PathVariable Long routeStepId,
+            @Valid @RequestBody ProductionRouteStepRequest request
+    ) {
+        return ApiResponse.ok(productionPlanningService.updateProductionRouteStep(routeStepId, request));
+    }
+
+    @PreAuthorize("hasAuthority('*') or hasAuthority('production:cancel')")
+    @DeleteMapping("/route-steps/{routeStepId}")
+    public ApiResponse<Void> deleteProductionRouteStep(@PathVariable Long routeStepId) {
+        productionPlanningService.deleteProductionRouteStep(routeStepId);
+        return ApiResponse.ok();
     }
 
     @PreAuthorize("hasAuthority('*') or hasAuthority('product:view')")

@@ -128,7 +128,7 @@ export interface PurchaseSuggestionGroup {
 }
 
 export type ProductionOrderStatus = 'PLANNED' | 'IN_PROGRESS' | 'WAIT_INBOUND' | 'COMPLETED' | 'CANCELLED'
-export type ProductionStepType = 'PREPARATION' | 'WRAPPING' | 'COOKING' | 'PACKAGING' | 'STERILIZATION' | 'BOXING'
+export type ProductionStepType = string
 
 export interface ProductionOrderSummary {
   id: number
@@ -181,6 +181,7 @@ export interface ProductionMaterialIssue {
 export interface ProductionStepRecord {
   id: number
   stepType: ProductionStepType
+  stepName: string
   completedQuantity: number
   lossQuantity: number
   lossReason: string | null
@@ -188,10 +189,21 @@ export interface ProductionStepRecord {
   createdAt: string
 }
 
+export interface ProductionOrderStep {
+  id: number | null
+  stepCode: ProductionStepType
+  stepName: string
+  sortOrder: number
+  allowLoss: boolean
+  completedQuantity: number
+  lossQuantity: number
+}
+
 export interface ProductionOrderDetail {
   order: ProductionOrderSummary
   materialPlans: ProductionMaterialPlan[]
   materialIssues: ProductionMaterialIssue[]
+  routeSteps: ProductionOrderStep[]
   stepRecords: ProductionStepRecord[]
 }
 
@@ -222,11 +234,51 @@ export interface ProductionInboundRequest {
   remark?: string | undefined
 }
 
+export interface ProductionRouteStep {
+  id: number
+  productId: number
+  productCode: string
+  productName: string
+  stepCode: string
+  stepName: string
+  sortOrder: number
+  allowLoss: boolean
+  enabled: boolean
+}
+
+export interface ProductionRouteStepRequest {
+  productId: number
+  stepCode: string
+  stepName: string
+  sortOrder: number
+  allowLoss?: boolean | undefined
+  enabled?: boolean | undefined
+}
+
 export const productionApi = {
   getOrders: () => request<ProductionOrderSummary[]>('/production/orders'),
 
   getOrder: (productionOrderId: number) =>
     request<ProductionOrderDetail>(`/production/orders/${productionOrderId}`),
+
+  getRouteSteps: () => request<ProductionRouteStep[]>('/production/route-steps'),
+
+  createRouteStep: (item: ProductionRouteStepRequest) =>
+    request<ProductionRouteStep>('/production/route-steps', {
+      method: 'POST',
+      body: item
+    }),
+
+  updateRouteStep: (routeStepId: number, item: ProductionRouteStepRequest) =>
+    request<ProductionRouteStep>(`/production/route-steps/${routeStepId}`, {
+      method: 'PUT',
+      body: item
+    }),
+
+  deleteRouteStep: (routeStepId: number) =>
+    request<void>(`/production/route-steps/${routeStepId}`, {
+      method: 'DELETE'
+    }),
 
   createOrder: (item: ProductionOrderCreateRequest) =>
     request<ProductionOrderDetail>('/production/orders', {

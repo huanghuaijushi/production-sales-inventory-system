@@ -1,7 +1,6 @@
 package com.hhjs.psi.production.dto;
 
 import com.hhjs.psi.production.entity.ProductionOrderStatus;
-import com.hhjs.psi.production.entity.ProductionStepType;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -18,7 +17,7 @@ public record ProductionOrderSummaryResponse(
         Integer completedQuantity,
         Integer inboundQuantity,
         Integer lossQuantity,
-        ProductionStepType currentStep,
+        String currentStep,
         ProductionOrderStatus status,
         LocalDate plannedDate,
         Instant startedAt,

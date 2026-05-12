@@ -9,26 +9,40 @@ INSERT INTO sys_user (id, username, password_hash, nickname, role, status)
 VALUES (1, 'admin', '$2a$10$8FqKkXoZ9Y1xZr9DEMOHASHFORLOCALONLY', '系统管理员', 'ADMIN', 'ACTIVE')
 ON DUPLICATE KEY UPDATE nickname = VALUES(nickname), status = VALUES(status);
 
-INSERT INTO product (code, name, type, category, specification, unit, cost_price, alert_quantity, shelf_life_days, description, enabled)
+INSERT INTO product_category (name, type, sort_order, enabled, remark)
 VALUES
-  ('FP-ZONG-DHXR-188', '蛋黄鲜肉粽', 'FINISHED_PRODUCT', '粽子', '188g/个', '个', 4.80, 120, 180, '经典蛋黄鲜肉粽成品库存', 1),
-  ('FP-ZONG-HSLXR-188', '黑松露鲜肉粽', 'FINISHED_PRODUCT', '粽子', '188g/个', '个', 7.60, 80, 180, '黑松露鲜肉粽成品库存', 1),
-  ('FP-ZONG-SJCPDS-160', '水晶陈皮豆沙粽', 'FINISHED_PRODUCT', '粽子', '160g/个', '个', 4.20, 100, 180, '水晶陈皮豆沙粽成品库存', 1),
-  ('RM-RICE-NM-25KG', '圆粒糯米', 'RAW_MATERIAL', '原料', '25kg/袋', 'kg', 7.20, 300, 365, '粽子主料糯米', 1),
-  ('RM-PORK-WH-1KG', '五花鲜肉', 'RAW_MATERIAL', '原料', '1kg/袋', 'kg', 38.00, 80, 7, '鲜肉粽用五花肉', 1),
-  ('RM-EGG-YOLK-20G', '咸蛋黄', 'RAW_MATERIAL', '原料', '20g/粒', '粒', 1.35, 300, 180, '蛋黄鲜肉粽用咸蛋黄', 1),
-  ('RM-TRUFFLE-100G', '黑松露酱', 'RAW_MATERIAL', '原料', '100g/瓶', 'g', 0.42, 800, 365, '黑松露鲜肉粽风味料', 1),
-  ('RM-DOUSHA-5KG', '陈皮豆沙馅', 'RAW_MATERIAL', '原料', '5kg/袋', 'kg', 18.00, 120, 180, '水晶陈皮豆沙粽馅料', 1),
-  ('RM-CRYSTAL-POWDER', '水晶粉', 'RAW_MATERIAL', '原料', '10kg/袋', 'kg', 12.50, 100, 365, '水晶粽外皮原料', 1),
-  ('RM-ZONG-LEAF', '箬竹粽叶', 'RAW_MATERIAL', '原料', '500片/包', '片', 0.16, 1000, 365, '粽叶', 1),
-  ('RM-COTTON-THREAD', '棉线', 'RAW_MATERIAL', '包装', '100m/卷', '米', 0.03, 500, 3650, '捆扎棉线', 1),
-  ('PK-GIFT-6', '6只装礼盒', 'RAW_MATERIAL', '包装', '6只/盒', '个', 5.20, 100, 3650, '粽子礼盒包装', 1),
-  ('PK-GIFT-10', '10只装礼盒', 'RAW_MATERIAL', '包装', '10只/盒', '个', 7.80, 80, 3650, '家庭装礼盒包装', 1),
-  ('PK-ICE-BAG', '保温冰袋', 'RAW_MATERIAL', '包装', '个', '个', 1.10, 200, 3650, '冷链保温冰袋', 1)
+  ('粽子', 'FINISHED_PRODUCT', 10, 1, '粽子成品'),
+  ('半成品', 'FINISHED_PRODUCT', 20, 1, '生产过程半成品'),
+  ('原料', 'RAW_MATERIAL', 10, 1, '生产主辅料'),
+  ('包装', 'RAW_MATERIAL', 20, 1, '包装耗材')
+ON DUPLICATE KEY UPDATE
+  sort_order = VALUES(sort_order),
+  enabled = VALUES(enabled),
+  remark = VALUES(remark);
+
+INSERT INTO product (code, name, type, category_id, specification, unit, cost_price, alert_quantity, shelf_life_days, description, enabled)
+SELECT x.code, x.name, x.type, pc.id, x.specification, x.unit, x.cost_price, x.alert_quantity, x.shelf_life_days, x.description, x.enabled
+FROM (
+  SELECT 'FP-ZONG-DHXR-188' code, '蛋黄鲜肉粽' name, 'FINISHED_PRODUCT' type, '粽子' category_name, '188g/个' specification, '个' unit, 4.80 cost_price, 120 alert_quantity, 180 shelf_life_days, '经典蛋黄鲜肉粽成品库存' description, 1 enabled UNION ALL
+  SELECT 'FP-ZONG-HSLXR-188', '黑松露鲜肉粽', 'FINISHED_PRODUCT', '粽子', '188g/个', '个', 7.60, 80, 180, '黑松露鲜肉粽成品库存', 1 UNION ALL
+  SELECT 'FP-ZONG-SJCPDS-160', '水晶陈皮豆沙粽', 'FINISHED_PRODUCT', '粽子', '160g/个', '个', 4.20, 100, 180, '水晶陈皮豆沙粽成品库存', 1 UNION ALL
+  SELECT 'RM-RICE-NM-25KG', '圆粒糯米', 'RAW_MATERIAL', '原料', '25kg/袋', 'kg', 7.20, 300, 365, '粽子主料糯米', 1 UNION ALL
+  SELECT 'RM-PORK-WH-1KG', '五花鲜肉', 'RAW_MATERIAL', '原料', '1kg/袋', 'kg', 38.00, 80, 7, '鲜肉粽用五花肉', 1 UNION ALL
+  SELECT 'RM-EGG-YOLK-20G', '咸蛋黄', 'RAW_MATERIAL', '原料', '20g/粒', '粒', 1.35, 300, 180, '蛋黄鲜肉粽用咸蛋黄', 1 UNION ALL
+  SELECT 'RM-TRUFFLE-100G', '黑松露酱', 'RAW_MATERIAL', '原料', '100g/瓶', 'g', 0.42, 800, 365, '黑松露鲜肉粽风味料', 1 UNION ALL
+  SELECT 'RM-DOUSHA-5KG', '陈皮豆沙馅', 'RAW_MATERIAL', '原料', '5kg/袋', 'kg', 18.00, 120, 180, '水晶陈皮豆沙粽馅料', 1 UNION ALL
+  SELECT 'RM-CRYSTAL-POWDER', '水晶粉', 'RAW_MATERIAL', '原料', '10kg/袋', 'kg', 12.50, 100, 365, '水晶粽外皮原料', 1 UNION ALL
+  SELECT 'RM-ZONG-LEAF', '箬竹粽叶', 'RAW_MATERIAL', '原料', '500片/包', '片', 0.16, 1000, 365, '粽叶', 1 UNION ALL
+  SELECT 'RM-COTTON-THREAD', '棉线', 'RAW_MATERIAL', '包装', '100m/卷', '米', 0.03, 500, 3650, '捆扎棉线', 1 UNION ALL
+  SELECT 'PK-GIFT-6', '6只装礼盒', 'RAW_MATERIAL', '包装', '6只/盒', '个', 5.20, 100, 3650, '粽子礼盒包装', 1 UNION ALL
+  SELECT 'PK-GIFT-10', '10只装礼盒', 'RAW_MATERIAL', '包装', '10只/盒', '个', 7.80, 80, 3650, '家庭装礼盒包装', 1 UNION ALL
+  SELECT 'PK-ICE-BAG', '保温冰袋', 'RAW_MATERIAL', '包装', '个', '个', 1.10, 200, 3650, '冷链保温冰袋', 1
+) x
+LEFT JOIN product_category pc ON pc.name = x.category_name AND pc.type = x.type
 ON DUPLICATE KEY UPDATE
   name = VALUES(name),
   type = VALUES(type),
-  category = VALUES(category),
+  category_id = VALUES(category_id),
   specification = VALUES(specification),
   unit = VALUES(unit),
   cost_price = VALUES(cost_price),
@@ -185,6 +199,24 @@ JOIN product fp ON fp.code = x.fp
 JOIN product rm ON rm.code = x.rm
 ON DUPLICATE KEY UPDATE quantity_per_unit = VALUES(quantity_per_unit), loss_rate = VALUES(loss_rate);
 
+INSERT INTO production_route_step (product_id, step_code, step_name, sort_order, allow_loss, enabled)
+SELECT p.id, x.step_code, x.step_name, x.sort_order, x.allow_loss, 1
+FROM product p
+JOIN (
+  SELECT 'PREPARATION' step_code, '备料' step_name, 10 sort_order, 1 allow_loss UNION ALL
+  SELECT 'WRAPPING', '包制', 20, 1 UNION ALL
+  SELECT 'COOKING', '蒸煮', 30, 1 UNION ALL
+  SELECT 'PACKAGING', '包装', 40, 1 UNION ALL
+  SELECT 'STERILIZATION', '杀菌', 50, 1 UNION ALL
+  SELECT 'BOXING', '装箱', 60, 1
+) x
+WHERE p.code IN ('FP-ZONG-DHXR-188','FP-ZONG-HSLXR-188','FP-ZONG-SJCPDS-160')
+ON DUPLICATE KEY UPDATE
+  step_name = VALUES(step_name),
+  sort_order = VALUES(sort_order),
+  allow_loss = VALUES(allow_loss),
+  enabled = VALUES(enabled);
+
 INSERT INTO production_order (
   order_no, batch_no, product_id, planned_quantity, completed_quantity, inbound_quantity, loss_quantity,
   current_step, status, planned_date, started_at, completed_at, operator_id, operator_name, remark
@@ -204,6 +236,19 @@ ON DUPLICATE KEY UPDATE
   loss_quantity = VALUES(loss_quantity),
   status = VALUES(status),
   remark = VALUES(remark);
+
+INSERT INTO production_order_step (
+  production_order_id, step_code, step_name, sort_order, allow_loss, completed_quantity, loss_quantity
+)
+SELECT po.id, prs.step_code, prs.step_name, prs.sort_order, prs.allow_loss, po.completed_quantity, 0
+FROM production_order po
+JOIN production_route_step prs ON prs.product_id = po.product_id
+WHERE po.order_no IN ('PO-DEMO-DHXR-20260501','PO-DEMO-HSLXR-20260502','PO-DEMO-SJCPDS-20260503')
+ON DUPLICATE KEY UPDATE
+  step_name = VALUES(step_name),
+  sort_order = VALUES(sort_order),
+  allow_loss = VALUES(allow_loss),
+  completed_quantity = VALUES(completed_quantity);
 
 INSERT INTO sales_channel_config (code, name, source_type, enabled, sort_order, remark)
 VALUES

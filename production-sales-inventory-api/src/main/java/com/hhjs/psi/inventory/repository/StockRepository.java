@@ -32,14 +32,14 @@ public interface StockRepository extends JpaRepository<Stock, Long> {
     Page<Stock> findAllWithProduct(Pageable pageable);
 
     @Query("""
-            SELECT s FROM Stock s JOIN FETCH s.product p
+            SELECT s FROM Stock s JOIN FETCH s.product p LEFT JOIN p.category pc
             WHERE p.enabled = true
               AND (:query IS NULL
                    OR LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%'))
                    OR LOWER(p.code) LIKE LOWER(CONCAT('%', :query, '%'))
-                   OR LOWER(COALESCE(p.category, '')) LIKE LOWER(CONCAT('%', :query, '%'))
+                   OR LOWER(COALESCE(pc.name, '')) LIKE LOWER(CONCAT('%', :query, '%'))
                    OR LOWER(COALESCE(p.specification, '')) LIKE LOWER(CONCAT('%', :query, '%')))
-              AND (:category IS NULL OR p.category = :category)
+              AND (:category IS NULL OR pc.name = :category)
               AND (:status IS NULL
                    OR (:status = 'normal' AND s.quantity > p.alertQuantity)
                    OR (:status = 'warning' AND s.quantity > 0 AND s.quantity <= p.alertQuantity)

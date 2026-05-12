@@ -38,9 +38,18 @@
           <p class="page-eyebrow">库存流水</p>
           <h2>最近出入库记录</h2>
         </div>
-        <button type="button" class="record-refresh" :disabled="recordsLoading" @click="loadRecords">
-          {{ recordsLoading ? '刷新中...' : '刷新流水' }}
-        </button>
+        <div class="record-actions">
+          <input
+            v-model.trim="recordQuery"
+            class="record-search"
+            type="search"
+            placeholder="搜索批次 / 工单 / 商品 / 流水号"
+            @keyup.enter="loadRecords"
+          >
+          <button type="button" class="record-refresh" :disabled="recordsLoading" @click="loadRecords">
+            {{ recordsLoading ? '刷新中...' : '刷新流水' }}
+          </button>
+        </div>
       </header>
 
       <div class="record-table-wrapper">
@@ -147,6 +156,7 @@ const selectedStockItem = ref<StockItem | null>(null)
 const totalElements = ref(0)
 const totalPages = ref(0)
 const stockRecords = ref<StockRecord[]>([])
+const recordQuery = ref('')
 const filters = reactive({
   query: '',
   category: 'all',
@@ -174,7 +184,7 @@ async function loadData() {
 async function loadRecords() {
   recordsLoading.value = true
   try {
-    const result: PageResponse<StockRecord> = await inventoryApi.getStockRecords(0, 10)
+    const result: PageResponse<StockRecord> = await inventoryApi.getStockRecords(0, 20, recordQuery.value)
     stockRecords.value = result.content
   } catch (error) {
     console.error('加载库存流水失败:', error)
@@ -185,8 +195,10 @@ async function loadRecords() {
 
 function updateFilters(nextFilters: typeof filters) {
   Object.assign(filters, nextFilters)
+  recordQuery.value = filters.query
   page.value = 0
   loadData()
+  loadRecords()
 }
 
 function setPage(nextPage: number) {
@@ -281,8 +293,10 @@ function routeSearchKeyword() {
 
 function applyRouteSearch() {
   filters.query = routeSearchKeyword()
+  recordQuery.value = filters.query
   page.value = 0
   loadData()
+  loadRecords()
 }
 
 watch(
@@ -510,6 +524,29 @@ function formatDateTime(value: string) {
   font-size: 16px;
 }
 
+.record-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.record-search {
+  width: min(360px, 42vw);
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 13px;
+  outline: none;
+}
+
+.record-search:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
 .record-refresh {
   min-height: 36px;
   padding: 0 12px;
@@ -580,5 +617,21 @@ function formatDateTime(value: string) {
 .quantity-out {
   color: #dc2626;
   font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .stock-record-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .record-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .record-search {
+    width: 100%;
+  }
 }
 </style>

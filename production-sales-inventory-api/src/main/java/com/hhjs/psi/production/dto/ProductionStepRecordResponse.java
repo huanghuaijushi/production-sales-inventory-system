@@ -1,12 +1,11 @@
 package com.hhjs.psi.production.dto;
 
-import com.hhjs.psi.production.entity.ProductionStepType;
-
 import java.time.Instant;
 
 public record ProductionStepRecordResponse(
         Long id,
-        ProductionStepType stepType,
+        String stepType,
+        String stepName,
         Integer completedQuantity,
         Integer lossQuantity,
         String lossReason,
