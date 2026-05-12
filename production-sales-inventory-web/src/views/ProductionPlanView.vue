@@ -63,9 +63,9 @@
             <button type="button" class="secondary-button" :disabled="loading" @click="loadOrders">刷新</button>
           </div>
           <div v-if="loading" class="empty-box">正在加载生产工单...</div>
-          <div v-else-if="orders.length === 0" class="empty-box">暂无生产工单。</div>
+          <div v-else-if="sortedOrders.length === 0" class="empty-box">暂无生产工单。</div>
           <button
-            v-for="order in orders"
+            v-for="order in sortedOrders"
             v-else
             :key="order.id"
             type="button"
@@ -230,7 +230,7 @@
                   编辑工序路线
                 </RouterLink>
               </div>
-              <div class="route-timeline">
+              <div ref="routeTimelineRef" class="route-timeline">
                 <div
                   v-for="step in routeSteps"
                   :key="step.stepCode"
@@ -355,7 +355,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { ApiError } from '@/api/http'
 import { inventoryApi, type StockBatch } from '@/api/inventory'
 import { productApi, type Product } from '@/api/product'
@@ -378,6 +378,7 @@ const loading = ref(false)
 const batchesLoading = ref(false)
 const creating = ref(false)
 const message = ref('')
+const routeTimelineRef = ref<HTMLElement | null>(null)
 let messageTimer: number | undefined
 
 const createForm = reactive({
@@ -403,6 +404,20 @@ const inboundForm = reactive({
 })
 
 const finishedProducts = computed(() => products.value.filter(product => product.type === 'FINISHED_PRODUCT'))
+const sortedOrders = computed(() => {
+  const statusWeight: Record<ProductionOrderStatus, number> = {
+    IN_PROGRESS: 1,
+    WAIT_INBOUND: 2,
+    PLANNED: 3,
+    COMPLETED: 4,
+    CANCELLED: 5
+  }
+  return [...orders.value].sort((first, second) => {
+    const statusDiff = statusWeight[first.status] - statusWeight[second.status]
+    if (statusDiff !== 0) return statusDiff
+    return new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()
+  })
+})
 const bomFinishedProductIds = computed(() => new Set(bomItems.value.map(item => item.finishedProductId)))
 const selectedProductHasBom = computed(() => {
   return createForm.productId > 0 && bomFinishedProductIds.value.has(createForm.productId)
@@ -460,6 +475,19 @@ const isCompleted = computed(() => {
 onMounted(() => {
   loadInitialData()
 })
+
+watch(
+  () => [
+    detail.value?.order.id,
+    detail.value?.order.currentStep,
+    detail.value?.order.status,
+    routeSteps.value.length
+  ],
+  () => {
+    scrollCurrentRouteStepIntoView()
+  },
+  { flush: 'post' }
+)
 
 async function loadInitialData() {
   await Promise.all([loadProducts(), loadBomItems(), loadOrders()])
@@ -752,6 +780,32 @@ function routeStepState(stepCode: ProductionStepType) {
   if (index < activeRouteStepIndex.value) return 'done'
   if (index === activeRouteStepIndex.value) return 'current'
   return 'pending'
+}
+
+function focusedRouteStepIndex() {
+  const steps = routeSteps.value
+  if (steps.length === 0) return -1
+  const status = detail.value?.order.status
+  if (status === 'WAIT_INBOUND' || status === 'COMPLETED') return steps.length - 1
+  return Math.min(Math.max(activeRouteStepIndex.value, 0), steps.length - 1)
+}
+
+async function scrollCurrentRouteStepIntoView() {
+  await nextTick()
+  window.requestAnimationFrame(() => {
+    const container = routeTimelineRef.value
+    if (!container) return
+    const targetIndex = focusedRouteStepIndex()
+    const target = container.querySelectorAll<HTMLElement>('.route-step').item(targetIndex)
+    if (!target) return
+    const node = target.querySelector<HTMLElement>('.route-node') ?? target
+    const targetLeft = target.offsetLeft + node.offsetLeft + node.offsetWidth / 2
+    const nextScrollLeft = targetLeft - container.clientWidth / 2
+    container.scrollTo({
+      left: Math.max(nextScrollLeft, 0),
+      behavior: 'smooth'
+    })
+  })
 }
 
 function formatDateTime(value: string) {
