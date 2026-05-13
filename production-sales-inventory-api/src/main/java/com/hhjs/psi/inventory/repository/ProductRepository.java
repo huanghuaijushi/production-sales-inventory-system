@@ -22,6 +22,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     List<Product> findByTypeAndEnabledTrue(ProductType type);
 
+    List<Product> findByTypeInAndEnabledTrue(java.util.Set<ProductType> types);
+
     List<Product> findByEnabledTrue();
 
     Page<Product> findByEnabledTrue(Pageable pageable);

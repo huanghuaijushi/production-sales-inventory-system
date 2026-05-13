@@ -2,7 +2,6 @@ package com.hhjs.psi.sales.importing.dto;
 
 import com.hhjs.psi.sales.importing.entity.ChannelProductMapping;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 
 public record ChannelProductMappingResponse(
@@ -12,13 +11,11 @@ public record ChannelProductMappingResponse(
         String externalProductName,
         String externalSpecName,
         String externalSkuCode,
-        Long salesGoodsId,
-        String salesGoodsCode,
-        String salesGoodsName,
-        String salesGoodsSpecification,
-        String salesGoodsUnit,
-        BigDecimal quantityMultiplier,
-        BigDecimal defaultUnitPrice,
+        Long salesSkuId,
+        String salesSkuCode,
+        String salesSkuName,
+        String salesSkuSpecName,
+        String salesSkuUnit,
         String matchType,
         Boolean enabled,
         Integer priority,
@@ -34,13 +31,11 @@ public record ChannelProductMappingResponse(
                 mapping.getExternalProductName(),
                 mapping.getExternalSpecName(),
                 mapping.getExternalSkuCode(),
-                mapping.getSalesGoods().getId(),
-                mapping.getSalesGoods().getCode(),
-                mapping.getSalesGoods().getName(),
-                mapping.getSalesGoods().getSpecification(),
-                mapping.getSalesGoods().getUnit(),
-                mapping.getQuantityMultiplier(),
-                mapping.getDefaultUnitPrice(),
+                mapping.getSalesSku().getId(),
+                mapping.getSalesSku().getCode(),
+                mapping.getSalesSku().getName(),
+                mapping.getSalesSku().getSpecName(),
+                mapping.getSalesSku().getUnit(),
                 mapping.getMatchType().name(),
                 mapping.getEnabled(),
                 mapping.getPriority(),

@@ -128,7 +128,7 @@ public interface StockRecordRepository extends JpaRepository<StockRecord, Long> 
             JOIN sr.product p
             WHERE sr.type = com.hhjs.psi.inventory.entity.StockRecordType.OUT
               AND sr.subType = com.hhjs.psi.inventory.entity.StockRecordSubType.SALES
-              AND p.type = com.hhjs.psi.inventory.entity.ProductType.FINISHED_PRODUCT
+              AND p.type IN (com.hhjs.psi.inventory.entity.ProductType.FINISHED_PRODUCT, com.hhjs.psi.inventory.entity.ProductType.SEMI_FINISHED_PRODUCT)
               AND sr.createdAt >= :start
               AND sr.createdAt < :end
             GROUP BY p.id, p.name

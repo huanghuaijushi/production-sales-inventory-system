@@ -4,6 +4,7 @@ import com.hhjs.psi.common.dto.ApiResponse;
 import com.hhjs.psi.common.dto.PageResponse;
 import com.hhjs.psi.sales.dto.SalesOrderRequest;
 import com.hhjs.psi.sales.dto.SalesOrderResponse;
+import com.hhjs.psi.sales.entity.SalesOrderStatus;
 import com.hhjs.psi.sales.service.SalesOrderService;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -34,13 +35,14 @@ public class SalesOrderController {
             @RequestParam(required = false) String query,
             @RequestParam(required = false, defaultValue = "all") String status
     ) {
-        return ApiResponse.ok(PageResponse.from(salesOrderService.getOrders(page, size, query, status)));
+        SalesOrderStatus statusEnum = "all".equals(status) ? null : SalesOrderStatus.valueOf(status.toUpperCase());
+        return ApiResponse.ok(PageResponse.from(salesOrderService.getOrders(page, size, statusEnum, query)));
     }
 
     @PreAuthorize("hasAuthority('*') or hasAuthority('sales:create')")
     @PostMapping
     public ApiResponse<SalesOrderResponse> createOrder(@Valid @RequestBody SalesOrderRequest request) {
-        return ApiResponse.ok(salesOrderService.createOrder(request));
+        return ApiResponse.ok(salesOrderService.create(request));
     }
 
     @PreAuthorize("hasAuthority('*') or hasAuthority('sales:update')")

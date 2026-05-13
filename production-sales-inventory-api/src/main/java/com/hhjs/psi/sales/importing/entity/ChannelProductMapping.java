@@ -1,6 +1,6 @@
 package com.hhjs.psi.sales.importing.entity;
 
-import com.hhjs.psi.sales.goods.entity.SalesGoods;
+import com.hhjs.psi.sales.goods.entity.SalesSku;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -15,7 +15,6 @@ import jakarta.persistence.Table;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
@@ -40,14 +39,8 @@ public class ChannelProductMapping {
     private String externalSkuCode;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sales_goods_id", nullable = false)
-    private SalesGoods salesGoods;
-
-    @Column(name = "quantity_multiplier", nullable = false, precision = 12, scale = 4)
-    private BigDecimal quantityMultiplier;
-
-    @Column(name = "default_unit_price", precision = 10, scale = 2)
-    private BigDecimal defaultUnitPrice;
+    @JoinColumn(name = "sales_sku_id", nullable = false)
+    private SalesSku salesSku;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "match_type", nullable = false, length = 30)
@@ -78,9 +71,7 @@ public class ChannelProductMapping {
             String externalProductName,
             String externalSpecName,
             String externalSkuCode,
-            SalesGoods salesGoods,
-            BigDecimal quantityMultiplier,
-            BigDecimal defaultUnitPrice,
+            SalesSku salesSku,
             ChannelProductMatchType matchType,
             Integer priority,
             String remark
@@ -90,9 +81,7 @@ public class ChannelProductMapping {
         mapping.externalProductName = externalProductName;
         mapping.externalSpecName = externalSpecName;
         mapping.externalSkuCode = externalSkuCode;
-        mapping.salesGoods = salesGoods;
-        mapping.quantityMultiplier = quantityMultiplier;
-        mapping.defaultUnitPrice = defaultUnitPrice;
+        mapping.salesSku = salesSku;
         mapping.matchType = matchType;
         mapping.priority = priority == null ? 100 : priority;
         mapping.remark = remark;
@@ -104,9 +93,7 @@ public class ChannelProductMapping {
             String externalProductName,
             String externalSpecName,
             String externalSkuCode,
-            SalesGoods salesGoods,
-            BigDecimal quantityMultiplier,
-            BigDecimal defaultUnitPrice,
+            SalesSku salesSku,
             ChannelProductMatchType matchType,
             Boolean enabled,
             Integer priority,
@@ -115,9 +102,7 @@ public class ChannelProductMapping {
         this.externalProductName = externalProductName;
         this.externalSpecName = externalSpecName;
         this.externalSkuCode = externalSkuCode;
-        this.salesGoods = salesGoods;
-        this.quantityMultiplier = quantityMultiplier;
-        this.defaultUnitPrice = defaultUnitPrice;
+        this.salesSku = salesSku;
         this.matchType = matchType;
         this.enabled = enabled;
         this.priority = priority == null ? 100 : priority;
@@ -173,16 +158,8 @@ public class ChannelProductMapping {
         return externalSkuCode;
     }
 
-    public SalesGoods getSalesGoods() {
-        return salesGoods;
-    }
-
-    public BigDecimal getQuantityMultiplier() {
-        return quantityMultiplier;
-    }
-
-    public BigDecimal getDefaultUnitPrice() {
-        return defaultUnitPrice;
+    public SalesSku getSalesSku() {
+        return salesSku;
     }
 
     public ChannelProductMatchType getMatchType() {

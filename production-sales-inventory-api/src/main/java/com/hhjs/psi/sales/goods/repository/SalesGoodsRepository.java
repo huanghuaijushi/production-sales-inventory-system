@@ -16,16 +16,16 @@ public interface SalesGoodsRepository extends JpaRepository<SalesGoods, Long> {
 
     boolean existsByCodeAndIdNot(String code, Long id);
 
-    @EntityGraph(attributePaths = {"components", "components.product", "channelPrices", "channelPrices.channel"})
+    @EntityGraph(attributePaths = {"components", "components.product", "channelPrices", "channelPrices.channel", "skus", "skus.components", "skus.components.product"})
     Optional<SalesGoods> findWithDetailsById(Long id);
 
-    @EntityGraph(attributePaths = {"components", "components.product", "channelPrices", "channelPrices.channel"})
+    @EntityGraph(attributePaths = {"components", "components.product", "channelPrices", "channelPrices.channel", "skus", "skus.components", "skus.components.product"})
     Page<SalesGoods> findByEnabledTrue(Pageable pageable);
 
-    @EntityGraph(attributePaths = {"components", "components.product", "channelPrices", "channelPrices.channel"})
+    @EntityGraph(attributePaths = {"components", "components.product", "channelPrices", "channelPrices.channel", "skus", "skus.components", "skus.components.product"})
     List<SalesGoods> findByEnabledTrueOrderByCodeAsc();
 
-    @EntityGraph(attributePaths = {"components", "components.product", "channelPrices", "channelPrices.channel"})
+    @EntityGraph(attributePaths = {"components", "components.product", "channelPrices", "channelPrices.channel", "skus", "skus.components", "skus.components.product"})
     @Query("""
             SELECT g FROM SalesGoods g
             WHERE g.enabled = true

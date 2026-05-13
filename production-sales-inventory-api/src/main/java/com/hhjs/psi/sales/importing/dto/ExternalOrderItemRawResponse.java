@@ -14,11 +14,10 @@ public record ExternalOrderItemRawResponse(
         BigDecimal resolvedUnitPrice,
         BigDecimal resolvedSubtotal,
         String priceSource,
-        Long matchedSalesGoodsId,
-        String matchedGoodsCode,
-        String matchedGoodsName,
+        Long matchedSalesSkuId,
+        String matchedSkuName,
         Long mappingId,
-        Integer convertedQuantity,
+        Integer saleQuantity,
         String matchStatus,
         String matchMessage
 ) {
@@ -33,11 +32,10 @@ public record ExternalOrderItemRawResponse(
                 resolveUnitPrice(item),
                 resolveSubtotal(item),
                 resolvePriceSource(item),
-                item.getMatchedSalesGoods() == null ? null : item.getMatchedSalesGoods().getId(),
-                item.getMatchedGoodsCode(),
-                item.getMatchedGoodsName(),
+                item.getMatchedSalesSku() == null ? null : item.getMatchedSalesSku().getId(),
+                item.getMatchedSkuName(),
                 item.getMapping() == null ? null : item.getMapping().getId(),
-                item.getConvertedQuantity(),
+                item.getSaleQuantity(),
                 item.getMatchStatus().name(),
                 item.getMatchMessage()
         );
@@ -47,11 +45,8 @@ public record ExternalOrderItemRawResponse(
         if (item.getExternalUnitPrice() != null && item.getExternalUnitPrice().compareTo(BigDecimal.ZERO) > 0) {
             return item.getExternalUnitPrice();
         }
-        if (item.getMapping() != null && item.getMapping().getDefaultUnitPrice() != null && item.getConvertedQuantity() != null && item.getConvertedQuantity() > 0) {
-            return item.getMapping().getDefaultUnitPrice().divide(BigDecimal.valueOf(item.getConvertedQuantity()), 2, java.math.RoundingMode.HALF_UP);
-        }
-        if (item.getMatchedSalesGoods() != null && item.getMatchedSalesGoods().getDefaultPrice() != null) {
-            return item.getMatchedSalesGoods().getDefaultPrice();
+        if (item.getMatchedSalesSku() != null && item.getMatchedSalesSku().getPerSkuPrice() != null) {
+            return item.getMatchedSalesSku().getPerSkuPrice();
         }
         return BigDecimal.ZERO;
     }
@@ -65,11 +60,8 @@ public record ExternalOrderItemRawResponse(
         if (item.getExternalUnitPrice() != null && item.getExternalUnitPrice().compareTo(BigDecimal.ZERO) > 0) {
             return "IMPORTED";
         }
-        if (item.getMapping() != null && item.getMapping().getDefaultUnitPrice() != null) {
-            return "MAPPING_DEFAULT";
-        }
-        if (item.getMatchedSalesGoods() != null && item.getMatchedSalesGoods().getDefaultPrice() != null) {
-            return "SALES_GOODS_DEFAULT_PRICE";
+        if (item.getMatchedSalesSku() != null && item.getMatchedSalesSku().getPerSkuPrice() != null) {
+            return "SKU_PRICE";
         }
         return "NONE";
     }

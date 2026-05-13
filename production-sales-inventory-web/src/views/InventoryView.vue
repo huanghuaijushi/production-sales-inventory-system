@@ -405,7 +405,13 @@ function exportInventoryWorkbook(items: StockItem[], fileName: string) {
 }
 
 function productTypeLabel(type: StockItem['productType']) {
-  return type === 'RAW_MATERIAL' ? '原材料' : '成品'
+  switch (type) {
+    case 'FINISHED_PRODUCT': return '成品'
+    case 'SEMI_FINISHED_PRODUCT': return '半成品'
+    case 'RAW_MATERIAL': return '原料'
+    case 'PACKAGING_MATERIAL': return '包装物料'
+    default: return type
+  }
 }
 
 function stockStatusLabel(item: StockItem) {

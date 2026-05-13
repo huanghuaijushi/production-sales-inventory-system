@@ -5,10 +5,16 @@ import com.hhjs.psi.inventory.entity.Product;
 import com.hhjs.psi.inventory.repository.ProductRepository;
 import com.hhjs.psi.sales.goods.dto.SalesGoodsRequest;
 import com.hhjs.psi.sales.goods.dto.SalesGoodsResponse;
+import com.hhjs.psi.sales.goods.dto.SalesSkuRequest;
+import com.hhjs.psi.sales.goods.dto.SalesSkuResponse;
 import com.hhjs.psi.sales.goods.entity.SalesGoods;
 import com.hhjs.psi.sales.goods.entity.SalesGoodsChannelPrice;
 import com.hhjs.psi.sales.goods.entity.SalesGoodsComponent;
+import com.hhjs.psi.sales.goods.entity.SalesSku;
+import com.hhjs.psi.sales.goods.entity.SalesSkuComponent;
 import com.hhjs.psi.sales.goods.repository.SalesGoodsRepository;
+import com.hhjs.psi.sales.goods.repository.SalesSkuComponentRepository;
+import com.hhjs.psi.sales.goods.repository.SalesSkuRepository;
 import com.hhjs.psi.sales.importing.entity.SalesChannelConfig;
 import com.hhjs.psi.sales.importing.repository.SalesChannelConfigRepository;
 import org.springframework.data.domain.Page;
@@ -27,11 +33,15 @@ import java.util.Set;
 public class SalesGoodsService {
 
     private final SalesGoodsRepository salesGoodsRepository;
+    private final SalesSkuRepository salesSkuRepository;
+    private final SalesSkuComponentRepository salesSkuComponentRepository;
     private final ProductRepository productRepository;
     private final SalesChannelConfigRepository channelRepository;
 
-    public SalesGoodsService(SalesGoodsRepository salesGoodsRepository, ProductRepository productRepository, SalesChannelConfigRepository channelRepository) {
+    public SalesGoodsService(SalesGoodsRepository salesGoodsRepository, SalesSkuRepository salesSkuRepository, SalesSkuComponentRepository salesSkuComponentRepository, ProductRepository productRepository, SalesChannelConfigRepository channelRepository) {
         this.salesGoodsRepository = salesGoodsRepository;
+        this.salesSkuRepository = salesSkuRepository;
+        this.salesSkuComponentRepository = salesSkuComponentRepository;
         this.productRepository = productRepository;
         this.channelRepository = channelRepository;
     }
@@ -98,9 +108,94 @@ public class SalesGoodsService {
         return SalesGoodsResponse.from(salesGoodsRepository.save(goods));
     }
 
+    @Transactional(readOnly = true)
+    public List<SalesSkuResponse> getSkus() {
+        return salesSkuRepository.findByEnabledTrue().stream().map(SalesSkuResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<SalesSkuResponse> getSkusByGoods(Long salesGoodsId) {
+        return salesSkuRepository.findBySalesGoodsIdAndEnabledTrue(salesGoodsId).stream()
+                .map(SalesSkuResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public SalesSkuResponse getSkuDetail(Long id) {
+        return SalesSkuResponse.from(findSku(id));
+    }
+
+    @Transactional
+    public SalesSkuResponse createSku(SalesSkuRequest request) {
+        String code = normalizeRequired(request.code(), "SKU编码不能为空");
+        if (salesSkuRepository.existsByCode(code)) {
+            throw BusinessException.conflict("SKU编码已存在: " + code);
+        }
+        SalesGoods goods = null;
+        if (request.salesGoodsId() != null) {
+            goods = salesGoodsRepository.findById(request.salesGoodsId())
+                    .orElseThrow(() -> BusinessException.badRequest("销售商品不存在: " + request.salesGoodsId()));
+        }
+        SalesSku sku = SalesSku.create(
+                code,
+                normalizeRequired(request.name(), "SKU名称不能为空"),
+                normalizeOptional(request.specName()),
+                normalizeRequired(request.unit(), "销售单位不能为空"),
+                normalizeMoney(request.perSkuPrice()),
+                normalizeOptional(request.remark())
+        );
+        if (goods != null) {
+            sku.attachToGoods(goods);
+        }
+        sku.updateBasicInfo(sku.getCode(), sku.getName(), sku.getSpecName(), sku.getUnit(), sku.getPerSkuPrice(), request.enabled(), sku.getRemark());
+        sku.replaceComponents(buildSkuComponents(request.components()));
+        return SalesSkuResponse.from(salesSkuRepository.save(sku));
+    }
+
+    @Transactional
+    public SalesSkuResponse updateSku(Long id, SalesSkuRequest request) {
+        SalesSku sku = findSku(id);
+        String code = normalizeRequired(request.code(), "SKU编码不能为空");
+        if (salesSkuRepository.existsByCodeAndIdNot(code, id)) {
+            throw BusinessException.conflict("SKU编码已存在: " + code);
+        }
+        SalesGoods goods = null;
+        if (request.salesGoodsId() != null) {
+            goods = salesGoodsRepository.findById(request.salesGoodsId())
+                    .orElseThrow(() -> BusinessException.badRequest("销售商品不存在: " + request.salesGoodsId()));
+        }
+        if (goods != null) {
+            sku.attachToGoods(goods);
+        } else {
+            sku.attachToGoods(null);
+        }
+        sku.updateBasicInfo(
+                code,
+                normalizeRequired(request.name(), "SKU名称不能为空"),
+                normalizeOptional(request.specName()),
+                normalizeRequired(request.unit(), "销售单位不能为空"),
+                normalizeMoney(request.perSkuPrice()),
+                request.enabled(),
+                normalizeOptional(request.remark())
+        );
+        sku.replaceComponents(buildSkuComponents(request.components()));
+        return SalesSkuResponse.from(salesSkuRepository.save(sku));
+    }
+
+    @Transactional
+    public void deleteSku(Long id) {
+        SalesSku sku = findSku(id);
+        salesSkuRepository.delete(sku);
+    }
+
     private SalesGoods findGoods(Long id) {
         return salesGoodsRepository.findWithDetailsById(id)
                 .orElseThrow(() -> BusinessException.badRequest("销售商品不存在: " + id));
+    }
+
+    private SalesSku findSku(Long id) {
+        return salesSkuRepository.findWithDetailsById(id)
+                .orElseThrow(() -> BusinessException.badRequest("销售SKU不存在: " + id));
     }
 
     private List<SalesGoodsComponent> buildComponents(List<SalesGoodsRequest.ComponentRequest> requests) {
@@ -126,6 +221,25 @@ public class SalesGoodsService {
                 throw BusinessException.badRequest("损耗率必须在0到1之间");
             }
             return SalesGoodsComponent.create(product, quantity, lossRate, normalizeOptional(request.remark()));
+        }).toList();
+    }
+
+    private List<SalesSkuComponent> buildSkuComponents(List<SalesSkuRequest.ComponentRequest> requests) {
+        if (requests == null || requests.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> productIds = new HashSet<>();
+        return requests.stream().map(request -> {
+            if (!productIds.add(request.productId())) {
+                throw BusinessException.badRequest("同一个SKU不能重复配置同一个库存产品");
+            }
+            Product product = productRepository.findById(request.productId())
+                    .orElseThrow(() -> BusinessException.badRequest("库存产品不存在: " + request.productId()));
+            BigDecimal quantity = request.quantity();
+            if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
+                throw BusinessException.badRequest("组成数量必须大于0");
+            }
+            return SalesSkuComponent.create(product, quantity, normalizeOptional(request.remark()));
         }).toList();
     }
 

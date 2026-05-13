@@ -4,7 +4,7 @@ export interface Product {
   id: number
   sku: string
   name: string
-  type: 'FINISHED_PRODUCT' | 'RAW_MATERIAL'
+  type: 'FINISHED_PRODUCT' | 'RAW_MATERIAL' | 'PACKAGING_MATERIAL' | 'SEMI_FINISHED_PRODUCT'
   categoryId?: number | undefined
   category?: string | undefined
   unit: string

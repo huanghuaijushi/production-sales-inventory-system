@@ -145,8 +145,10 @@ public class ProductService {
 
     private ProductType parseProductType(String type) {
         return switch (type) {
-            case "FINISHED_PRODUCT", "成品", "半成品" -> ProductType.FINISHED_PRODUCT;
-            case "RAW_MATERIAL", "原料", "包装" -> ProductType.RAW_MATERIAL;
+            case "FINISHED_PRODUCT", "成品" -> ProductType.FINISHED_PRODUCT;
+            case "RAW_MATERIAL", "原料" -> ProductType.RAW_MATERIAL;
+            case "PACKAGING_MATERIAL", "包装" -> ProductType.PACKAGING_MATERIAL;
+            case "SEMI_FINISHED_PRODUCT", "半成品" -> ProductType.SEMI_FINISHED_PRODUCT;
             default -> throw BusinessException.badRequest("不支持的产品类型: " + type);
         };
     }

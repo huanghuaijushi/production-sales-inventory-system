@@ -89,6 +89,7 @@ public class InventoryService {
         this.productionOrderRepository = productionOrderRepository;
     }
 
+    @Transactional(readOnly = true)
     public InventoryDashboardResponse getDashboard() {
         List<Stock> allStocks = stockRepository.findAllWithProduct();
 
@@ -169,10 +170,10 @@ public class InventoryService {
             int availableStockQuantity
     ) {
         List<Stock> rawStocks = stocks.stream()
-                .filter(stock -> stock.getProduct().getType() == ProductType.RAW_MATERIAL)
+                .filter(stock -> stock.getProduct().getType().isMaterial())
                 .toList();
         List<Stock> finishedStocks = stocks.stream()
-                .filter(stock -> stock.getProduct().getType() == ProductType.FINISHED_PRODUCT)
+                .filter(stock -> stock.getProduct().getType().isProducible())
                 .toList();
         BigDecimal totalInventoryAmount = inventoryAmount(stocks);
         BigDecimal rawInventoryAmount = inventoryAmount(rawStocks);
@@ -217,7 +218,12 @@ public class InventoryService {
         if (product.getCategory() != null && !product.getCategory().isBlank()) {
             return product.getCategory();
         }
-        return product.getType() == ProductType.RAW_MATERIAL ? "原料" : "成品";
+        return switch (product.getType()) {
+            case RAW_MATERIAL -> "原料";
+            case PACKAGING_MATERIAL -> "包装";
+            case FINISHED_PRODUCT -> "成品";
+            case SEMI_FINISHED_PRODUCT -> "半成品";
+        };
     }
 
     private List<DashboardChartBarResponse> buildRawMaterialBars() {
@@ -514,6 +520,7 @@ public class InventoryService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public TodayBusinessOverviewResponse getTodayBusinessOverview() {
         LocalDate today = LocalDate.now(BUSINESS_ZONE);
         var start = today.atStartOfDay(BUSINESS_ZONE).toInstant();
@@ -546,6 +553,7 @@ public class InventoryService {
         );
     }
 
+    @Transactional(readOnly = true)
     public List<StockTrendItemResponse> getStockTrend(int days) {
         int normalizedDays = normalizeTrendDays(days);
         LocalDate endDate = LocalDate.now(BUSINESS_ZONE);
@@ -564,14 +572,14 @@ public class InventoryService {
 
             switch (type) {
                 case IN -> {
-                    if (productType == ProductType.RAW_MATERIAL) {
+                    if (productType.isMaterial()) {
                         aggregate.rawMaterialInboundQuantity += quantity;
                     } else {
                         aggregate.finishedProductInboundQuantity += quantity;
                     }
                 }
                 case OUT -> {
-                    if (productType == ProductType.RAW_MATERIAL) {
+                    if (productType.isMaterial()) {
                         aggregate.rawMaterialOutboundQuantity += quantity;
                     } else {
                         aggregate.finishedProductOutboundQuantity += quantity;
@@ -609,6 +617,7 @@ public class InventoryService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<BusinessFlowTrendItemResponse> getBusinessFlowTrend(int days) {
         int normalizedDays = normalizeTrendDays(days);
         LocalDate endDate = LocalDate.now(BUSINESS_ZONE);
@@ -628,7 +637,7 @@ public class InventoryService {
                 aggregate.purchaseInboundCount++;
             } else if (type == StockRecordType.OUT && subType == StockRecordSubType.PRODUCTION_USAGE) {
                 aggregate.productionUsageCount++;
-            } else if (type == StockRecordType.IN && subType == StockRecordSubType.PRODUCTION && productType == ProductType.FINISHED_PRODUCT) {
+            } else if (type == StockRecordType.IN && subType == StockRecordSubType.PRODUCTION && productType.isProducible()) {
                 aggregate.finishedProductInboundCount++;
             } else if (type == StockRecordType.OUT && subType == StockRecordSubType.SALES) {
                 aggregate.salesOutboundCount++;
@@ -663,6 +672,7 @@ public class InventoryService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<InventoryValueTrendItemResponse> getInventoryValueTrend(int days) {
         int normalizedDays = normalizeTrendDays(days);
         LocalDate endDate = LocalDate.now(BUSINESS_ZONE);
@@ -681,13 +691,13 @@ public class InventoryService {
             BigDecimal costAmount = row.length > 6 && row[6] != null ? normalizeMoney((BigDecimal) row[6]) : null;
             InventoryValueTrendAggregate aggregate = aggregates.computeIfAbsent(recordDate, ignored -> new InventoryValueTrendAggregate());
 
-            if (productType == ProductType.RAW_MATERIAL && type == StockRecordType.IN && subType == StockRecordSubType.PURCHASE) {
+            if (productType.isMaterial() && type == StockRecordType.IN && subType == StockRecordSubType.PURCHASE) {
                 aggregate.rawMaterialInboundAmount = aggregate.rawMaterialInboundAmount.add(fallbackAmount(costAmount, costPrice, quantity));
-            } else if (productType == ProductType.RAW_MATERIAL && type == StockRecordType.OUT && subType == StockRecordSubType.PRODUCTION_USAGE) {
+            } else if (productType.isMaterial() && type == StockRecordType.OUT && subType == StockRecordSubType.PRODUCTION_USAGE) {
                 aggregate.rawMaterialUsageAmount = aggregate.rawMaterialUsageAmount.add(fallbackAmount(costAmount, costPrice, quantity));
-            } else if (productType == ProductType.FINISHED_PRODUCT && type == StockRecordType.IN && subType == StockRecordSubType.PRODUCTION) {
+            } else if (productType.isProducible() && type == StockRecordType.IN && subType == StockRecordSubType.PRODUCTION) {
                 aggregate.finishedProductInboundAmount = aggregate.finishedProductInboundAmount.add(fallbackAmount(costAmount, costPrice, quantity));
-            } else if (productType == ProductType.FINISHED_PRODUCT && type == StockRecordType.OUT && subType == StockRecordSubType.SALES) {
+            } else if (productType.isProducible() && type == StockRecordType.OUT && subType == StockRecordSubType.SALES) {
                 aggregate.finishedProductSalesAmount = aggregate.finishedProductSalesAmount.add(fallbackAmount(costAmount, costPrice, quantity));
             }
         });
@@ -712,18 +722,21 @@ public class InventoryService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<StockItemResponse> getAllStocks() {
         return stockRepository.findAllWithProduct().stream()
                 .map(this::toStockItemResponse)
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public Page<StockItemResponse> getAllStocks(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "product.code"));
         return stockRepository.findAllWithProduct(pageable)
                 .map(this::toStockItemResponse);
     }
 
+    @Transactional(readOnly = true)
     public Page<StockItemResponse> getAllStocks(int page, int size, String query, String category, String status) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "product.code"));
         String normalizedQuery = normalizeFilter(query);
@@ -741,12 +754,14 @@ public class InventoryService {
                 .map(this::toStockItemResponse);
     }
 
+    @Transactional(readOnly = true)
     public StockItemResponse getStockByProductId(Long productId) {
         Stock stock = stockRepository.findByProductId(productId)
                 .orElseThrow(() -> new IllegalArgumentException("Stock not found for product: " + productId));
         return toStockItemResponse(stock);
     }
 
+    @Transactional(readOnly = true)
     public List<StockBatchResponse> getBatchesByProductId(Long productId) {
         return stockBatchRepository.findAvailableByProductId(productId).stream()
                 .map(this::toStockBatchResponse)
@@ -1117,10 +1132,12 @@ public class InventoryService {
         return stockBatchRepository.save(batch);
     }
 
+    @Transactional(readOnly = true)
     public Page<StockRecordResponse> getStockRecords(int page, int size) {
         return getStockRecords(page, size, null);
     }
 
+    @Transactional(readOnly = true)
     public Page<StockRecordResponse> getStockRecords(int page, int size, String query) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         String normalizedQuery = normalizeFilter(query);
@@ -1139,6 +1156,7 @@ public class InventoryService {
                 .map(this::toStockRecordResponse);
     }
 
+    @Transactional(readOnly = true)
     public List<StockRecordResponse> getStockRecordsByProduct(Long productId) {
         return stockRecordRepository.findByProductId(productId).stream()
                 .map(this::toStockRecordResponse)

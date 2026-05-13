@@ -167,8 +167,8 @@ public class PurchaseOrderService {
             if (!Boolean.TRUE.equals(product.getEnabled())) {
                 throw BusinessException.badRequest("商品已停用: " + product.getName());
             }
-            if (product.getType() != ProductType.RAW_MATERIAL) {
-                throw BusinessException.badRequest("采购单只能采购原材料，成品请通过生产入库: " + product.getName());
+            if (product.getType() != ProductType.RAW_MATERIAL && product.getType() != ProductType.PACKAGING_MATERIAL) {
+            throw BusinessException.badRequest("只能采购原材料或包装材料: " + product.getName());
             }
 
             BigDecimal unitPrice = request.unitPrice() == null ? BigDecimal.ZERO : request.unitPrice();

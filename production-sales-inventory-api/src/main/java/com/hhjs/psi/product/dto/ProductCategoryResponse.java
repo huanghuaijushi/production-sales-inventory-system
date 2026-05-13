@@ -25,6 +25,8 @@ public record ProductCategoryResponse(
                 switch (type) {
                     case FINISHED_PRODUCT -> "成品 / 半成品";
                     case RAW_MATERIAL -> "原料 / 包装";
+                    case PACKAGING_MATERIAL -> "包装物料";
+                    case SEMI_FINISHED_PRODUCT -> "半成品";
                     case null -> "通用";
                 },
                 category.getSortOrder(),

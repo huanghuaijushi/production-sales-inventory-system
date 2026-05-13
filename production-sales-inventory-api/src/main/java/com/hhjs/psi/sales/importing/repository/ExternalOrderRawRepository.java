@@ -12,10 +12,10 @@ public interface ExternalOrderRawRepository extends JpaRepository<ExternalOrderR
 
     boolean existsByChannelIdAndExternalOrderNo(Long channelId, String externalOrderNo);
 
-    @EntityGraph(attributePaths = {"channel", "batch", "salesOrder", "items", "items.matchedProduct", "items.mapping"})
+    @EntityGraph(attributePaths = {"channel", "batch", "salesOrder", "items", "items.matchedSalesSku", "items.mapping"})
     List<ExternalOrderRaw> findByBatchIdOrderByIdAsc(Long batchId);
 
-    @EntityGraph(attributePaths = {"channel", "batch", "salesOrder", "items", "items.matchedProduct", "items.mapping"})
+    @EntityGraph(attributePaths = {"channel", "batch", "salesOrder", "items", "items.matchedSalesSku", "items.mapping"})
     Optional<ExternalOrderRaw> findWithDetailsById(Long id);
 
     List<ExternalOrderRaw> findByBatchIdAndStatus(Long batchId, ExternalOrderStatus status);

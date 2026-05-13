@@ -2,9 +2,12 @@ import { request } from './http'
 
 export interface SalesOrderItem {
   id: number
-  salesGoodsId: number
-  salesGoodsCode: string
-  salesGoodsName: string
+  salesSkuId: number
+  salesSkuName: string
+  salesSkuSpecName?: string | undefined
+  salesGoodsId?: number | undefined
+  salesGoodsCode?: string | undefined
+  salesGoodsName?: string | undefined
   salesGoodsSpecification?: string | undefined
   salesGoodsUnit?: string | undefined
   salesGoodsCategory?: string | undefined
@@ -20,7 +23,7 @@ export interface SalesOrderItem {
 export interface SalesOrder {
   id: number
   orderNo: string
-  channel: 'DOUYIN' | 'PINDUODUO' | 'OFFLINE'
+  channel: 'DOUYIN' | 'PINDUODUO' | 'OFFLINE' | 'WECHAT_GROUP' | 'CONTRACT'
   channelId?: number | undefined
   channelText: string
   externalOrderNo?: string | undefined
@@ -44,13 +47,13 @@ export interface SalesOrder {
 }
 
 export interface SalesOrderItemRequest {
-  salesGoodsId: number
+  salesSkuId: number
   quantity: number
   unitPrice: number
 }
 
 export interface SalesOrderRequest {
-  channel: 'DOUYIN' | 'PINDUODUO' | 'OFFLINE'
+  channel: 'DOUYIN' | 'PINDUODUO' | 'OFFLINE' | 'WECHAT_GROUP' | 'CONTRACT'
   channelId?: number | undefined
   customerName?: string | undefined
   customerPhone?: string | undefined
@@ -89,13 +92,11 @@ export interface ChannelProductMapping {
   externalProductName: string
   externalSpecName?: string | undefined
   externalSkuCode?: string | undefined
-  salesGoodsId: number
-  salesGoodsCode: string
-  salesGoodsName: string
-  salesGoodsSpecification?: string | undefined
-  salesGoodsUnit?: string | undefined
-  quantityMultiplier: number
-  defaultUnitPrice?: number | undefined
+  salesSkuId: number
+  salesSkuCode: string
+  salesSkuName: string
+  salesSkuSpecName?: string | undefined
+  salesSkuUnit?: string | undefined
   matchType: 'EXACT' | 'CONTAINS'
   enabled: boolean
   priority: number
@@ -109,9 +110,7 @@ export interface ChannelProductMappingRequest {
   externalProductName: string
   externalSpecName?: string | undefined
   externalSkuCode?: string | undefined
-  salesGoodsId: number
-  quantityMultiplier: number
-  defaultUnitPrice?: number | undefined
+  salesSkuId: number
   matchType: 'EXACT' | 'CONTAINS'
   enabled: boolean
   priority?: number | undefined
@@ -127,12 +126,11 @@ export interface ExternalOrderItemRaw {
   externalUnitPrice: number
   resolvedUnitPrice?: number | undefined
   resolvedSubtotal?: number | undefined
-  priceSource?: 'IMPORTED' | 'MAPPING_DEFAULT' | 'SALES_GOODS_DEFAULT_PRICE' | 'NONE' | undefined
-  matchedSalesGoodsId?: number | undefined
-  matchedGoodsCode?: string | undefined
-  matchedGoodsName?: string | undefined
+  priceSource?: 'IMPORTED' | 'SKU_PRICE' | 'NONE' | undefined
+  matchedSalesSkuId?: number | undefined
+  matchedSkuName?: string | undefined
   mappingId?: number | undefined
-  convertedQuantity?: number | undefined
+  saleQuantity?: number | undefined
   matchStatus: 'MATCHED' | 'UNMATCHED' | 'AMBIGUOUS' | 'ERROR'
   matchMessage?: string | undefined
 }
@@ -172,6 +170,20 @@ export interface OrderImportBatch {
   createdAt: string
   updatedAt: string
   orders?: ExternalOrderRaw[] | undefined
+  matchedItems?: number | undefined
+  unmatchedItems?: number | undefined
+  skuSummaries?: SkuSummary[] | undefined
+  items?: ExternalOrderItemRaw[] | undefined
+}
+
+export interface SkuSummary {
+  skuId: number
+  skuName: string
+  skuCode: string
+  skuSpecName?: string | undefined
+  unit?: string | undefined
+  totalQuantity: number
+  totalAmount: number
 }
 
 export interface ExternalOrderEditItemRequest {
@@ -270,5 +282,20 @@ export const salesApi = {
     request<OrderImportBatch>(`/sales/imports/${batchId}/orders/${externalOrderId}`, { method: 'PUT', body: payload }),
 
   confirmImportBatch: (batchId: number) =>
-    request<OrderImportBatch>(`/sales/imports/${batchId}/confirm`, { method: 'POST' })
+    request<OrderImportBatch>(`/sales/imports/${batchId}/confirm`, { method: 'POST' }),
+
+  getImportOrder: (batchId: number, orderId: number) =>
+    request<ExternalOrderRaw>(`/sales/imports/${batchId}/orders/${orderId}`),
+
+  getUnmappedItems: (batchId: number) =>
+    request<ExternalOrderItemRaw[]>(`/sales/imports/${batchId}/unmapped`),
+
+  getBatchResult: (batchId: number) =>
+    request<OrderImportBatch>(`/sales/imports/${batchId}/result`),
+
+  matchItem: (batchId: number, itemId: number, salesSkuId: number) =>
+    request<ExternalOrderItemRaw>(`/sales/imports/${batchId}/match`, { method: 'POST', body: { batchId, itemId, salesSkuId } }),
+
+  applyMapping: (batchId: number) =>
+    request<OrderImportBatch>(`/sales/imports/${batchId}/apply-mapping`, { method: 'POST' })
 }

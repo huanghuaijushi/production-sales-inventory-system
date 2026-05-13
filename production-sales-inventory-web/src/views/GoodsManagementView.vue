@@ -83,9 +83,7 @@
               <option v-for="channel in channels" :key="channel.id" :value="channel.id">{{ channel.name }}</option>
             </select>
           </label>
-          <div class="filter-actions">
-            <button type="button" class="primary-button" @click="openMappingModal()">新增商品匹配</button>
-          </div>
+
         </div>
       </section>
 
@@ -98,19 +96,17 @@
         </div>
         <div class="table-wrap">
           <table class="data-table">
-            <thead><tr><th>渠道</th><th>外部商品</th><th>销售商品</th><th>换算</th><th>默认成交价</th><th>匹配方式</th><th>状态</th><th>操作</th></tr></thead>
+            <thead><tr><th>渠道</th><th>外部商品</th><th>销售SKU</th><th>匹配方式</th><th>状态</th><th>操作</th></tr></thead>
             <tbody>
               <tr v-for="mapping in mappings" :key="mapping.id">
                 <td>{{ mapping.channelName }}</td>
                 <td><div class="strong-text">{{ mapping.externalProductName }}</div><div class="muted-text">{{ mapping.externalSpecName || '-' }}</div></td>
-                <td><div class="strong-text">{{ mapping.salesGoodsName }}</div><div class="muted-text">{{ mapping.salesGoodsCode }} · {{ mapping.salesGoodsUnit }}</div></td>
-                <td>{{ mapping.quantityMultiplier }}</td>
-                <td>{{ mapping.defaultUnitPrice == null ? '-' : formatMoney(mapping.defaultUnitPrice) }}</td>
+                <td><div class="strong-text">{{ mapping.salesSkuName }}</div><div class="muted-text">{{ mapping.salesSkuCode }} · {{ mapping.salesSkuUnit }}</div></td>
                 <td>{{ mapping.matchType === 'EXACT' ? '精确匹配' : '包含匹配' }}</td>
                 <td>{{ mapping.enabled ? '启用' : '停用' }}</td>
                 <td><button type="button" class="text-button" @click="openMappingModal(mapping)">编辑</button></td>
               </tr>
-              <tr v-if="mappings.length === 0"><td colspan="8" class="empty-cell">暂无商品匹配</td></tr>
+              <tr v-if="mappings.length === 0"><td colspan="6" class="empty-cell">暂无商品匹配</td></tr>
             </tbody>
           </table>
         </div>
@@ -184,12 +180,10 @@
         <div class="modal-body">
           <div class="form-grid">
             <label><span>渠道</span><select v-model.number="mappingForm.channelId"><option :value="0" disabled>选择渠道</option><option v-for="channel in channels" :key="channel.id" :value="channel.id">{{ channel.name }}</option></select></label>
-            <label><span>销售商品</span><select v-model.number="mappingForm.salesGoodsId"><option :value="0" disabled>选择销售商品</option><option v-for="goods in enabledGoods" :key="goods.id" :value="goods.id">{{ goods.name }} · {{ goods.unit }}</option></select></label>
+            <label><span>销售SKU</span><select v-model.number="mappingForm.salesSkuId"><option :value="0" disabled>选择销售SKU</option><option v-for="sku in allSkus" :key="sku.id" :value="sku.id">{{ sku.name }} · {{ sku.specName || sku.unit }} · {{ sku.code }}</option></select></label>
             <label><span>外部商品名称</span><input v-model="mappingForm.externalProductName" type="text" /></label>
             <label><span>外部规格</span><input v-model="mappingForm.externalSpecName" type="text" /></label>
             <label><span>外部SKU</span><input v-model="mappingForm.externalSkuCode" type="text" /></label>
-            <label><span>数量换算倍数</span><input v-model.number="mappingForm.quantityMultiplier" type="number" min="0.0001" step="0.0001" /></label>
-            <label><span>默认成交价</span><input v-model.number="mappingForm.defaultUnitPrice" type="number" min="0" step="0.01" /></label>
             <label><span>匹配方式</span><select v-model="mappingForm.matchType"><option value="EXACT">精确匹配</option><option value="CONTAINS">包含匹配</option></select></label>
             <label><span>优先级</span><input v-model.number="mappingForm.priority" type="number" step="1" /></label>
             <label><span>状态</span><select v-model="mappingForm.enabled"><option :value="true">启用</option><option :value="false">停用</option></select></label>
@@ -207,7 +201,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ApiError } from '@/api/http'
 import { productApi, type Product } from '@/api/product'
 import { salesApi, type ChannelProductMapping, type SalesChannelConfig } from '@/api/sales'
-import { salesGoodsApi, type SalesGoods } from '@/api/salesGoods'
+import { salesGoodsApi, type SalesGoods, type SalesSku } from '@/api/salesGoods'
 
 type TabKey = 'goods' | 'mappings'
 
@@ -243,15 +237,15 @@ const mappingForm = reactive({
   externalProductName: '',
   externalSpecName: '',
   externalSkuCode: '',
-  salesGoodsId: 0,
-  quantityMultiplier: 1,
-  defaultUnitPrice: null as number | null,
+  salesSkuId: 0,
   matchType: 'EXACT' as 'EXACT' | 'CONTAINS',
   enabled: true,
   priority: 100,
   remark: ''
 })
 let messageTimer: number | undefined
+
+const allSkus = computed(() => enabledGoods.value.flatMap(goods => goods.skus || []))
 
 onMounted(async () => {
   await Promise.all([loadProducts(), loadChannels(), loadGoods(true), loadEnabledGoods(), loadMappings()])
@@ -320,17 +314,17 @@ async function submitGoods() {
 }
 
 function openMappingModal(mapping?: ChannelProductMapping) {
-  Object.assign(mappingForm, { id: null, channelId: mappingFilterChannelId.value || channels.value[0]?.id || 0, externalProductName: '', externalSpecName: '', externalSkuCode: '', salesGoodsId: 0, quantityMultiplier: 1, defaultUnitPrice: null, matchType: 'EXACT', enabled: true, priority: 100, remark: '' })
-  if (mapping) Object.assign(mappingForm, { id: mapping.id, channelId: mapping.channelId, externalProductName: mapping.externalProductName, externalSpecName: mapping.externalSpecName || '', externalSkuCode: mapping.externalSkuCode || '', salesGoodsId: mapping.salesGoodsId, quantityMultiplier: mapping.quantityMultiplier, defaultUnitPrice: mapping.defaultUnitPrice ?? null, matchType: mapping.matchType, enabled: mapping.enabled, priority: mapping.priority, remark: mapping.remark || '' })
+  Object.assign(mappingForm, { id: null, channelId: mappingFilterChannelId.value || channels.value[0]?.id || 0, externalProductName: '', externalSpecName: '', externalSkuCode: '', salesSkuId: 0, matchType: 'EXACT', enabled: true, priority: 100, remark: '' })
+  if (mapping) Object.assign(mappingForm, { id: mapping.id, channelId: mapping.channelId, externalProductName: mapping.externalProductName, externalSpecName: mapping.externalSpecName || '', externalSkuCode: mapping.externalSkuCode || '', salesSkuId: mapping.salesSkuId, matchType: mapping.matchType, enabled: mapping.enabled, priority: mapping.priority, remark: mapping.remark || '' })
   mappingModalOpen.value = true
 }
 async function submitMapping() {
-  if (!mappingForm.channelId || !mappingForm.salesGoodsId || !mappingForm.externalProductName.trim()) {
-    showMessage('请填写渠道、外部商品和销售商品。')
+  if (!mappingForm.channelId || !mappingForm.salesSkuId || !mappingForm.externalProductName.trim()) {
+    showMessage('请填写渠道、外部商品和销售SKU。')
     return
   }
   try {
-    const payload = { channelId: mappingForm.channelId, externalProductName: mappingForm.externalProductName, externalSpecName: mappingForm.externalSpecName || undefined, externalSkuCode: mappingForm.externalSkuCode || undefined, salesGoodsId: mappingForm.salesGoodsId, quantityMultiplier: mappingForm.quantityMultiplier, defaultUnitPrice: mappingForm.defaultUnitPrice ?? undefined, matchType: mappingForm.matchType, enabled: mappingForm.enabled, priority: mappingForm.priority, remark: mappingForm.remark || undefined }
+    const payload = { channelId: mappingForm.channelId, externalProductName: mappingForm.externalProductName, externalSpecName: mappingForm.externalSpecName || undefined, externalSkuCode: mappingForm.externalSkuCode || undefined, salesSkuId: mappingForm.salesSkuId, matchType: mappingForm.matchType, enabled: mappingForm.enabled, priority: mappingForm.priority, remark: mappingForm.remark || undefined }
     if (mappingForm.id) await salesApi.updateProductMapping(mappingForm.id, payload)
     else await salesApi.createProductMapping(payload)
     mappingModalOpen.value = false

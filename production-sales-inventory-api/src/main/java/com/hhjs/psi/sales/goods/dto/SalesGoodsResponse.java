@@ -22,7 +22,8 @@ public record SalesGoodsResponse(
         Instant createdAt,
         Instant updatedAt,
         List<ComponentResponse> components,
-        List<ChannelPriceResponse> channelPrices
+        List<ChannelPriceResponse> channelPrices,
+        List<SalesSkuResponse> skus
 ) {
     public static SalesGoodsResponse from(SalesGoods goods) {
         return new SalesGoodsResponse(
@@ -44,6 +45,11 @@ public record SalesGoodsResponse(
                 goods.getChannelPrices().stream()
                         .sorted(Comparator.comparing(item -> item.getId() == null ? 0L : item.getId()))
                         .map(ChannelPriceResponse::from)
+                        .toList(),
+                goods.getSkus().stream()
+                        .filter(sku -> Boolean.TRUE.equals(sku.getEnabled()))
+                        .sorted(Comparator.comparing(sku -> sku.getId() == null ? 0L : sku.getId()))
+                        .map(SalesSkuResponse::from)
                         .toList()
         );
     }

@@ -140,7 +140,7 @@ public class ProductionPlanningService {
 
     @Transactional
     public ProductionOrderDetailResponse createProductionOrder(ProductionOrderCreateRequest request) {
-        Product finishedProduct = getEnabledProduct(request.productId(), ProductType.FINISHED_PRODUCT, "成品不存在或已停用");
+        Product finishedProduct = getEnabledProduct(request.productId(), p -> p == ProductType.FINISHED_PRODUCT, "成品不存在或已停用");
         List<BomItem> bomItems = bomItemRepository.findByFinishedProductIdWithProducts(finishedProduct.getId());
         if (bomItems.isEmpty()) {
             throw BusinessException.badRequest("请先在生产配置里维护该成品的配方");
@@ -338,7 +338,7 @@ public class ProductionPlanningService {
 
     @Transactional
     public ProductionRouteStepResponse createProductionRouteStep(ProductionRouteStepRequest request) {
-        Product product = getEnabledProduct(request.productId(), ProductType.FINISHED_PRODUCT, "成品不存在或已停用");
+        Product product = getEnabledProduct(request.productId(), p -> p == ProductType.FINISHED_PRODUCT, "成品不存在或已停用");
         String stepCode = normalizeStepCode(request.stepCode());
         if (productionRouteStepRepository.existsByProductIdAndStepCode(product.getId(), stepCode)) {
             throw BusinessException.conflict("该成品已经存在相同工序编码");
@@ -390,8 +390,8 @@ public class ProductionPlanningService {
 
     @Transactional
     public BomItemResponse createBomItem(BomItemRequest request) {
-        Product finishedProduct = getEnabledProduct(request.finishedProductId(), ProductType.FINISHED_PRODUCT, "成品不存在或已停用");
-        Product materialProduct = getEnabledProduct(request.materialProductId(), ProductType.RAW_MATERIAL, "原材料不存在或已停用");
+        Product finishedProduct = getEnabledProduct(request.finishedProductId(), p -> p == ProductType.FINISHED_PRODUCT, "成品不存在或已停用");
+        Product materialProduct = getEnabledProduct(request.materialProductId(), ProductType::isMaterial, "原材料不存在或已停用");
         if (finishedProduct.getId().equals(materialProduct.getId())) {
             throw BusinessException.badRequest("成品不能把自己作为原材料");
         }
@@ -412,8 +412,8 @@ public class ProductionPlanningService {
     public BomItemResponse updateBomItem(Long bomItemId, BomItemRequest request) {
         BomItem item = bomItemRepository.findByIdAndFinishedProduct_EnabledTrueAndMaterialProduct_EnabledTrue(bomItemId)
                 .orElseThrow(() -> BusinessException.badRequest("配方明细不存在: " + bomItemId));
-        Product finishedProduct = getEnabledProduct(request.finishedProductId(), ProductType.FINISHED_PRODUCT, "成品不存在或已停用");
-        Product materialProduct = getEnabledProduct(request.materialProductId(), ProductType.RAW_MATERIAL, "原材料不存在或已停用");
+        Product finishedProduct = getEnabledProduct(request.finishedProductId(), p -> p == ProductType.FINISHED_PRODUCT, "成品不存在或已停用");
+        Product materialProduct = getEnabledProduct(request.materialProductId(), ProductType::isMaterial, "原材料不存在或已停用");
         if (finishedProduct.getId().equals(materialProduct.getId())) {
             throw BusinessException.badRequest("成品不能把自己作为原材料");
         }
@@ -451,7 +451,7 @@ public class ProductionPlanningService {
     @Transactional
     public SupplierMaterialResponse createSupplierMaterial(SupplierMaterialRequest request) {
         Supplier supplier = getEnabledSupplier(request.supplierId());
-        Product product = getEnabledProduct(request.productId(), ProductType.RAW_MATERIAL, "原材料不存在或已停用");
+        Product product = getEnabledProduct(request.productId(), ProductType::isMaterial, "原材料不存在或已停用");
         if (supplierMaterialRepository.existsBySupplierIdAndProductId(supplier.getId(), product.getId())) {
             throw BusinessException.conflict("该供应商已经绑定过这个原材料");
         }
@@ -1055,10 +1055,10 @@ public class ProductionPlanningService {
         );
     }
 
-    private Product getEnabledProduct(Long productId, ProductType expectedType, String notFoundMessage) {
+    private Product getEnabledProduct(Long productId, java.util.function.Predicate<ProductType> typeCheck, String notFoundMessage) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> BusinessException.badRequest(notFoundMessage + ": " + productId));
-        if (!Boolean.TRUE.equals(product.getEnabled()) || product.getType() != expectedType) {
+        if (!Boolean.TRUE.equals(product.getEnabled()) || !typeCheck.test(product.getType())) {
             throw BusinessException.badRequest(notFoundMessage + ": " + productId);
         }
         return product;

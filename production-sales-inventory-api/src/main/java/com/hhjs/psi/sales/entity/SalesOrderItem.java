@@ -1,5 +1,6 @@
 package com.hhjs.psi.sales.entity;
 
+import com.hhjs.psi.sales.goods.entity.SalesSku;
 import com.hhjs.psi.sales.importing.entity.ChannelProductMapping;
 import com.hhjs.psi.sales.goods.entity.SalesGoods;
 import jakarta.persistence.Column;
@@ -30,13 +31,23 @@ public class SalesOrderItem {
     private SalesOrder order;
 
     @ManyToOne(fetch = LAZY)
-    @JoinColumn(name = "sales_goods_id", nullable = false)
+    @JoinColumn(name = "sales_sku_id", nullable = false)
+    private SalesSku salesSku;
+
+    @Column(name = "sku_name", nullable = false, length = 120)
+    private String skuName;
+
+    @Column(name = "sku_spec_name", length = 64)
+    private String skuSpecName;
+
+    @ManyToOne(fetch = LAZY)
+    @JoinColumn(name = "sales_goods_id")
     private SalesGoods salesGoods;
 
     @Column(name = "goods_code", length = 64)
     private String goodsCode;
 
-    @Column(name = "goods_name", nullable = false, length = 120)
+    @Column(name = "goods_name", length = 120)
     private String goodsName;
 
     @Column(name = "goods_specification", length = 64)
@@ -77,12 +88,12 @@ public class SalesOrderItem {
     protected SalesOrderItem() {
     }
 
-    public static SalesOrderItem create(SalesGoods salesGoods, Integer quantity, BigDecimal unitPrice) {
-        return create(salesGoods, quantity, unitPrice, null, null, null, null);
+    public static SalesOrderItem create(SalesSku salesSku, Integer quantity, BigDecimal unitPrice) {
+        return create(salesSku, quantity, unitPrice, null, null, null, null);
     }
 
     public static SalesOrderItem create(
-            SalesGoods salesGoods,
+            SalesSku salesSku,
             Integer quantity,
             BigDecimal unitPrice,
             String externalProductName,
@@ -91,12 +102,18 @@ public class SalesOrderItem {
             ChannelProductMapping mapping
     ) {
         SalesOrderItem item = new SalesOrderItem();
-        item.salesGoods = salesGoods;
-        item.goodsCode = salesGoods.getCode();
-        item.goodsName = salesGoods.getName();
-        item.goodsSpecification = salesGoods.getSpecification();
-        item.goodsUnit = salesGoods.getUnit();
-        item.goodsCategory = salesGoods.getCategory();
+        item.salesSku = salesSku;
+        item.skuName = salesSku.getName();
+        item.skuSpecName = salesSku.getSpecName();
+        SalesGoods goods = salesSku.getSalesGoods();
+        if (goods != null) {
+            item.salesGoods = goods;
+            item.goodsCode = goods.getCode();
+            item.goodsName = goods.getName();
+            item.goodsSpecification = goods.getSpecification();
+            item.goodsUnit = goods.getUnit();
+            item.goodsCategory = goods.getCategory();
+        }
         item.externalProductName = externalProductName;
         item.externalSpecName = externalSpecName;
         item.externalQuantity = externalQuantity;
@@ -117,6 +134,18 @@ public class SalesOrderItem {
 
     public SalesOrder getOrder() {
         return order;
+    }
+
+    public SalesSku getSalesSku() {
+        return salesSku;
+    }
+
+    public String getSkuName() {
+        return skuName;
+    }
+
+    public String getSkuSpecName() {
+        return skuSpecName;
     }
 
     public SalesGoods getSalesGoods() {

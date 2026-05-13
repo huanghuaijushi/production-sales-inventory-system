@@ -6,23 +6,33 @@ import com.hhjs.psi.common.exception.BusinessException;
 import com.hhjs.psi.sales.entity.SalesChannel;
 import com.hhjs.psi.sales.entity.SalesOrder;
 import com.hhjs.psi.sales.entity.SalesOrderItem;
+import com.hhjs.psi.sales.goods.entity.SalesSku;
+import com.hhjs.psi.sales.goods.repository.SalesSkuRepository;
+import com.hhjs.psi.sales.importing.dto.ApplyMappingRequest;
 import com.hhjs.psi.sales.importing.dto.ExternalOrderEditRequest;
+import com.hhjs.psi.sales.importing.dto.ExternalOrderItemRawResponse;
 import com.hhjs.psi.sales.importing.dto.ExternalOrderRawResponse;
+import com.hhjs.psi.sales.importing.dto.ImportedOrderResponse;
+import com.hhjs.psi.sales.importing.dto.MatchRequest;
 import com.hhjs.psi.sales.importing.dto.OrderImportBatchResponse;
+import com.hhjs.psi.sales.importing.dto.OrderImportBatchResponse.SkuSummary;
 import com.hhjs.psi.sales.importing.dto.PddExcelImportRequest;
 import com.hhjs.psi.sales.importing.dto.TextImportRequest;
 import com.hhjs.psi.sales.importing.entity.ChannelProductMapping;
 import com.hhjs.psi.sales.importing.entity.ExternalOrderItemRaw;
+import com.hhjs.psi.sales.importing.entity.ExternalOrderRaw;
 import com.hhjs.psi.sales.importing.entity.ExternalOrderStatus;
 import com.hhjs.psi.sales.importing.entity.ImportBatchStatus;
 import com.hhjs.psi.sales.importing.entity.ImportSourceType;
 import com.hhjs.psi.sales.importing.entity.OrderImportBatch;
 import com.hhjs.psi.sales.importing.entity.SalesChannelConfig;
 import com.hhjs.psi.sales.importing.repository.ChannelProductMappingRepository;
+import com.hhjs.psi.sales.importing.repository.ExternalOrderItemRawRepository;
 import com.hhjs.psi.sales.importing.repository.ExternalOrderRawRepository;
 import com.hhjs.psi.sales.importing.repository.OrderImportBatchRepository;
 import com.hhjs.psi.sales.importing.repository.SalesChannelConfigRepository;
 import com.hhjs.psi.sales.service.SalesOrderService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -30,11 +40,13 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.RoundingMode;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -44,24 +56,33 @@ public class OrderImportService {
 
     private final OrderImportBatchRepository batchRepository;
     private final ExternalOrderRawRepository externalOrderRepository;
+    private final ExternalOrderItemRawRepository rawItemRepository;
     private final SalesChannelConfigRepository channelRepository;
     private final ChannelProductMappingRepository mappingRepository;
+    private final SalesSkuRepository salesSkuRepository;
     private final SysUserRepository sysUserRepository;
     private final SalesOrderService salesOrderService;
     private final TextOrderParser textOrderParser = new TextOrderParser();
 
+    @Value("${app.order-import.batch-unmatch-limit:200}")
+    private int batchUnmatchLimit;
+
     public OrderImportService(
             OrderImportBatchRepository batchRepository,
             ExternalOrderRawRepository externalOrderRepository,
+            ExternalOrderItemRawRepository rawItemRepository,
             SalesChannelConfigRepository channelRepository,
             ChannelProductMappingRepository mappingRepository,
+            SalesSkuRepository salesSkuRepository,
             SysUserRepository sysUserRepository,
             SalesOrderService salesOrderService
     ) {
         this.batchRepository = batchRepository;
         this.externalOrderRepository = externalOrderRepository;
+        this.rawItemRepository = rawItemRepository;
         this.channelRepository = channelRepository;
         this.mappingRepository = mappingRepository;
+        this.salesSkuRepository = salesSkuRepository;
         this.sysUserRepository = sysUserRepository;
         this.salesOrderService = salesOrderService;
     }
@@ -79,6 +100,20 @@ public class OrderImportService {
                 .map(ExternalOrderRawResponse::from)
                 .toList();
         return OrderImportBatchResponse.from(batch, orders);
+    }
+
+    @Transactional(readOnly = true)
+    public ExternalOrderRawResponse getImportOrder(Long externalOrderId) {
+        ExternalOrderRaw externalOrder = externalOrderRepository.findWithDetailsById(externalOrderId)
+                .orElseThrow(() -> BusinessException.badRequest("导入订单不存在: " + externalOrderId));
+        return ExternalOrderRawResponse.from(externalOrder);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ExternalOrderItemRawResponse> getUnmappedItems(Long batchId) {
+        return rawItemRepository.findByOwnerBatchIdOrderByIdAsc(batchId).stream()
+                .map(ExternalOrderItemRawResponse::from)
+                .toList();
     }
 
     @Transactional
@@ -103,7 +138,7 @@ public class OrderImportService {
     public OrderImportBatchResponse rematchBatch(Long batchId) {
         OrderImportBatch batch = findBatch(batchId);
         externalOrderRepository.findByBatchIdOrderByIdAsc(batchId).forEach(order -> {
-            order.getItems().forEach(item -> applyMapping(order.getChannel().getId(), item));
+            order.getItems().forEach(item -> matchItem(order.getChannel().getId(), item, true));
             order.refreshStatus();
             externalOrderRepository.save(order);
         });
@@ -114,7 +149,7 @@ public class OrderImportService {
     @Transactional
     public OrderImportBatchResponse updateExternalOrder(Long batchId, Long externalOrderId, ExternalOrderEditRequest request) {
         OrderImportBatch batch = findBatch(batchId);
-        var externalOrder = externalOrderRepository.findById(externalOrderId)
+        ExternalOrderRaw externalOrder = externalOrderRepository.findById(externalOrderId)
                 .orElseThrow(() -> BusinessException.badRequest("外部订单不存在: " + externalOrderId));
         if (!externalOrder.getBatch().getId().equals(batchId)) {
             throw BusinessException.badRequest("外部订单不属于当前导入批次");
@@ -142,7 +177,7 @@ public class OrderImportService {
                     itemRequest.externalQuantity(),
                     itemRequest.externalUnitPrice()
             );
-            applyMapping(externalOrder.getChannel().getId(), item);
+            matchItem(externalOrder.getChannel().getId(), item, true);
             editedItems.add(item);
         }
         externalOrder.replaceItems(editedItems);
@@ -153,57 +188,102 @@ public class OrderImportService {
     }
 
     @Transactional
-    public OrderImportBatchResponse confirmBatch(Long batchId) {
-        try {
-            OrderImportBatch batch = findBatch(batchId);
-            if (batch.getStatus() == ImportBatchStatus.CONFIRMED) {
-                return getBatch(batchId);
-            }
-            List<com.hhjs.psi.sales.importing.entity.ExternalOrderRaw> readyOrders = externalOrderRepository.findByBatchIdAndStatus(batchId, ExternalOrderStatus.READY);
-            if (readyOrders.isEmpty()) {
-                throw BusinessException.badRequest("没有可确认生成销售单的外部订单");
-            }
-            int converted = 0;
-            for (var externalOrder : readyOrders) {
-                if (externalOrder.getSalesOrder() != null) {
-                    continue;
-                }
-                validateReadyOrder(externalOrder);
-                List<SalesOrderItem> items = externalOrder.getItems().stream()
-                        .map(item -> SalesOrderItem.create(
-                                item.getMatchedSalesGoods(),
-                                item.getConvertedQuantity(),
-                                resolveImportedUnitPrice(item),
-                                item.getExternalProductName(),
-                                item.getExternalSpecName(),
-                                item.getExternalQuantity(),
-                                item.getMapping()
-                        ))
-                        .toList();
-                SalesOrder salesOrder = salesOrderService.createImportedOrder(
-                        toLegacyChannel(externalOrder.getChannel().getCode()),
-                        externalOrder.getChannel(),
-                        externalOrder.getExternalOrderNo(),
-                        batch,
-                        batch.getSourceType(),
-                        externalOrder.getCustomerName(),
-                        externalOrder.getCustomerPhone(),
-                        externalOrder.getCustomerAddress(),
-                        buildRemark(externalOrder.getBuyerMessage(), externalOrder.getSellerRemark()),
-                        items
-                );
-                externalOrder.markConverted(salesOrder);
-                externalOrderRepository.save(externalOrder);
-                converted++;
-            }
-            batch.markConfirmed(converted);
-            refreshBatchStats(batch);
-            return getBatch(batchId);
-        } catch (BusinessException exception) {
-            throw exception;
-        } catch (Exception exception) {
-            throw BusinessException.badRequest("确认生成销售单失败：" + rootCauseMessage(exception));
+    public List<ExternalOrderItemRawResponse> applyMapping(ApplyMappingRequest request) {
+        List<ExternalOrderItemRaw> rawItems = rawItemRepository.findByOwnerBatchIdOrderByIdAsc(request.batchId());
+        if (rawItems.isEmpty()) {
+            throw BusinessException.badRequest("导入批次没有可匹配的商品: " + request.batchId());
         }
+        Long channelId = rawItems.get(0).getExternalOrder().getChannel().getId();
+        for (ExternalOrderItemRaw item : rawItems) {
+            matchItem(channelId, item, false);
+        }
+        rawItemRepository.saveAll(rawItems);
+        return rawItemRepository.findByOwnerBatchIdOrderByIdAsc(request.batchId()).stream()
+                .map(ExternalOrderItemRawResponse::from)
+                .toList();
+    }
+
+    @Transactional
+    public ExternalOrderItemRawResponse manualMatch(MatchRequest request) {
+        SalesSku sku = salesSkuRepository.findById(request.salesSkuId())
+                .orElseThrow(() -> BusinessException.badRequest("销售SKU不存在: " + request.salesSkuId()));
+        ExternalOrderItemRaw item = rawItemRepository.findById(request.itemId())
+                .orElseThrow(() -> BusinessException.badRequest("导入明细不存在: " + request.itemId()));
+        if (item.getExternalOrder().getBatch() == null || !Objects.equals(item.getExternalOrder().getBatch().getId(), request.batchId())) {
+            throw BusinessException.badRequest("导入明细不属于指定批次: " + request.batchId());
+        }
+        Integer saleQuantity = item.getExternalQuantity().intValue();
+        item.applyMatched(null, sku, saleQuantity, "手动匹配: " + sku.getName());
+        rawItemRepository.save(item);
+        return ExternalOrderItemRawResponse.from(item);
+    }
+
+    @Transactional(readOnly = true)
+    public OrderImportBatchResponse getBatchResult(Long batchId) {
+        OrderImportBatch batch = findBatch(batchId);
+        int totalItems = rawItemRepository.countByOwnerBatchId(batchId);
+        int matchedItems = rawItemRepository.countByOwnerBatchIdAndMatchedSalesSkuIsNotNull(batchId);
+        int unmatchedItems = totalItems - matchedItems;
+        List<ExternalOrderItemRaw> rawItems = rawItemRepository.findByOwnerBatchIdOrderByIdAsc(batchId);
+        List<ExternalOrderItemRawResponse> itemResponses = rawItems.stream()
+                .map(ExternalOrderItemRawResponse::from)
+                .toList();
+        List<SkuSummary> skuSummaries = buildSkuSummaries(rawItems);
+        return OrderImportBatchResponse.forMatchResult(batch, totalItems, matchedItems, unmatchedItems, skuSummaries, itemResponses);
+    }
+
+    @Transactional
+    public ImportedOrderResponse confirmBatch(Long batchId) {
+        OrderImportBatch batch = findBatch(batchId);
+        if (batch.getStatus() == ImportBatchStatus.CONFIRMED) {
+            throw BusinessException.badRequest("批次已确认过: " + batch.getBatchNo());
+        }
+        List<ExternalOrderRaw> readyOrders = externalOrderRepository.findByBatchIdAndStatus(batchId, ExternalOrderStatus.READY);
+        if (readyOrders.isEmpty()) {
+            throw BusinessException.badRequest("没有可确认生成销售单的外部订单");
+        }
+        validateBatchUnmatchedLimit(batchId);
+        int converted = 0;
+        SalesOrder lastSalesOrder = null;
+        for (ExternalOrderRaw externalOrder : readyOrders) {
+            if (externalOrder.getSalesOrder() != null) {
+                continue;
+            }
+            validateReadyOrder(externalOrder);
+            List<SalesOrderItem> items = externalOrder.getItems().stream()
+                    .map(item -> SalesOrderItem.create(
+                            item.getMatchedSalesSku(),
+                            item.getSaleQuantity(),
+                            resolveImportedUnitPrice(item),
+                            item.getExternalProductName(),
+                            item.getExternalSpecName(),
+                            item.getExternalQuantity(),
+                            item.getMapping()
+                    ))
+                    .toList();
+            SalesOrder salesOrder = salesOrderService.createImportedOrder(
+                    toLegacyChannel(externalOrder.getChannel().getCode()),
+                    externalOrder.getChannel(),
+                    externalOrder.getExternalOrderNo(),
+                    batch,
+                    batch.getSourceType(),
+                    externalOrder.getCustomerName(),
+                    externalOrder.getCustomerPhone(),
+                    externalOrder.getCustomerAddress(),
+                    buildRemark(externalOrder.getBuyerMessage(), externalOrder.getSellerRemark()),
+                    items
+            );
+            externalOrder.markConverted(salesOrder);
+            externalOrderRepository.save(externalOrder);
+            converted++;
+            lastSalesOrder = salesOrder;
+        }
+        batch.markConfirmed(converted);
+        refreshBatchStats(batch);
+        if (lastSalesOrder == null) {
+            throw BusinessException.badRequest("没有可生成的销售单");
+        }
+        return new ImportedOrderResponse(lastSalesOrder.getId(), lastSalesOrder.getOrderNo());
     }
 
     private void parseTextOrders(OrderImportBatch batch, String rawText) {
@@ -212,7 +292,7 @@ public class OrderImportService {
             if (externalOrderRepository.existsByChannelIdAndExternalOrderNo(batch.getChannel().getId(), parsed.externalOrderNo())) {
                 continue;
             }
-            var order = com.hhjs.psi.sales.importing.entity.ExternalOrderRaw.create(
+            ExternalOrderRaw order = ExternalOrderRaw.create(
                     batch,
                     batch.getChannel(),
                     parsed.externalOrderNo(),
@@ -232,7 +312,7 @@ public class OrderImportService {
                         parsedItem.quantity(),
                         parsedItem.unitPrice()
                 );
-                applyMapping(batch.getChannel().getId(), item);
+                matchItem(batch.getChannel().getId(), item, true);
                 items.add(item);
             }
             order.replaceItems(items);
@@ -241,9 +321,9 @@ public class OrderImportService {
         }
     }
 
-    private ExternalOrderItemRaw findOrCreateRawItem(com.hhjs.psi.sales.importing.entity.ExternalOrderRaw externalOrder, Long itemId) {
+    private ExternalOrderItemRaw findOrCreateRawItem(ExternalOrderRaw externalOrder, Long itemId) {
         if (itemId == null) {
-            return ExternalOrderItemRaw.create("待填写商品", null, null, java.math.BigDecimal.ONE, java.math.BigDecimal.ZERO);
+            return ExternalOrderItemRaw.create("待填写商品", null, null, BigDecimal.ONE, BigDecimal.ZERO);
         }
         return externalOrder.getItems().stream()
                 .filter(item -> item.getId().equals(itemId))
@@ -251,24 +331,33 @@ public class OrderImportService {
                 .orElseThrow(() -> BusinessException.badRequest("外部订单明细不存在: " + itemId));
     }
 
-    private void applyMapping(Long channelId, ExternalOrderItemRaw item) {
+    private void matchItem(Long channelId, ExternalOrderItemRaw item, boolean forceRematch) {
+        if (!forceRematch && item.getMatchedSalesSku() != null) {
+            return;
+        }
         List<ChannelProductMapping> mappings = mappingRepository.findByChannelIdAndEnabledTrueOrderByPriorityAscIdAsc(channelId);
         for (ChannelProductMapping mapping : mappings) {
-            if (mapping.matches(item.getExternalProductName(), item.getExternalSpecName(), item.getExternalSkuCode())) {
-                int convertedQuantity = item.getExternalQuantity().multiply(mapping.getQuantityMultiplier()).setScale(0, RoundingMode.HALF_UP).intValue();
-                if (convertedQuantity <= 0) {
-                    item.markUnmatched("换算后的商品数量必须大于0");
-                    return;
-                }
-                item.applyMatched(mapping, mapping.getSalesGoods(), convertedQuantity, "已匹配商品映射规则");
+            if (!mapping.matches(item.getExternalProductName(), item.getExternalSpecName(), item.getExternalSkuCode())) {
+                continue;
+            }
+            SalesSku sku = mapping.getSalesSku();
+            if (sku == null) {
+                item.markUnmatched("映射规则未绑定销售SKU");
                 return;
             }
+            Integer saleQuantity = item.getExternalQuantity() == null ? null : item.getExternalQuantity().intValue();
+            if (saleQuantity == null || saleQuantity <= 0) {
+                item.markUnmatched("外部数量必须大于0");
+                return;
+            }
+            item.applyMatched(mapping, sku, saleQuantity, "已匹配映射规则: " + sku.getName());
+            return;
         }
         item.markUnmatched("未找到商品映射规则");
     }
 
     private void refreshBatchStats(OrderImportBatch batch) {
-        List<com.hhjs.psi.sales.importing.entity.ExternalOrderRaw> orders = externalOrderRepository.findByBatchIdOrderByIdAsc(batch.getId());
+        List<ExternalOrderRaw> orders = externalOrderRepository.findByBatchIdOrderByIdAsc(batch.getId());
         int total = orders.size();
         int ready = (int) orders.stream().filter(order -> order.getStatus() == ExternalOrderStatus.READY).count();
         int converted = (int) orders.stream().filter(order -> order.getStatus() == ExternalOrderStatus.CONVERTED).count();
@@ -280,53 +369,64 @@ public class OrderImportService {
         batchRepository.save(batch);
     }
 
-    private void validateReadyOrder(com.hhjs.psi.sales.importing.entity.ExternalOrderRaw externalOrder) {
+    private void validateBatchUnmatchedLimit(Long batchId) {
+        int unmatched = rawItemRepository.countByOwnerBatchIdAndMatchedSalesSkuIsNull(batchId);
+        if (unmatched > batchUnmatchLimit) {
+            throw BusinessException.badRequest(
+                    String.format("未匹配的明细(%d条)超过了限制(%d条)，请先手动匹配", unmatched, batchUnmatchLimit));
+        }
+    }
+
+    private void validateReadyOrder(ExternalOrderRaw externalOrder) {
         if (externalOrder.getItems() == null || externalOrder.getItems().isEmpty()) {
-            throw BusinessException.badRequest("订单“" + externalOrder.getExternalOrderNo() + "”没有可生成的商品明细");
+            throw BusinessException.badRequest("订单\"" + externalOrder.getExternalOrderNo() + "\"没有可生成的商品明细");
         }
         for (ExternalOrderItemRaw item : externalOrder.getItems()) {
-            if (item.getMatchedSalesGoods() == null) {
-                throw BusinessException.badRequest("订单“" + externalOrder.getExternalOrderNo() + "”存在未匹配商品：" + item.getExternalProductName());
+            if (item.getMatchedSalesSku() == null) {
+                throw BusinessException.badRequest("订单\"" + externalOrder.getExternalOrderNo() + "\"存在未匹配商品：" + item.getExternalProductName());
             }
-            if (item.getConvertedQuantity() == null || item.getConvertedQuantity() <= 0) {
-                throw BusinessException.badRequest("订单“" + externalOrder.getExternalOrderNo() + "”商品数量异常：" + item.getExternalProductName());
+            if (item.getSaleQuantity() == null || item.getSaleQuantity() <= 0) {
+                throw BusinessException.badRequest("订单\"" + externalOrder.getExternalOrderNo() + "\"商品数量异常：" + item.getExternalProductName());
             }
-            if (resolveImportedUnitPrice(item) == null) {
-                throw BusinessException.badRequest("订单“" + externalOrder.getExternalOrderNo() + "”商品单价异常：" + item.getExternalProductName());
+            BigDecimal unitPrice = resolveImportedUnitPrice(item);
+            if (unitPrice == null || unitPrice.compareTo(BigDecimal.ZERO) <= 0) {
+                throw BusinessException.badRequest("订单\"" + externalOrder.getExternalOrderNo() + "\"商品单价异常：" + item.getExternalProductName());
             }
         }
     }
 
-    private java.math.BigDecimal resolveImportedUnitPrice(ExternalOrderItemRaw item) {
-        if (item.getExternalUnitPrice() != null && item.getExternalUnitPrice().compareTo(java.math.BigDecimal.ZERO) > 0) {
-            return item.getExternalUnitPrice();
+    private BigDecimal resolveImportedUnitPrice(ExternalOrderItemRaw item) {
+        BigDecimal externalPrice = item.getExternalUnitPrice();
+        if (externalPrice != null && externalPrice.compareTo(BigDecimal.ZERO) > 0) {
+            return externalPrice;
         }
-        if (item.getMapping() != null && item.getMapping().getDefaultUnitPrice() != null && item.getConvertedQuantity() != null && item.getConvertedQuantity() > 0) {
-            return item.getMapping().getDefaultUnitPrice().divide(java.math.BigDecimal.valueOf(item.getConvertedQuantity()), 2, RoundingMode.HALF_UP);
+        SalesSku sku = item.getMatchedSalesSku();
+        if (sku != null && sku.getPerSkuPrice() != null && sku.getPerSkuPrice().compareTo(BigDecimal.ZERO) > 0) {
+            return sku.getPerSkuPrice();
         }
-        if (item.getMatchedSalesGoods() != null && item.getMatchedSalesGoods().getDefaultPrice() != null) {
-            return item.getMatchedSalesGoods().getDefaultPrice();
-        }
-        return java.math.BigDecimal.ZERO;
+        return BigDecimal.ZERO;
     }
 
     private OrderImportBatch createBatch(SalesChannelConfig channel, ImportSourceType sourceType, String fileName, String rawText) {
         var currentSysUser = SecurityUtils.requireCurrentSysUser();
-        var operator = sysUserRepository.findById(currentSysUser.id()).orElseThrow(() -> BusinessException.unauthorized("当前用户不存在"));
+        var operator = sysUserRepository.findById(currentSysUser.id())
+                .orElseThrow(() -> BusinessException.unauthorized("当前用户不存在"));
         return batchRepository.save(OrderImportBatch.create(generateBatchNo(), channel, sourceType, fileName, rawText, operator, currentSysUser.username()));
     }
 
     private OrderImportBatch findBatch(Long batchId) {
-        return batchRepository.findWithChannelById(batchId).orElseThrow(() -> BusinessException.badRequest("导入批次不存在: " + batchId));
+        return batchRepository.findWithChannelById(batchId)
+                .orElseThrow(() -> BusinessException.badRequest("导入批次不存在: " + batchId));
     }
 
     private SalesChannelConfig findChannel(Long channelId, ImportSourceType expectedSourceType) {
-        SalesChannelConfig channel = channelRepository.findById(channelId).orElseThrow(() -> BusinessException.badRequest("销售渠道不存在: " + channelId));
+        SalesChannelConfig channel = channelRepository.findById(channelId)
+                .orElseThrow(() -> BusinessException.badRequest("销售渠道不存在: " + channelId));
         if (!Boolean.TRUE.equals(channel.getEnabled())) {
             throw BusinessException.badRequest("销售渠道已停用: " + channel.getName());
         }
         if (expectedSourceType != null && channel.getSourceType() != expectedSourceType) {
-            throw BusinessException.badRequest("请选择来源类型为“" + sourceTypeText(expectedSourceType) + "”的销售渠道: " + channel.getName());
+            throw BusinessException.badRequest("请选择来源类型为\"" + sourceTypeText(expectedSourceType) + "\"的销售渠道: " + channel.getName());
         }
         return channel;
     }
@@ -348,7 +448,8 @@ public class OrderImportService {
         return switch (code.trim().toUpperCase()) {
             case "DOUYIN" -> SalesChannel.DOUYIN;
             case "PINDUODUO" -> SalesChannel.PINDUODUO;
-            case "OFFLINE", "WECHAT_GROUP", "CONTRACT" -> SalesChannel.OFFLINE;
+            case "WECHAT", "WECHAT_GROUP" -> SalesChannel.WECHAT_GROUP;
+            case "CONTRACT" -> SalesChannel.CONTRACT;
             default -> SalesChannel.OFFLINE;
         };
     }
@@ -364,6 +465,47 @@ public class OrderImportService {
         return remarks.isEmpty() ? null : String.join("；", remarks);
     }
 
+    private List<SkuSummary> buildSkuSummaries(List<ExternalOrderItemRaw> rawItems) {
+        java.util.Map<Long, java.util.Map<String, Object>> skuMap = new LinkedHashMap<>();
+        for (ExternalOrderItemRaw item : rawItems) {
+            if (item.getMatchedSalesSku() == null) continue;
+            SalesSku sku = item.getMatchedSalesSku();
+            skuMap.compute(sku.getId(), (id, data) -> {
+                if (data == null) {
+                    data = new java.util.HashMap<>();
+                    data.put("skuName", sku.getName());
+                    data.put("skuCode", sku.getCode());
+                    data.put("skuSpecName", sku.getSpecName());
+                    data.put("unit", sku.getUnit());
+                    data.put("totalQuantity", 0);
+                    data.put("totalAmount", BigDecimal.ZERO);
+                }
+                Integer saleQuantity = item.getSaleQuantity() == null ? 0 : item.getSaleQuantity();
+                data.put("totalQuantity", (int) data.get("totalQuantity") + saleQuantity);
+                BigDecimal unitPrice = resolveImportedUnitPrice(item);
+                if (unitPrice != null) {
+                    BigDecimal itemAmount = unitPrice.multiply(BigDecimal.valueOf(saleQuantity));
+                    data.put("totalAmount", ((BigDecimal) data.get("totalAmount")).add(itemAmount));
+                }
+                return data;
+            });
+        }
+        List<SkuSummary> list = new ArrayList<>();
+        for (java.util.Map.Entry<Long, java.util.Map<String, Object>> entry : skuMap.entrySet()) {
+            java.util.Map<String, Object> data = entry.getValue();
+            list.add(new SkuSummary(
+                    entry.getKey(),
+                    (String) data.get("skuName"),
+                    (String) data.get("skuCode"),
+                    (String) data.get("skuSpecName"),
+                    (String) data.get("unit"),
+                    (int) data.get("totalQuantity"),
+                    (BigDecimal) data.get("totalAmount")
+            ));
+        }
+        return list;
+    }
+
     private String normalizeRequired(String value, String message) {
         String normalized = normalizeOptional(value);
         if (normalized == null) {
@@ -374,18 +516,6 @@ public class OrderImportService {
 
     private String normalizeOptional(String value) {
         return value == null || value.isBlank() ? null : value.trim();
-    }
-
-    private String rootCauseMessage(Throwable throwable) {
-        Throwable current = throwable;
-        String message = null;
-        while (current != null) {
-            if (current.getMessage() != null && !current.getMessage().isBlank()) {
-                message = current.getMessage();
-            }
-            current = current.getCause();
-        }
-        return message == null || message.isBlank() ? throwable.getClass().getSimpleName() : message;
     }
 
     private String toJson(String text) {

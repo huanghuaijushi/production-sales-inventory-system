@@ -1,11 +1,8 @@
 package com.hhjs.psi.sales.importing.dto;
 
-import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-
-import java.math.BigDecimal;
 
 public record ChannelProductMappingRequest(
         @NotNull(message = "渠道不能为空")
@@ -17,13 +14,8 @@ public record ChannelProductMappingRequest(
         String externalSpecName,
         @Size(max = 120, message = "外部SKU编码最多120个字符")
         String externalSkuCode,
-        @NotNull(message = "销售商品不能为空")
-        Long salesGoodsId,
-        @NotNull(message = "数量换算倍数不能为空")
-        @DecimalMin(value = "0.0001", message = "数量换算倍数必须大于0")
-        BigDecimal quantityMultiplier,
-        @DecimalMin(value = "0.00", message = "默认成交价不能小于0")
-        BigDecimal defaultUnitPrice,
+        @NotNull(message = "销售SKU不能为空")
+        Long salesSkuId,
         @NotBlank(message = "匹配类型不能为空")
         String matchType,
         @NotNull(message = "是否启用不能为空")

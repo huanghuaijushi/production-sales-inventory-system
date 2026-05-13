@@ -1,18 +1,18 @@
 package com.hhjs.psi.sales.service;
 
+import com.hhjs.psi.auth.entity.SysUser;
 import com.hhjs.psi.auth.repository.SysUserRepository;
 import com.hhjs.psi.auth.security.SecurityUtils;
 import com.hhjs.psi.common.exception.BusinessException;
-import com.hhjs.psi.inventory.dto.StockOperationRequest;
+import com.hhjs.psi.inventory.entity.Product;
 import com.hhjs.psi.inventory.entity.Stock;
 import com.hhjs.psi.inventory.entity.StockBatch;
+import com.hhjs.psi.inventory.entity.StockRecord;
 import com.hhjs.psi.inventory.entity.StockRecordSubType;
+import com.hhjs.psi.inventory.entity.StockRecordType;
 import com.hhjs.psi.inventory.repository.StockBatchRepository;
+import com.hhjs.psi.inventory.repository.StockRecordRepository;
 import com.hhjs.psi.inventory.repository.StockRepository;
-import com.hhjs.psi.inventory.service.InventoryService;
-import com.hhjs.psi.sales.goods.entity.SalesGoods;
-import com.hhjs.psi.sales.goods.entity.SalesGoodsComponent;
-import com.hhjs.psi.sales.goods.repository.SalesGoodsRepository;
 import com.hhjs.psi.sales.dto.SalesOrderItemRequest;
 import com.hhjs.psi.sales.dto.SalesOrderItemResponse;
 import com.hhjs.psi.sales.dto.SalesOrderRequest;
@@ -21,11 +21,18 @@ import com.hhjs.psi.sales.entity.SalesChannel;
 import com.hhjs.psi.sales.entity.SalesOrder;
 import com.hhjs.psi.sales.entity.SalesOrderItem;
 import com.hhjs.psi.sales.entity.SalesOrderStatus;
+import com.hhjs.psi.sales.entity.SalesOrderStockDeduction;
+import com.hhjs.psi.sales.goods.entity.SalesSku;
+import com.hhjs.psi.sales.goods.entity.SalesSkuComponent;
+import com.hhjs.psi.sales.goods.repository.SalesSkuRepository;
 import com.hhjs.psi.sales.importing.entity.ImportSourceType;
 import com.hhjs.psi.sales.importing.entity.OrderImportBatch;
 import com.hhjs.psi.sales.importing.entity.SalesChannelConfig;
 import com.hhjs.psi.sales.importing.repository.SalesChannelConfigRepository;
+import com.hhjs.psi.sales.repository.SalesOrderItemRepository;
 import com.hhjs.psi.sales.repository.SalesOrderRepository;
+import com.hhjs.psi.sales.repository.SalesOrderStockDeductionRepository;
+import jakarta.persistence.EntityManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -35,65 +42,74 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 public class SalesOrderService {
 
-    private static final DateTimeFormatter ORDER_NO_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
+    private static final DateTimeFormatter ORDER_NO_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
-    private final SalesOrderRepository salesOrderRepository;
-    private final SalesGoodsRepository salesGoodsRepository;
+    private final SalesOrderRepository orderRepository;
+    private final SalesOrderItemRepository itemRepository;
+    private final SalesSkuRepository salesSkuRepository;
     private final StockRepository stockRepository;
-    private final StockBatchRepository stockBatchRepository;
+    private final StockBatchRepository batchRepository;
+    private final StockRecordRepository stockRecordRepository;
+    private final SalesOrderStockDeductionRepository deductionRepository;
     private final SysUserRepository sysUserRepository;
-    private final InventoryService inventoryService;
-    private final SalesChannelConfigRepository salesChannelConfigRepository;
+    private final SalesChannelConfigRepository channelConfigRepository;
+    private final EntityManager em;
 
-    public SalesOrderService(
-            SalesOrderRepository salesOrderRepository,
-            SalesGoodsRepository salesGoodsRepository,
-            StockRepository stockRepository,
-            StockBatchRepository stockBatchRepository,
-            SysUserRepository sysUserRepository,
-            InventoryService inventoryService,
-            SalesChannelConfigRepository salesChannelConfigRepository
-    ) {
-        this.salesOrderRepository = salesOrderRepository;
-        this.salesGoodsRepository = salesGoodsRepository;
+    public SalesOrderService(SalesOrderRepository orderRepository, SalesOrderItemRepository itemRepository,
+                             SalesSkuRepository salesSkuRepository, StockRepository stockRepository,
+                             StockBatchRepository batchRepository, StockRecordRepository stockRecordRepository,
+                             SalesOrderStockDeductionRepository deductionRepository,
+                             SysUserRepository sysUserRepository,
+                             SalesChannelConfigRepository channelConfigRepository,
+                             EntityManager em) {
+        this.orderRepository = orderRepository;
+        this.itemRepository = itemRepository;
+        this.salesSkuRepository = salesSkuRepository;
         this.stockRepository = stockRepository;
-        this.stockBatchRepository = stockBatchRepository;
+        this.batchRepository = batchRepository;
+        this.stockRecordRepository = stockRecordRepository;
+        this.deductionRepository = deductionRepository;
         this.sysUserRepository = sysUserRepository;
-        this.inventoryService = inventoryService;
-        this.salesChannelConfigRepository = salesChannelConfigRepository;
+        this.channelConfigRepository = channelConfigRepository;
+        this.em = em;
     }
 
     @Transactional(readOnly = true)
-    public Page<SalesOrderResponse> getOrders(int page, int size, String query, String status) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        return salesOrderRepository.searchOrders(normalizeOptional(query), parseStatus(status), pageable)
-                .map(this::toResponse);
+    public Page<SalesOrderResponse> getOrders(int page, int size, SalesOrderStatus status, String query) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "orderDate", "id"));
+        Page<SalesOrder> orders = orderRepository.searchOrders(query != null ? query.trim() : null, status, pageable);
+        return orders.map(SalesOrderResponse::from);
+    }
+
+    @Transactional(readOnly = true)
+    public SalesOrderResponse getOrder(Long id) {
+        return SalesOrderResponse.from(findOrder(id));
     }
 
     @Transactional
-    public SalesOrderResponse createOrder(SalesOrderRequest request) {
+    public SalesOrderResponse create(SalesOrderRequest request) {
         var currentSysUser = SecurityUtils.requireCurrentSysUser();
-        var operator = sysUserRepository.findById(currentSysUser.id())
+        SysUser operator = sysUserRepository.findById(currentSysUser.id())
                 .orElseThrow(() -> BusinessException.unauthorized("当前用户不存在"));
-        SalesChannelConfig channelConfig = resolveChannelConfig(request.channelId(), request.channel());
+        String orderNo = "SO" + Instant.now().toString().replace("-", "").replace(":", "").replace("T", "").replace("Z", "").substring(0, 14) + String.format("%04d", ThreadLocalRandom.current().nextInt(1000, 10000));
         SalesOrder order = SalesOrder.create(
-                generateOrderNo(),
+                orderNo,
                 request.channel(),
-                channelConfig,
                 null,
                 null,
-                ImportSourceType.MANUAL,
+                null,
+                null,
                 null,
                 normalizeOptional(request.customerName()),
                 normalizeOptional(request.customerPhone()),
@@ -102,29 +118,55 @@ public class SalesOrderService {
                 currentSysUser.username(),
                 normalizeOptional(request.remark())
         );
-        List<SalesOrderItem> items = buildItems(request.items());
-        lockOrderItems(items);
-        order.replaceItems(items);
-        return toResponse(salesOrderRepository.save(order));
+        order = orderRepository.save(order);
+        List<SalesOrderItem> items = new ArrayList<>();
+        for (SalesOrderItemRequest itemRequest : request.items()) {
+            SalesSku sku = salesSkuRepository.findById(itemRequest.salesSkuId())
+                    .orElseThrow(() -> BusinessException.badRequest("销售SKU不存在: " + itemRequest.salesSkuId()));
+            SalesOrderItem item = SalesOrderItem.create(sku, itemRequest.quantity(), itemRequest.unitPrice());
+            item.attachTo(order);
+            items.add(item);
+        }
+        itemRepository.saveAll(items);
+        return SalesOrderResponse.from(findOrder(order.getId()));
     }
 
     @Transactional
-    public SalesOrderResponse updateOrder(Long orderId, SalesOrderRequest request) {
+    public SalesOrderResponse updateOrder(Long id, SalesOrderRequest request) {
+        SalesOrder order = findOrder(id);
+        SalesChannelConfig channelConfig = request.channelId() != null
+                ? channelConfigRepository.findById(request.channelId()).orElse(null)
+                : null;
+        order.updateBasicInfo(request.channel(), channelConfig,
+                request.customerName(), request.customerPhone(), request.customerAddress(), request.remark());
+        updateOrderItems(order, request.items());
+        em.flush();
+        em.refresh(order);
+        return SalesOrderResponse.from(order);
+    }
+
+    @Transactional
+    public SalesOrderResponse updateOrderItems(Long orderId, List<SalesOrderItemRequest> itemRequests) {
         SalesOrder order = findOrder(orderId);
-        ensurePending(order, "只有待发货销售单可以修改");
-        unlockOrderItems(order.getItems());
-        List<SalesOrderItem> items = buildItems(request.items());
-        lockOrderItems(items);
-        order.updateBasicInfo(
-                request.channel(),
-                resolveChannelConfig(request.channelId(), request.channel()),
-                normalizeOptional(request.customerName()),
-                normalizeOptional(request.customerPhone()),
-                normalizeOptional(request.customerAddress()),
-                normalizeOptional(request.remark())
-        );
-        order.replaceItems(items);
-        return toResponse(salesOrderRepository.save(order));
+        updateOrderItems(order, itemRequests);
+        em.flush();
+        em.refresh(order);
+        return SalesOrderResponse.from(order);
+    }
+
+    private void updateOrderItems(SalesOrder order, List<SalesOrderItemRequest> itemRequests) {
+        if (order.getStatus() != SalesOrderStatus.PENDING) {
+            throw BusinessException.badRequest("只能修改待处理状态的订单");
+        }
+        List<SalesOrderItem> newItems = new ArrayList<>();
+        for (SalesOrderItemRequest itemRequest : itemRequests) {
+            SalesSku sku = salesSkuRepository.findById(itemRequest.salesSkuId())
+                    .orElseThrow(() -> BusinessException.badRequest("销售SKU不存在: " + itemRequest.salesSkuId()));
+            SalesOrderItem item = SalesOrderItem.create(sku, itemRequest.quantity(), itemRequest.unitPrice());
+            item.attachTo(order);
+            newItems.add(item);
+        }
+        order.replaceItems(newItems);
     }
 
     @Transactional
@@ -141,282 +183,199 @@ public class SalesOrderService {
             List<SalesOrderItem> items
     ) {
         var currentSysUser = SecurityUtils.requireCurrentSysUser();
-        var operator = sysUserRepository.findById(currentSysUser.id())
+        SysUser operator = sysUserRepository.findById(currentSysUser.id())
                 .orElseThrow(() -> BusinessException.unauthorized("当前用户不存在"));
+        String orderNo = "SO" + Instant.now().toString().replace("-", "").replace(":", "").replace("T", "").replace("Z", "").substring(0, 14) + String.format("%04d", ThreadLocalRandom.current().nextInt(1000, 10000));
         SalesOrder order = SalesOrder.create(
-                generateOrderNo(),
+                orderNo,
                 channel,
                 channelConfig,
                 externalOrderNo,
                 importBatch,
                 sourceType,
-                "导入批次: " + importBatch.getBatchNo(),
-                normalizeOptional(customerName),
-                normalizeOptional(customerPhone),
-                normalizeOptional(customerAddress),
+                null,
+                customerName,
+                customerPhone,
+                customerAddress,
                 operator,
                 currentSysUser.username(),
-                normalizeOptional(remark)
+                remark
         );
+        order = orderRepository.save(order);
         order.replaceItems(items);
-        return salesOrderRepository.save(order);
+        orderRepository.save(order);
+        return order;
     }
 
     @Transactional
-    public SalesOrderResponse shipOrder(Long orderId) {
-        SalesOrder order = findOrder(orderId);
-        ensurePending(order, "只有待发货销售单可以发货出库");
+    public SalesOrderResponse confirmOrder(Long id) {
+        SalesOrder order = findOrder(id);
+        if (order.getStatus() != SalesOrderStatus.PENDING) {
+            throw BusinessException.badRequest("只能确认待处理状态的订单");
+        }
         ensureOrderItemsLocked(order);
-        order.getItems().forEach(item -> shipItem(order, item));
-        order.markShipped(Instant.now());
-        return toResponse(salesOrderRepository.save(order));
+        return SalesOrderResponse.from(orderRepository.save(order));
     }
 
     @Transactional
-    public SalesOrderResponse completeOrder(Long orderId) {
-        SalesOrder order = findOrder(orderId);
-        if (order.getStatus() == SalesOrderStatus.COMPLETED) {
-            throw BusinessException.badRequest("销售单已完成");
-        }
-        if (order.getStatus() != SalesOrderStatus.SHIPPED) {
-            throw BusinessException.badRequest("只有已发货销售单可以完成");
-        }
-        order.markCompleted(Instant.now());
-        return toResponse(salesOrderRepository.save(order));
-    }
-
-    @Transactional
-    public SalesOrderResponse cancelOrder(Long orderId) {
-        SalesOrder order = findOrder(orderId);
+    public SalesOrderResponse cancelOrder(Long id) {
+        SalesOrder order = findOrder(id);
         if (order.getStatus() == SalesOrderStatus.CANCELLED) {
-            throw BusinessException.badRequest("销售单已取消");
-        }
-        if (order.getStatus() == SalesOrderStatus.COMPLETED) {
-            throw BusinessException.badRequest("已完成销售单不能取消");
+            throw BusinessException.badRequest("订单已取消");
         }
         if (order.getStatus() == SalesOrderStatus.PENDING) {
-            unlockOrderItems(order.getItems());
+            unlockOrderItems(order);
         }
         order.cancel();
-        return toResponse(salesOrderRepository.save(order));
+        return SalesOrderResponse.from(orderRepository.save(order));
     }
 
-    private SalesOrder findOrder(Long orderId) {
-        return salesOrderRepository.findWithDetailsById(orderId)
-                .orElseThrow(() -> BusinessException.badRequest("销售单不存在: " + orderId));
-    }
-
-    private List<SalesOrderItem> buildItems(List<SalesOrderItemRequest> requests) {
-        Set<Long> salesGoodsIds = new HashSet<>();
-        List<SalesOrderItem> items = new ArrayList<>();
-        for (SalesOrderItemRequest request : requests) {
-            if (!salesGoodsIds.add(request.salesGoodsId())) {
-                throw BusinessException.badRequest("同一销售单不能重复添加同一个商品");
-            }
-            SalesGoods salesGoods = salesGoodsRepository.findWithDetailsById(request.salesGoodsId())
-                    .orElseThrow(() -> BusinessException.badRequest("销售商品不存在: " + request.salesGoodsId()));
-            if (!Boolean.TRUE.equals(salesGoods.getEnabled())) {
-                throw BusinessException.badRequest("销售商品已停用: " + salesGoods.getName());
-            }
-            if (salesGoods.getComponents().isEmpty()) {
-                throw BusinessException.badRequest("销售商品未配置库存组成，不能销售: " + salesGoods.getName());
-            }
-            BigDecimal unitPrice = request.unitPrice() == null ? BigDecimal.ZERO : request.unitPrice();
-            if (unitPrice.compareTo(BigDecimal.ZERO) < 0) {
-                throw BusinessException.badRequest("销售单价不能小于0");
-            }
-            items.add(SalesOrderItem.create(salesGoods, request.quantity(), unitPrice));
+    @Transactional
+    public SalesOrderResponse shipOrder(Long id) {
+        SalesOrder order = findOrder(id);
+        if (order.getStatus() != SalesOrderStatus.PENDING) {
+            throw BusinessException.badRequest("只能对已确认的订单进行发货");
         }
-        return items;
+        order.markShipped(Instant.now());
+        return SalesOrderResponse.from(orderRepository.save(order));
     }
 
-    private void lockOrderItems(List<SalesOrderItem> items) {
-        for (SalesOrderItem item : items) {
-            for (SalesGoodsComponent component : item.getSalesGoods().getComponents()) {
-                int requiredQuantity = requiredInventoryQuantity(item, component);
-                Stock stock = stockRepository.findByProductIdForUpdate(component.getProduct().getId())
-                        .orElseThrow(() -> BusinessException.badRequest("库存产品不存在: " + component.getProduct().getName()));
-                if (stock.getAvailableQuantity() < requiredQuantity) {
-                    throw BusinessException.badRequest("库存产品可用库存不足: " + component.getProduct().getName() + "，需 " + requiredQuantity + "，可用 " + stock.getAvailableQuantity());
-                }
-                stock.lockQuantity(requiredQuantity);
-                stockRepository.save(stock);
-            }
+    @Transactional
+    public SalesOrderResponse completeOrder(Long id) {
+        SalesOrder order = findOrder(id);
+        if (order.getStatus() != SalesOrderStatus.SHIPPED) {
+            throw BusinessException.badRequest("只能对已发货的订单进行完成");
         }
+        order.markCompleted(Instant.now());
+        return SalesOrderResponse.from(orderRepository.save(order));
     }
 
-
-    private void unlockOrderItems(List<SalesOrderItem> items) {
-        for (SalesOrderItem item : items) {
-            for (SalesGoodsComponent component : item.getSalesGoods().getComponents()) {
-                int requiredQuantity = requiredInventoryQuantity(item, component);
-                Stock stock = stockRepository.findByProductIdForUpdate(component.getProduct().getId())
-                        .orElseThrow(() -> BusinessException.badRequest("库存产品不存在: " + component.getProduct().getName()));
-                stock.unlockQuantity(requiredQuantity);
-                stockRepository.save(stock);
-            }
+    @Transactional
+    public SalesOrderResponse shipItem(Long orderId, Long itemId, Long shippingBatchId, Integer shippingQuantity) {
+        SalesOrder order = findOrder(orderId);
+        if (order.getStatus() != SalesOrderStatus.PENDING) {
+            throw BusinessException.badRequest("只能对已确认的订单进行发货");
         }
+        SalesOrderItem item = itemRepository.findById(itemId)
+                .orElseThrow(() -> BusinessException.badRequest("订单明细不存在: " + itemId));
+        if (!item.getOrder().getId().equals(orderId)) {
+            throw BusinessException.badRequest("订单明细不属于该订单");
+        }
+        var currentSysUser = SecurityUtils.requireCurrentSysUser();
+        SalesSku sku = item.getSalesSku();
+        if (sku.getComponents().isEmpty()) {
+            throw BusinessException.badRequest("SKU未配置库存组成，无法发货: " + sku.getCode());
+        }
+        StockBatch batch = batchRepository.findById(shippingBatchId)
+                .orElseThrow(() -> BusinessException.badRequest("批次不存在: " + shippingBatchId));
+        for (SalesSkuComponent skuComponent : sku.getComponents()) {
+            Product product = skuComponent.getProduct();
+            BigDecimal quantityPerSku = skuComponent.getQuantity();
+            BigDecimal totalRequired = quantityPerSku.multiply(BigDecimal.valueOf(shippingQuantity));
+            Stock stock = stockRepository.findByProductIdForUpdate(product.getId())
+                    .orElseThrow(() -> BusinessException.badRequest("库存产品没有库存记录: " + product.getName()));
+            int beforeQty = stock.getAvailableQuantity();
+            stock.shipLockedQuantity(totalRequired.intValue());
+            stockRepository.save(stock);
+            StockRecord record = StockRecord.create(
+                    generateRecordNo(),
+                    product,
+                    StockRecordType.OUT,
+                    StockRecordSubType.SALES,
+                    -totalRequired.intValue(),
+                    beforeQty,
+                    stock.getAvailableQuantity(),
+                    currentSysUser.id(),
+                    currentSysUser.username(),
+                    "销售发货扣减: " + order.getOrderNo()
+            );
+            stockRecordRepository.save(record);
+            SalesOrderStockDeduction deduction = SalesOrderStockDeduction.create(item, product, totalRequired.intValue(), batch);
+            deductionRepository.save(deduction);
+        }
+        em.flush();
+        em.refresh(order);
+        return SalesOrderResponse.from(order);
     }
 
-    private void shipItem(SalesOrder order, SalesOrderItem item) {
-        for (SalesGoodsComponent component : item.getSalesGoods().getComponents()) {
-            int remaining = requiredInventoryQuantity(item, component);
-            List<StockBatch> batches = stockBatchRepository.findAvailableByProductId(component.getProduct().getId());
-            if (batches.stream().mapToInt(StockBatch::getAvailableQuantity).sum() < remaining) {
-                throw BusinessException.badRequest("库存产品批次可用库存不足: " + component.getProduct().getName());
-            }
-            for (StockBatch batch : batches) {
-                if (remaining <= 0) {
-                    break;
-                }
-                int outboundQuantity = Math.min(remaining, batch.getAvailableQuantity());
-                inventoryService.outboundFromLocked(new StockOperationRequest(
-                        component.getProduct().getId(),
-                        null,
-                        StockRecordSubType.SALES,
-                        outboundQuantity,
-                        order.getId(),
-                        null,
-                        batch.getId(),
-                        order.getOrderNo(),
-                        null,
-                        null,
-                        "销售出库: %s / %s / %s".formatted(order.getOrderNo(), item.getGoodsName(), normalizeCustomerName(order))
-                ));
-                remaining -= outboundQuantity;
-            }
-        }
+    private SalesOrder findOrder(Long id) {
+        return orderRepository.findWithDetailsById(id)
+                .orElseThrow(() -> BusinessException.badRequest("销售订单不存在: " + id));
     }
 
     private void ensureOrderItemsLocked(SalesOrder order) {
+        var currentSysUser = SecurityUtils.requireCurrentSysUser();
         for (SalesOrderItem item : order.getItems()) {
-            for (SalesGoodsComponent component : item.getSalesGoods().getComponents()) {
-                int requiredQuantity = requiredInventoryQuantity(item, component);
-                Stock stock = stockRepository.findByProductIdForUpdate(component.getProduct().getId())
-                        .orElseThrow(() -> BusinessException.badRequest("库存产品不存在: " + component.getProduct().getName()));
-                if (stock.getLockedQuantity() >= requiredQuantity) {
-                    continue;
+            SalesSku sku = item.getSalesSku();
+            if (sku.getComponents().isEmpty()) {
+                throw BusinessException.badRequest("SKU未配置库存组成，无法锁定库存: " + sku.getCode());
+            }
+            for (SalesSkuComponent skuComponent : sku.getComponents()) {
+                Product product = skuComponent.getProduct();
+                BigDecimal quantityPerSku = skuComponent.getQuantity();
+                BigDecimal totalRequired = quantityPerSku.multiply(BigDecimal.valueOf(item.getQuantity()));
+                Stock stock = stockRepository.findByProductIdForUpdate(product.getId())
+                        .orElseThrow(() -> BusinessException.badRequest("库存产品没有库存记录: " + product.getName()));
+                if (stock.getAvailableQuantity() < totalRequired.intValue()) {
+                    throw BusinessException.badRequest(
+                            String.format("产品[%s]库存不足，需要%d，可用%d",
+                                    product.getName(), totalRequired.intValue(), stock.getAvailableQuantity()));
                 }
-                int needLock = requiredQuantity - stock.getLockedQuantity();
-                if (stock.getAvailableQuantity() < needLock) {
-                    throw BusinessException.badRequest("库存产品未锁定且可用库存不足，无法发货: " + component.getProduct().getName() + "，需补锁 " + needLock + "，当前可用 " + stock.getAvailableQuantity());
-                }
-                stock.lockQuantity(needLock);
+                int beforeQty = stock.getAvailableQuantity();
+                stock.lockQuantity(totalRequired.intValue());
                 stockRepository.save(stock);
+                StockRecord record = StockRecord.create(
+                        generateRecordNo(),
+                        product,
+                        StockRecordType.OUT,
+                        StockRecordSubType.SALES,
+                        -totalRequired.intValue(),
+                        beforeQty,
+                        stock.getAvailableQuantity(),
+                        currentSysUser.id(),
+                        currentSysUser.username(),
+                        "销售订单锁库: " + order.getOrderNo()
+                );
+                stockRecordRepository.save(record);
             }
         }
     }
 
-    private int requiredInventoryQuantity(SalesOrderItem item, SalesGoodsComponent component) {
-        BigDecimal base = component.getQuantityPerUnit().multiply(BigDecimal.valueOf(item.getQuantity()));
-        BigDecimal withLoss = base.multiply(BigDecimal.ONE.add(component.getLossRate()));
-        return withLoss.setScale(0, java.math.RoundingMode.CEILING).intValue();
-    }
-
-    private void ensurePending(SalesOrder order, String message) {
-        if (order.getStatus() != SalesOrderStatus.PENDING) {
-            throw BusinessException.badRequest(message);
+    private void unlockOrderItems(SalesOrder order) {
+        var currentSysUser = SecurityUtils.requireCurrentSysUser();
+        for (SalesOrderItem item : order.getItems()) {
+            SalesSku sku = item.getSalesSku();
+            for (SalesSkuComponent skuComponent : sku.getComponents()) {
+                Product product = skuComponent.getProduct();
+                BigDecimal quantityPerSku = skuComponent.getQuantity();
+                BigDecimal totalRequired = quantityPerSku.multiply(BigDecimal.valueOf(item.getQuantity()));
+                Stock stock = stockRepository.findByProductIdForUpdate(product.getId())
+                        .orElseThrow(() -> BusinessException.badRequest("库存产品没有库存记录: " + product.getName()));
+                int beforeQty = stock.getAvailableQuantity();
+                stock.unlockQuantity(totalRequired.intValue());
+                stockRepository.save(stock);
+                StockRecord record = StockRecord.create(
+                        generateRecordNo(),
+                        product,
+                        StockRecordType.ADJUST,
+                        StockRecordSubType.INVENTORY,
+                        totalRequired.intValue(),
+                        beforeQty,
+                        stock.getAvailableQuantity(),
+                        currentSysUser.id(),
+                        currentSysUser.username(),
+                        "销售订单解锁: " + order.getOrderNo()
+                );
+                stockRecordRepository.save(record);
+            }
         }
     }
 
-    private SalesOrderStatus parseStatus(String status) {
-        if (status == null || status.isBlank() || "all".equalsIgnoreCase(status)) {
-            return null;
-        }
-        try {
-            return SalesOrderStatus.valueOf(status.trim());
-        } catch (IllegalArgumentException ex) {
-            throw BusinessException.badRequest("不支持的销售单状态: " + status);
-        }
-    }
-
-    private SalesOrderResponse toResponse(SalesOrder order) {
-        return new SalesOrderResponse(
-                order.getId(),
-                order.getOrderNo(),
-                order.getChannel(),
-                order.getChannelConfig() == null ? null : order.getChannelConfig().getId(),
-                toChannelText(order),
-                order.getExternalOrderNo(),
-                order.getImportBatch() == null ? null : order.getImportBatch().getId(),
-                order.getSourceType() == null ? null : order.getSourceType().name(),
-                order.getSourceRemark(),
-                order.getCustomerName(),
-                order.getCustomerPhone(),
-                order.getCustomerAddress(),
-                order.getTotalAmount(),
-                order.getStatus(),
-                toStatusText(order.getStatus()),
-                order.getOrderDate(),
-                order.getShipDate(),
-                order.getCompleteDate(),
-                order.getOperatorName(),
-                order.getRemark(),
-                order.getCreatedAt(),
-                order.getUpdatedAt(),
-                order.getItems().stream().map(this::toItemResponse).toList()
-        );
-    }
-
-    private SalesOrderItemResponse toItemResponse(SalesOrderItem item) {
-        return new SalesOrderItemResponse(
-                item.getId(),
-                item.getSalesGoods().getId(),
-                item.getGoodsCode(),
-                item.getGoodsName(),
-                item.getGoodsSpecification(),
-                item.getGoodsUnit(),
-                item.getGoodsCategory(),
-                item.getExternalProductName(),
-                item.getExternalSpecName(),
-                item.getExternalQuantity(),
-                item.getMapping() == null ? null : item.getMapping().getId(),
-                item.getQuantity(),
-                item.getUnitPrice(),
-                item.getSubtotal()
-        );
-    }
-
-    private String toStatusText(SalesOrderStatus status) {
-        return switch (status) {
-            case PENDING -> "待发货";
-            case SHIPPED -> "已发货";
-            case COMPLETED -> "已完成";
-            case CANCELLED -> "已取消";
-        };
-    }
-
-    private String toChannelText(SalesOrder order) {
-        if (order.getChannelConfig() != null && order.getChannelConfig().getName() != null) {
-            return order.getChannelConfig().getName();
-        }
-        return switch (order.getChannel()) {
-            case DOUYIN -> "抖音";
-            case PINDUODUO -> "拼多多";
-            case OFFLINE, WECHAT_GROUP, CONTRACT -> "线下";
-        };
-    }
-
-    private SalesChannelConfig resolveChannelConfig(Long channelId, SalesChannel channel) {
-        if (channelId != null) {
-            return salesChannelConfigRepository.findById(channelId)
-                    .orElseThrow(() -> BusinessException.badRequest("销售渠道不存在: " + channelId));
-        }
-        return salesChannelConfigRepository.findByCode(channel.name()).orElse(null);
-    }
-
-    private String normalizeCustomerName(SalesOrder order) {
-        return order.getCustomerName() == null || order.getCustomerName().isBlank() ? "散客" : order.getCustomerName();
+    private String generateRecordNo() {
+        return "SR" + Instant.now().toString().replace("-", "").replace(":", "").replace("T", "").replace("Z", "").substring(0, 14) + String.format("%04d", ThreadLocalRandom.current().nextInt(1000, 10000));
     }
 
     private String normalizeOptional(String value) {
         return value == null || value.isBlank() ? null : value.trim();
-    }
-
-    private String generateOrderNo() {
-        return "SO%s%d".formatted(
-                LocalDateTime.now().format(ORDER_NO_FORMATTER),
-                ThreadLocalRandom.current().nextInt(1000, 10000)
-        );
     }
 }

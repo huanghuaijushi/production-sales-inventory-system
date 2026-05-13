@@ -3,7 +3,7 @@ import { request } from './http'
 export interface ProductCategory {
   id: number
   name: string
-  type: 'FINISHED_PRODUCT' | 'RAW_MATERIAL' | null
+  type: 'FINISHED_PRODUCT' | 'RAW_MATERIAL' | 'PACKAGING_MATERIAL' | 'SEMI_FINISHED_PRODUCT' | null
   typeText: string
   sortOrder: number
   enabled: boolean

@@ -1,19 +1,18 @@
 package com.hhjs.psi.sales.importing.controller;
 
-import com.hhjs.psi.common.dto.ApiResponse;
 import com.hhjs.psi.common.dto.PageResponse;
-import com.hhjs.psi.sales.importing.dto.ChannelProductMappingRequest;
-import com.hhjs.psi.sales.importing.dto.ChannelProductMappingResponse;
+import com.hhjs.psi.sales.importing.dto.ApplyMappingRequest;
 import com.hhjs.psi.sales.importing.dto.ExternalOrderEditRequest;
+import com.hhjs.psi.sales.importing.dto.ExternalOrderItemRawResponse;
+import com.hhjs.psi.sales.importing.dto.ExternalOrderRawResponse;
+import com.hhjs.psi.sales.importing.dto.ImportedOrderResponse;
+import com.hhjs.psi.sales.importing.dto.MatchRequest;
 import com.hhjs.psi.sales.importing.dto.OrderImportBatchResponse;
 import com.hhjs.psi.sales.importing.dto.PddExcelImportRequest;
-import com.hhjs.psi.sales.importing.dto.SalesChannelConfigRequest;
-import com.hhjs.psi.sales.importing.dto.SalesChannelConfigResponse;
 import com.hhjs.psi.sales.importing.dto.TextImportRequest;
-import com.hhjs.psi.sales.importing.service.ChannelProductMappingService;
 import com.hhjs.psi.sales.importing.service.OrderImportService;
-import com.hhjs.psi.sales.importing.service.SalesChannelConfigService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,86 +25,85 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/sales")
+@RequestMapping("/api/v1/sales/imports")
 public class SalesImportController {
 
-    private final SalesChannelConfigService channelService;
-    private final ChannelProductMappingService mappingService;
-    private final OrderImportService importService;
+    private final OrderImportService orderImportService;
 
-    public SalesImportController(SalesChannelConfigService channelService, ChannelProductMappingService mappingService, OrderImportService importService) {
-        this.channelService = channelService;
-        this.mappingService = mappingService;
-        this.importService = importService;
+    public SalesImportController(OrderImportService orderImportService) {
+        this.orderImportService = orderImportService;
     }
 
-    @GetMapping("/channels")
-    public ApiResponse<List<SalesChannelConfigResponse>> getChannels(@RequestParam(defaultValue = "false") boolean enabledOnly) {
-        return ApiResponse.ok(channelService.getChannels(enabledOnly));
+    @GetMapping
+    public PageResponse<OrderImportBatchResponse> getBatches(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Page<OrderImportBatchResponse> result = orderImportService.getBatches(page, size);
+        return PageResponse.from(result);
     }
 
-    @PostMapping("/channels")
-    public ApiResponse<SalesChannelConfigResponse> createChannel(@Valid @RequestBody SalesChannelConfigRequest request) {
-        return ApiResponse.ok(channelService.create(request));
+    @GetMapping("/{batchId}")
+    public OrderImportBatchResponse getBatch(@PathVariable Long batchId) {
+        return orderImportService.getBatch(batchId);
     }
 
-    @PutMapping("/channels/{id}")
-    public ApiResponse<SalesChannelConfigResponse> updateChannel(@PathVariable Long id, @Valid @RequestBody SalesChannelConfigRequest request) {
-        return ApiResponse.ok(channelService.update(id, request));
+    @GetMapping("/{batchId}/orders/{orderId}")
+    public ExternalOrderRawResponse getImportOrder(@PathVariable Long batchId, @PathVariable Long orderId) {
+        return orderImportService.getImportOrder(orderId);
     }
 
-    @GetMapping("/product-mappings")
-    public ApiResponse<List<ChannelProductMappingResponse>> getMappings(@RequestParam(required = false) Long channelId) {
-        return ApiResponse.ok(mappingService.getMappings(channelId));
+    @GetMapping("/{batchId}/unmapped")
+    public List<ExternalOrderItemRawResponse> getUnmappedItems(@PathVariable Long batchId) {
+        return orderImportService.getUnmappedItems(batchId);
     }
 
-    @PostMapping("/product-mappings")
-    public ApiResponse<ChannelProductMappingResponse> createMapping(@Valid @RequestBody ChannelProductMappingRequest request) {
-        return ApiResponse.ok(mappingService.create(request));
+    @GetMapping("/{batchId}/result")
+    public OrderImportBatchResponse getBatchResult(@PathVariable Long batchId) {
+        return orderImportService.getBatchResult(batchId);
     }
 
-    @PutMapping("/product-mappings/{id}")
-    public ApiResponse<ChannelProductMappingResponse> updateMapping(@PathVariable Long id, @Valid @RequestBody ChannelProductMappingRequest request) {
-        return ApiResponse.ok(mappingService.update(id, request));
+    @PostMapping("/{batchId}/apply-mapping")
+    public List<ExternalOrderItemRawResponse> applyMapping(@PathVariable Long batchId) {
+        return orderImportService.applyMapping(new ApplyMappingRequest(batchId));
     }
 
-    @GetMapping("/imports")
-    public ApiResponse<PageResponse<OrderImportBatchResponse>> getBatches(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
-        return ApiResponse.ok(PageResponse.from(importService.getBatches(page, size)));
+    @PostMapping("/{batchId}/match")
+    public ExternalOrderItemRawResponse manualMatch(@PathVariable Long batchId, @Valid @RequestBody MatchRequest request) {
+        return orderImportService.manualMatch(request);
     }
 
-    @GetMapping("/imports/{batchId}")
-    public ApiResponse<OrderImportBatchResponse> getBatch(@PathVariable Long batchId) {
-        return ApiResponse.ok(importService.getBatch(batchId));
+    @PostMapping("/{batchId}/confirm")
+    public ImportedOrderResponse confirmBatch(@PathVariable Long batchId) {
+        return orderImportService.confirmBatch(batchId);
     }
 
-    @PostMapping("/imports/text")
-    public ApiResponse<OrderImportBatchResponse> importText(@Valid @RequestBody TextImportRequest request) {
-        return ApiResponse.ok(importService.importText(request));
+    @PostMapping("/text")
+    public OrderImportBatchResponse importText(@Valid @RequestBody TextImportRequest request) {
+        return orderImportService.importText(request);
     }
 
-    @PostMapping("/imports/wechat-text")
-    public ApiResponse<OrderImportBatchResponse> importWechatText(@Valid @RequestBody TextImportRequest request) {
-        return ApiResponse.ok(importService.importText(request));
+    @PostMapping("/wechat-text")
+    public OrderImportBatchResponse importWechatText(@Valid @RequestBody TextImportRequest request) {
+        return orderImportService.importText(request);
     }
 
-    @PostMapping("/imports/pdd-excel")
-    public ApiResponse<OrderImportBatchResponse> importPddExcel(@Valid @RequestBody PddExcelImportRequest request) {
-        return ApiResponse.ok(importService.importPddExcelText(request));
+    @PostMapping("/pdd-excel")
+    public OrderImportBatchResponse importPddExcel(@Valid @RequestBody PddExcelImportRequest request) {
+        return orderImportService.importPddExcelText(request);
     }
 
-    @PostMapping("/imports/{batchId}/parse")
-    public ApiResponse<OrderImportBatchResponse> rematchBatch(@PathVariable Long batchId) {
-        return ApiResponse.ok(importService.rematchBatch(batchId));
+    @PostMapping("/{batchId}/parse")
+    public OrderImportBatchResponse rematch(@PathVariable Long batchId) {
+        return orderImportService.rematchBatch(batchId);
     }
 
-    @PutMapping("/imports/{batchId}/orders/{externalOrderId}")
-    public ApiResponse<OrderImportBatchResponse> updateExternalOrder(@PathVariable Long batchId, @PathVariable Long externalOrderId, @Valid @RequestBody ExternalOrderEditRequest request) {
-        return ApiResponse.ok(importService.updateExternalOrder(batchId, externalOrderId, request));
-    }
-
-    @PostMapping("/imports/{batchId}/confirm")
-    public ApiResponse<OrderImportBatchResponse> confirmBatch(@PathVariable Long batchId) {
-        return ApiResponse.ok(importService.confirmBatch(batchId));
+    @PutMapping("/{batchId}/orders/{externalOrderId}")
+    public OrderImportBatchResponse updateExternalOrder(
+            @PathVariable Long batchId,
+            @PathVariable Long externalOrderId,
+            @Valid @RequestBody ExternalOrderEditRequest request
+    ) {
+        return orderImportService.updateExternalOrder(batchId, externalOrderId, request);
     }
 }

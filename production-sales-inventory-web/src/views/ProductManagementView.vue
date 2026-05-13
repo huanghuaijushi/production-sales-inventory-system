@@ -57,8 +57,10 @@
             <span>类型</span>
             <select v-model="productTypeFilter">
               <option value="">全部</option>
-              <option value="FINISHED_PRODUCT">成品 / 半成品</option>
-              <option value="RAW_MATERIAL">原料 / 包装</option>
+              <option value="FINISHED_PRODUCT">成品</option>
+              <option value="SEMI_FINISHED_PRODUCT">半成品</option>
+              <option value="RAW_MATERIAL">原料</option>
+              <option value="PACKAGING_MATERIAL">包装物料</option>
             </select>
           </label>
           <label class="toolbar-field">
@@ -190,8 +192,10 @@
               <span>适用类型</span>
               <select v-model="categoryForm.type">
                 <option value="">通用</option>
-                <option value="FINISHED_PRODUCT">成品 / 半成品</option>
-                <option value="RAW_MATERIAL">原料 / 包装</option>
+                <option value="FINISHED_PRODUCT">成品</option>
+                <option value="SEMI_FINISHED_PRODUCT">半成品</option>
+                <option value="RAW_MATERIAL">原料</option>
+                <option value="PACKAGING_MATERIAL">包装物料</option>
               </select>
             </label>
             <label class="form-field">
@@ -257,8 +261,10 @@
                 <span>产品类型 *</span>
                 <select v-model="createForm.type" required>
                   <option value="">请选择产品类型</option>
-                  <option value="FINISHED_PRODUCT">成品 / 半成品</option>
-                  <option value="RAW_MATERIAL">原料 / 包装</option>
+                  <option value="FINISHED_PRODUCT">成品</option>
+                  <option value="SEMI_FINISHED_PRODUCT">半成品</option>
+                  <option value="RAW_MATERIAL">原料</option>
+                  <option value="PACKAGING_MATERIAL">包装物料</option>
                 </select>
               </label>
 
@@ -377,8 +383,10 @@
                 <span>产品类型 *</span>
                 <select v-model="editForm.type" required>
                   <option value="">请选择产品类型</option>
-                  <option value="FINISHED_PRODUCT">成品 / 半成品</option>
-                  <option value="RAW_MATERIAL">原料 / 包装</option>
+                  <option value="FINISHED_PRODUCT">成品</option>
+                  <option value="SEMI_FINISHED_PRODUCT">半成品</option>
+                  <option value="RAW_MATERIAL">原料</option>
+                  <option value="PACKAGING_MATERIAL">包装物料</option>
                 </select>
               </label>
 
@@ -851,7 +859,13 @@ function resetProductFilters() {
 }
 
 function productTypeLabel(type: Product['type']) {
-  return type === 'RAW_MATERIAL' ? '原料 / 包装' : '成品 / 半成品'
+  switch (type) {
+    case 'FINISHED_PRODUCT': return '成品'
+    case 'SEMI_FINISHED_PRODUCT': return '半成品'
+    case 'RAW_MATERIAL': return '原料'
+    case 'PACKAGING_MATERIAL': return '包装物料'
+    default: return type
+  }
 }
 
 function routeSearchKeyword() {

@@ -90,8 +90,10 @@
               <span>适用类型</span>
               <select v-model="form.type">
                 <option value="">通用</option>
-                <option value="FINISHED_PRODUCT">成品 / 半成品</option>
-                <option value="RAW_MATERIAL">原料 / 包装</option>
+                <option value="FINISHED_PRODUCT">成品</option>
+                <option value="SEMI_FINISHED_PRODUCT">半成品</option>
+                <option value="RAW_MATERIAL">原料</option>
+                <option value="PACKAGING_MATERIAL">包装物料</option>
               </select>
             </label>
             <label class="form-field">
@@ -133,7 +135,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import { productCategoryApi, type ProductCategory } from '@/api/productCategory'
 
-type CategoryGroupKey = 'FINISHED_PRODUCT' | 'RAW_MATERIAL' | 'COMMON'
+type CategoryGroupKey = 'FINISHED_PRODUCT' | 'SEMI_FINISHED_PRODUCT' | 'RAW_MATERIAL' | 'PACKAGING_MATERIAL' | 'COMMON'
 
 const categories = ref<ProductCategory[]>([])
 const loading = ref(false)
@@ -143,7 +145,9 @@ const searchKeyword = ref('')
 const selectedNode = ref('all')
 const openGroups = reactive<Record<CategoryGroupKey, boolean>>({
   FINISHED_PRODUCT: true,
+  SEMI_FINISHED_PRODUCT: true,
   RAW_MATERIAL: true,
+  PACKAGING_MATERIAL: true,
   COMMON: true
 })
 const message = ref('')
@@ -171,20 +175,30 @@ const categoryGroups = computed(() => {
   return [
     {
       key: 'FINISHED_PRODUCT' as const,
-      label: '成品 / 半成品',
+      label: '成品',
       items: visibleCategories.value.filter(category => getCategoryGroupKey(category) === 'FINISHED_PRODUCT')
     },
     {
+      key: 'SEMI_FINISHED_PRODUCT' as const,
+      label: '半成品',
+      items: visibleCategories.value.filter(category => getCategoryGroupKey(category) === 'SEMI_FINISHED_PRODUCT')
+    },
+    {
       key: 'RAW_MATERIAL' as const,
-      label: '原料 / 包装',
+      label: '原料',
       items: visibleCategories.value.filter(category => getCategoryGroupKey(category) === 'RAW_MATERIAL')
     },
     {
+      key: 'PACKAGING_MATERIAL' as const,
+      label: '包装物料',
+      items: visibleCategories.value.filter(category => getCategoryGroupKey(category) === 'PACKAGING_MATERIAL')
+    },
+    {
       key: 'COMMON' as const,
-      label: '通用分类',
+      label: '通用',
       items: visibleCategories.value.filter(category => getCategoryGroupKey(category) === 'COMMON')
-    }
-  ].filter(group => group.items.length > 0)
+    },
+  ]
 })
 
 async function loadCategories() {
@@ -244,8 +258,14 @@ function getCategoryGroupKey(category: ProductCategory): CategoryGroupKey {
   if (category.type === 'FINISHED_PRODUCT') {
     return 'FINISHED_PRODUCT'
   }
+  if (category.type === 'SEMI_FINISHED_PRODUCT') {
+    return 'SEMI_FINISHED_PRODUCT'
+  }
   if (category.type === 'RAW_MATERIAL') {
     return 'RAW_MATERIAL'
+  }
+  if (category.type === 'PACKAGING_MATERIAL') {
+    return 'PACKAGING_MATERIAL'
   }
   return 'COMMON'
 }

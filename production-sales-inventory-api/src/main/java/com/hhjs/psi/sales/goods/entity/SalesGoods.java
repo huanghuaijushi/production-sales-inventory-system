@@ -43,6 +43,9 @@ public class SalesGoods {
     @Column(name = "default_price", precision = 10, scale = 2)
     private BigDecimal defaultPrice;
 
+    @Column(name = "is_base", nullable = false)
+    private Boolean isBase = false;
+
     @Column(nullable = false)
     private Boolean enabled = true;
 
@@ -62,6 +65,9 @@ public class SalesGoods {
 
     @OneToMany(mappedBy = "salesGoods", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<SalesGoodsChannelPrice> channelPrices = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "salesGoods", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<SalesSku> skus = new LinkedHashSet<>();
 
     protected SalesGoods() {
     }
@@ -113,10 +119,12 @@ public class SalesGoods {
     public String getSpecification() { return specification; }
     public String getUnit() { return unit; }
     public BigDecimal getDefaultPrice() { return defaultPrice; }
+    public Boolean getIsBase() { return isBase; }
     public Boolean getEnabled() { return enabled; }
     public String getRemark() { return remark; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public Set<SalesGoodsComponent> getComponents() { return components; }
     public Set<SalesGoodsChannelPrice> getChannelPrices() { return channelPrices; }
+    public Set<SalesSku> getSkus() { return skus; }
 }

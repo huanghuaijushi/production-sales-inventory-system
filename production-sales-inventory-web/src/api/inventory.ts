@@ -5,7 +5,7 @@ export interface StockItem {
   productId: number
   productCode: string
   productName: string
-  productType: 'FINISHED_PRODUCT' | 'RAW_MATERIAL'
+  productType: 'FINISHED_PRODUCT' | 'RAW_MATERIAL' | 'PACKAGING_MATERIAL' | 'SEMI_FINISHED_PRODUCT'
   category: string
   specification: string
   unit: string

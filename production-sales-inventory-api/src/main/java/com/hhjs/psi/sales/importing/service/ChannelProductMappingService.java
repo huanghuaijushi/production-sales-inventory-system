@@ -1,6 +1,8 @@
 package com.hhjs.psi.sales.importing.service;
 
 import com.hhjs.psi.common.exception.BusinessException;
+import com.hhjs.psi.sales.goods.entity.SalesSku;
+import com.hhjs.psi.sales.goods.repository.SalesSkuRepository;
 import com.hhjs.psi.sales.importing.dto.ChannelProductMappingRequest;
 import com.hhjs.psi.sales.importing.dto.ChannelProductMappingResponse;
 import com.hhjs.psi.sales.importing.entity.ChannelProductMapping;
@@ -8,12 +10,9 @@ import com.hhjs.psi.sales.importing.entity.ChannelProductMatchType;
 import com.hhjs.psi.sales.importing.entity.SalesChannelConfig;
 import com.hhjs.psi.sales.importing.repository.ChannelProductMappingRepository;
 import com.hhjs.psi.sales.importing.repository.SalesChannelConfigRepository;
-import com.hhjs.psi.sales.goods.entity.SalesGoods;
-import com.hhjs.psi.sales.goods.repository.SalesGoodsRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -21,54 +20,54 @@ public class ChannelProductMappingService {
 
     private final ChannelProductMappingRepository mappingRepository;
     private final SalesChannelConfigRepository channelRepository;
-    private final SalesGoodsRepository salesGoodsRepository;
+    private final SalesSkuRepository salesSkuRepository;
 
-    public ChannelProductMappingService(ChannelProductMappingRepository mappingRepository, SalesChannelConfigRepository channelRepository, SalesGoodsRepository salesGoodsRepository) {
+    public ChannelProductMappingService(ChannelProductMappingRepository mappingRepository, SalesChannelConfigRepository channelRepository, SalesSkuRepository salesSkuRepository) {
         this.mappingRepository = mappingRepository;
         this.channelRepository = channelRepository;
-        this.salesGoodsRepository = salesGoodsRepository;
+        this.salesSkuRepository = salesSkuRepository;
     }
 
     @Transactional(readOnly = true)
     public List<ChannelProductMappingResponse> getMappings(Long channelId) {
-        if (channelId == null) {
-            return mappingRepository.findAll().stream().map(ChannelProductMappingResponse::from).toList();
-        }
-        return mappingRepository.findByChannelIdOrderByPriorityAscIdAsc(channelId).stream().map(ChannelProductMappingResponse::from).toList();
+        List<ChannelProductMapping> mappings = channelId == null
+                ? mappingRepository.findAll()
+                : mappingRepository.findByChannelIdAndEnabledTrueOrderByPriorityAscIdAsc(channelId);
+        return mappings.stream().map(ChannelProductMappingResponse::from).toList();
     }
 
     @Transactional
     public ChannelProductMappingResponse create(ChannelProductMappingRequest request) {
-        SalesChannelConfig channel = findChannel(request.channelId());
-        SalesGoods salesGoods = findSalesGoods(request.salesGoodsId());
+        SalesChannelConfig channel = channelRepository.findById(request.channelId())
+                .orElseThrow(() -> BusinessException.badRequest("销售渠道不存在: " + request.channelId()));
+        SalesSku salesSku = salesSkuRepository.findById(request.salesSkuId())
+                .orElseThrow(() -> BusinessException.badRequest("销售SKU不存在: " + request.salesSkuId()));
         ChannelProductMapping mapping = ChannelProductMapping.create(
                 channel,
-                normalizeRequired(request.externalProductName()),
+                normalizeRequired(request.externalProductName(), "外部商品名称不能为空"),
                 normalizeOptional(request.externalSpecName()),
                 normalizeOptional(request.externalSkuCode()),
-                salesGoods,
-                normalizeMultiplier(request.quantityMultiplier()),
-                normalizeDefaultUnitPrice(request.defaultUnitPrice()),
+                salesSku,
                 parseMatchType(request.matchType()),
                 request.priority(),
                 normalizeOptional(request.remark())
         );
-        mapping.update(mapping.getExternalProductName(), mapping.getExternalSpecName(), mapping.getExternalSkuCode(), salesGoods, mapping.getQuantityMultiplier(), mapping.getDefaultUnitPrice(), mapping.getMatchType(), request.enabled(), mapping.getPriority(), mapping.getRemark());
         return ChannelProductMappingResponse.from(mappingRepository.save(mapping));
     }
 
     @Transactional
     public ChannelProductMappingResponse update(Long id, ChannelProductMappingRequest request) {
         ChannelProductMapping mapping = mappingRepository.findById(id)
-                .orElseThrow(() -> BusinessException.badRequest("商品映射不存在: " + id));
-        SalesGoods salesGoods = findSalesGoods(request.salesGoodsId());
+                .orElseThrow(() -> BusinessException.badRequest("商品映射规则不存在: " + id));
+        SalesChannelConfig channel = channelRepository.findById(request.channelId())
+                .orElseThrow(() -> BusinessException.badRequest("销售渠道不存在: " + request.channelId()));
+        SalesSku salesSku = salesSkuRepository.findById(request.salesSkuId())
+                .orElseThrow(() -> BusinessException.badRequest("销售SKU不存在: " + request.salesSkuId()));
         mapping.update(
-                normalizeRequired(request.externalProductName()),
+                normalizeRequired(request.externalProductName(), "外部商品名称不能为空"),
                 normalizeOptional(request.externalSpecName()),
                 normalizeOptional(request.externalSkuCode()),
-                salesGoods,
-                normalizeMultiplier(request.quantityMultiplier()),
-                normalizeDefaultUnitPrice(request.defaultUnitPrice()),
+                salesSku,
                 parseMatchType(request.matchType()),
                 request.enabled(),
                 request.priority(),
@@ -77,45 +76,23 @@ public class ChannelProductMappingService {
         return ChannelProductMappingResponse.from(mappingRepository.save(mapping));
     }
 
-    private SalesChannelConfig findChannel(Long id) {
-        return channelRepository.findById(id).orElseThrow(() -> BusinessException.badRequest("销售渠道不存在: " + id));
-    }
-
-    private SalesGoods findSalesGoods(Long id) {
-        SalesGoods salesGoods = salesGoodsRepository.findWithDetailsById(id).orElseThrow(() -> BusinessException.badRequest("销售商品不存在: " + id));
-        if (!Boolean.TRUE.equals(salesGoods.getEnabled())) {
-            throw BusinessException.badRequest("销售商品已停用: " + salesGoods.getName());
+    private ChannelProductMatchType parseMatchType(String matchType) {
+        if (matchType == null || matchType.isBlank()) {
+            throw BusinessException.badRequest("匹配类型不能为空");
         }
-        return salesGoods;
-    }
-
-    private ChannelProductMatchType parseMatchType(String value) {
         try {
-            return ChannelProductMatchType.valueOf(normalizeRequired(value).toUpperCase());
-        } catch (IllegalArgumentException ex) {
-            throw BusinessException.badRequest("不支持的匹配类型: " + value);
+            return ChannelProductMatchType.valueOf(matchType.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw BusinessException.badRequest("无效的匹配类型: " + matchType + "，有效值为: EXACT, CONTAINS");
         }
     }
 
-    private BigDecimal normalizeMultiplier(BigDecimal value) {
-        if (value == null || value.compareTo(BigDecimal.ZERO) <= 0) {
-            throw BusinessException.badRequest("数量换算倍数必须大于0");
+    private String normalizeRequired(String value, String message) {
+        String normalized = normalizeOptional(value);
+        if (normalized == null) {
+            throw BusinessException.badRequest(message);
         }
-        return value;
-    }
-
-    private BigDecimal normalizeDefaultUnitPrice(BigDecimal value) {
-        if (value != null && value.compareTo(BigDecimal.ZERO) < 0) {
-            throw BusinessException.badRequest("默认成交价不能小于0");
-        }
-        return value;
-    }
-
-    private String normalizeRequired(String value) {
-        if (value == null || value.isBlank()) {
-            throw BusinessException.badRequest("必填字段不能为空");
-        }
-        return value.trim();
+        return normalized;
     }
 
     private String normalizeOptional(String value) {
