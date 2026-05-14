@@ -17,6 +17,21 @@ export interface RequestOptions {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 const API_PREFIX = '/api/v1'
+const REQUEST_TIMEOUT_MS = 15000
+
+export class AuthExpiredError extends Error {
+  constructor(message = '登录已过期，请重新登录') {
+    super(message)
+    this.name = 'AuthExpiredError'
+  }
+}
+
+export class NetworkError extends Error {
+  constructor(message = '网络请求失败，请检查后端服务') {
+    super(message)
+    this.name = 'NetworkError'
+  }
+}
 
 function buildUrl(url: string) {
   if (/^https?:\/\//i.test(url)) {
@@ -54,6 +69,7 @@ export function request<T>(url: string, options: RequestOptions = {}): Promise<T
       url: buildUrl(url),
       method,
       data,
+      timeout: REQUEST_TIMEOUT_MS,
       header: {
         'Content-Type': 'application/json',
         ...getAuthorizationHeader(),
@@ -62,13 +78,13 @@ export function request<T>(url: string, options: RequestOptions = {}): Promise<T
       success: (response) => {
         const body = response.data as ApiResponse<T> | undefined
 
-        if (response.statusCode === 401) {
-          reject(new Error('登录已过期，请重新登录'))
+        if (response.statusCode === 401 || response.statusCode === 403) {
+          reject(new AuthExpiredError())
           return
         }
 
         if (!body) {
-          reject(new Error('服务器响应为空'))
+          reject(new NetworkError('服务器响应为空'))
           return
         }
 
@@ -80,7 +96,7 @@ export function request<T>(url: string, options: RequestOptions = {}): Promise<T
         resolve(body.data)
       },
       fail: (error) => {
-        reject(new Error(error.errMsg || '网络请求失败'))
+        reject(new NetworkError(error.errMsg || '网络请求失败'))
       },
       complete: () => {
         if (showLoading) {

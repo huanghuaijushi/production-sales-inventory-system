@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { getAuthStatus, login as loginApi, logout as logoutApi, type LoginRequest, type SysUserProfile } from '@/api/auth'
+import { AuthExpiredError } from '@/api/http'
 import { getStorage, removeStorage, setStorage, TOKEN_STORAGE_KEY, TOKEN_TYPE_STORAGE_KEY, USER_STORAGE_KEY } from '@/utils/storage'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -57,10 +58,18 @@ export const useAuthStore = defineStore('auth', () => {
       clearAuth()
       initialized.value = true
       return false
-    } catch {
-      clearAuth()
+    } catch (error) {
       initialized.value = true
-      return false
+
+      if (error instanceof AuthExpiredError) {
+        clearAuth()
+        return false
+      }
+
+      // Network/timeout — keep cached session, let subsequent requests trigger
+      // a real 401 if the token is actually invalid. Do not log the user out
+      // for transient backend hiccups.
+      return Boolean(sysUser.value)
     }
   }
 

@@ -779,7 +779,7 @@ ALTER TABLE `sales_order_item`
 
 CREATE TABLE IF NOT EXISTS `order_import_batch` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `batch_no` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '导入批次号',
+  `import_no` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '导入单号',
   `channel_id` bigint NOT NULL COMMENT '销售渠道ID',
   `source_type` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '来源类型',
   `file_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '导入文件名',
@@ -795,7 +795,7 @@ CREATE TABLE IF NOT EXISTS `order_import_batch` (
   `created_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   `updated_at` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_order_import_batch_no` (`batch_no`),
+  UNIQUE KEY `uk_order_import_no` (`import_no`),
   KEY `idx_order_import_batch_channel` (`channel_id`),
   KEY `idx_order_import_batch_status` (`status`),
   KEY `idx_order_import_batch_created_at` (`created_at`),

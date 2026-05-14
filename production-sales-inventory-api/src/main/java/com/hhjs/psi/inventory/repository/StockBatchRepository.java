@@ -2,10 +2,13 @@ package com.hhjs.psi.inventory.repository;
 
 import com.hhjs.psi.inventory.entity.StockBatch;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
@@ -23,6 +26,24 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Long> {
             ORDER BY CASE WHEN sb.productionDate IS NULL THEN 1 ELSE 0 END, sb.productionDate ASC, sb.id ASC
             """)
     List<StockBatch> findAvailableByProductId(Long productId);
+
+    @Query(value = """
+            SELECT sb FROM StockBatch sb
+            JOIN FETCH sb.product
+            WHERE (:availableOnly = false OR sb.availableQuantity > 0)
+              AND (:expiringBefore IS NULL OR (sb.expiryDate IS NOT NULL AND sb.expiryDate <= :expiringBefore))
+            ORDER BY CASE WHEN sb.expiryDate IS NULL THEN 1 ELSE 0 END, sb.expiryDate ASC, sb.id ASC
+            """,
+            countQuery = """
+            SELECT COUNT(sb) FROM StockBatch sb
+            WHERE (:availableOnly = false OR sb.availableQuantity > 0)
+              AND (:expiringBefore IS NULL OR (sb.expiryDate IS NOT NULL AND sb.expiryDate <= :expiringBefore))
+            """)
+    Page<StockBatch> findAvailableBatchesByExpiry(
+            @Param("availableOnly") boolean availableOnly,
+            @Param("expiringBefore") LocalDate expiringBefore,
+            Pageable pageable
+    );
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT sb FROM StockBatch sb JOIN FETCH sb.product WHERE sb.id = :id")

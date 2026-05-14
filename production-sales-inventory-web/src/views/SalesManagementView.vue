@@ -154,7 +154,7 @@
           <div class="batch-list">
             <button v-for="batch in importBatches" :key="batch.id" type="button" class="batch-card" :class="{ active: selectedBatch?.id === batch.id }" @click="selectBatch(batch.id)">
               <div>
-                <strong>{{ batch.batchNo }}</strong>
+                <strong>{{ batch.importNo }}</strong>
                 <span>{{ batch.channelName }} · {{ sourceTypeText(batch.sourceType) }}</span>
               </div>
               <div class="batch-stats">
@@ -172,7 +172,7 @@
       <section v-if="selectedBatch" class="card-section">
         <div class="list-header">
           <div>
-            <h2>导入预览：{{ selectedBatch.batchNo }} <span class="match-progress">已匹配 {{ importPreviewStats.matched }} / {{ importPreviewStats.total }}</span></h2>
+            <h2>导入预览：{{ selectedBatch.importNo }} <span class="match-progress">已匹配 {{ importPreviewStats.matched }} / {{ importPreviewStats.total }}</span></h2>
             <p>未匹配商品会标红，点击「快速匹配」创建映射，支持一键新建销售商品。已匹配的商品可点击「更改」修正。</p>
           </div>
           <div class="filter-actions">

@@ -1,16 +1,49 @@
 {
-	"name": "产销存移动端",
+	"name": "雯慧斋掌柜",
 	"appid": "__UNI__B05BB5F",
-	"description": "产销存系统移动端一期",
+	"description": "雯慧斋掌柜 · 产销存移动端",
 	"versionName": "0.1.0",
 	"versionCode": "100",
 	"transformPx": false,
 	"app-plus": {
 		"usingComponents": true,
 		"nvueStyleCompiler": "uni-app",
-		"compilerVersion": 3
+		"compilerVersion": 3,
+		"splashscreen": {
+			"alwaysShowBeforeRender": true,
+			"waiting": true,
+			"autoclose": true,
+			"delay": 0
+		},
+		"statusbar": {
+			"immersed": "supportedDevice",
+			"style": "dark",
+			"background": "#ffffff"
+		},
+		"modules": {},
+		"distribute": {
+			"android": {
+				"minSdkVersion": 21,
+				"targetSdkVersion": 33,
+				"abiFilters": ["armeabi-v7a", "arm64-v8a"],
+				"permissions": [
+					"<uses-permission android:name=\"android.permission.INTERNET\"/>",
+					"<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
+					"<uses-permission android:name=\"android.permission.ACCESS_WIFI_STATE\"/>",
+					"<uses-permission android:name=\"android.permission.VIBRATE\"/>",
+					"<uses-permission android:name=\"android.permission.WAKE_LOCK\"/>",
+					"<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>",
+					"<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>"
+				]
+			},
+			"ios": {},
+			"sdkConfigs": {}
+		},
+		"compatible": {
+			"ignoreVersion": true
+		}
 	},
 	"h5": {
-		"title": "产销存移动端"
+		"title": "雯慧斋掌柜"
 	}
 }

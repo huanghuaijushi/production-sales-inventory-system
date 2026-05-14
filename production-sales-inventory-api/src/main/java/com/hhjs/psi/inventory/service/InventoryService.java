@@ -8,9 +8,11 @@ import com.hhjs.psi.inventory.dto.DashboardMetricItemResponse;
 import com.hhjs.psi.inventory.dto.DashboardRankingItemResponse;
 import com.hhjs.psi.inventory.dto.DashboardSummaryItemResponse;
 import com.hhjs.psi.inventory.dto.DashboardWarningItemResponse;
+import com.hhjs.psi.inventory.dto.ExpiringBatchItem;
 import com.hhjs.psi.inventory.dto.InventoryDistributionItemResponse;
 import com.hhjs.psi.inventory.dto.InventoryDashboardResponse;
 import com.hhjs.psi.inventory.dto.InventoryValueTrendItemResponse;
+import com.hhjs.psi.inventory.dto.MobileHomeResponse;
 import com.hhjs.psi.inventory.dto.ProfitOverviewResponse;
 import com.hhjs.psi.inventory.dto.StockCheckOrderItemResponse;
 import com.hhjs.psi.inventory.dto.StockCheckOrderResponse;
@@ -138,6 +140,70 @@ public class InventoryService {
                 snapshot.rawSummaryCards,
                 snapshot.finishedSummaryCards,
                 snapshot.profitOverview
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public MobileHomeResponse getMobileHome() {
+        List<Stock> allStocks = stockRepository.findAllWithProduct();
+
+        int totalProducts = allStocks.size();
+        int lowStockCount = (int) allStocks.stream()
+                .filter(stock -> stock.isLowStock() && stock.getQuantity() > 0)
+                .count();
+        int outOfStockCount = (int) allStocks.stream()
+                .filter(stock -> stock.getQuantity() == 0)
+                .count();
+
+        List<StockItemResponse> lowStockItems = allStocks.stream()
+                .filter(Stock::isLowStock)
+                .sorted(Comparator.comparing(Stock::getQuantity))
+                .limit(5)
+                .map(this::toStockItemResponse)
+                .collect(Collectors.toList());
+
+        List<Stock> rawStocks = allStocks.stream()
+                .filter(stock -> stock.getProduct().getType().isMaterial())
+                .toList();
+        List<DashboardWarningItemResponse> rawMaterialWarnings = buildRawMaterialWarnings(rawStocks).stream()
+                .limit(3)
+                .collect(Collectors.toList());
+
+        List<ExpiringBatchItem> expiringBatches = stockBatchRepository
+                .findAvailableBatchesByExpiry(true, LocalDate.now().plusDays(7), PageRequest.of(0, 5))
+                .getContent()
+                .stream()
+                .map(this::toExpiringBatchItem)
+                .collect(Collectors.toList());
+
+        TodayBusinessOverviewResponse todayOverview = getTodayBusinessOverview();
+
+        return new MobileHomeResponse(
+                todayOverview,
+                totalProducts,
+                lowStockCount,
+                outOfStockCount,
+                lowStockItems,
+                rawMaterialWarnings,
+                expiringBatches
+        );
+    }
+
+    private ExpiringBatchItem toExpiringBatchItem(StockBatch batch) {
+        LocalDate expiry = batch.getExpiryDate();
+        Integer daysToExpire = null;
+        if (expiry != null) {
+            daysToExpire = (int) java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), expiry);
+        }
+        return new ExpiringBatchItem(
+                batch.getId(),
+                batch.getProduct().getId(),
+                batch.getProduct().getName(),
+                batch.getBatchNo(),
+                expiry,
+                daysToExpire,
+                batch.getAvailableQuantity(),
+                batch.getProduct().getUnit()
         );
     }
 
@@ -768,6 +834,16 @@ public class InventoryService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public Page<StockBatchResponse> getAvailableBatches(int page, int size, Integer expiringWithinDays, boolean availableOnly) {
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 200));
+        LocalDate expiringBefore = expiringWithinDays != null && expiringWithinDays >= 0
+                ? LocalDate.now().plusDays(expiringWithinDays)
+                : null;
+        return stockBatchRepository.findAvailableBatchesByExpiry(availableOnly, expiringBefore, pageable)
+                .map(this::toStockBatchResponse);
+    }
+
     @Transactional
     public int backfillInboundBatches() {
         int createdCount = stockBatchRepository.backfillBatchesForInboundRecords();
@@ -1180,6 +1256,7 @@ public class InventoryService {
                 stock.getAvailableQuantity(),
                 product.getAlertQuantity(),
                 product.getCostPrice(),
+                product.getShelfLifeDays(),
                 stock.isLowStock()
         );
     }

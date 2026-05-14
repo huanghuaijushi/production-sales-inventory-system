@@ -5,8 +5,9 @@
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
+-- 默认 admin（密码哈希为本地开发环境的实际值；ON DUPLICATE 不会重置已存在用户的密码）
 INSERT INTO sys_user (id, username, password_hash, nickname, role, status)
-VALUES (1, 'admin', '$2a$10$8FqKkXoZ9Y1xZr9DEMOHASHFORLOCALONLY', '系统管理员', 'ADMIN', 'ACTIVE')
+VALUES (1, 'admin', '$2y$10$E7UdBJXyP4cqkPOsCBvxm.YuFhlyUlJXBOMHIZsIUgy3iAiBmOZFa', '系统管理员', 'ADMIN', 'ACTIVE')
 ON DUPLICATE KEY UPDATE nickname = VALUES(nickname), status = VALUES(status);
 
 INSERT INTO product_category (name, type, sort_order, enabled, remark)
@@ -99,9 +100,10 @@ ON DUPLICATE KEY UPDATE
   locked_quantity = VALUES(locked_quantity),
   available_quantity = VALUES(available_quantity);
 
+-- 库存批次号格式：{productCode}-{yyyyMMdd}-{3位随机}，与 InventoryService.normalizeBatchNo 对齐
 INSERT INTO stock_batch (product_id, batch_no, production_date, expiry_date, quantity, available_quantity, unit_cost, source_type, source_order_no, remark)
 SELECT id,
-       CONCAT(code, '-20260501'),
+       CONCAT(code, '-20260501-001'),
        DATE('2026-05-01'),
        CASE WHEN shelf_life_days IS NULL THEN NULL ELSE DATE_ADD(DATE('2026-05-01'), INTERVAL shelf_life_days DAY) END,
        CASE code
@@ -140,7 +142,7 @@ SELECT id,
        END,
        cost_price,
        CASE WHEN type = 'FINISHED_PRODUCT' THEN 'PRODUCTION_ORDER' ELSE 'PURCHASE_ORDER' END,
-       'DEMO-SEED-20260501',
+       NULL,
        '演示初始化批次'
 FROM product
 WHERE code IN (
@@ -149,11 +151,12 @@ WHERE code IN (
   'RM-COTTON-THREAD','PK-GIFT-6','PK-GIFT-10','PK-ICE-BAG'
 );
 
+-- 库存流水单号格式：IN/OUT/ADJ + yyyyMMddHHmmssSSS + 4 位序号
 INSERT INTO stock_record (
   record_no, product_id, type, sub_type, quantity, cost_unit_price, cost_amount, before_quantity, after_quantity,
   batch_id, batch_no, production_date, expiry_date, operator_id, operator_name, remark
 )
-SELECT CONCAT('DEMO-IN-', p.code),
+SELECT CONCAT('IN2026050108000000', LPAD(p.id, 4, '0')),
        p.id,
        'IN',
        CASE WHEN p.type = 'FINISHED_PRODUCT' THEN 'PRODUCTION' ELSE 'PURCHASE' END,
@@ -170,7 +173,7 @@ SELECT CONCAT('DEMO-IN-', p.code),
        'admin',
        '演示库存初始化'
 FROM product p
-JOIN stock_batch sb ON sb.product_id = p.id AND sb.batch_no = CONCAT(p.code, '-20260501')
+JOIN stock_batch sb ON sb.product_id = p.id AND sb.batch_no = CONCAT(p.code, '-20260501-001')
 WHERE p.code IN (
   'FP-ZONG-DHXR-188','FP-ZONG-HSLXR-188','FP-ZONG-SJCPDS-160','RM-RICE-NM-25KG','RM-PORK-WH-1KG',
   'RM-EGG-YOLK-20G','RM-TRUFFLE-100G','RM-DOUSHA-5KG','RM-CRYSTAL-POWDER','RM-ZONG-LEAF',
@@ -224,9 +227,10 @@ INSERT INTO production_order (
 SELECT x.order_no, x.batch_no, p.id, x.planned_quantity, x.completed_quantity, x.inbound_quantity, x.loss_quantity,
        x.current_step, x.status, x.planned_date, x.started_at, x.completed_at, 1, 'admin', x.remark
 FROM (
-  SELECT 'PO-DEMO-DHXR-20260501' order_no, 'FP-ZONG-DHXR-188-20260501' batch_no, 'FP-ZONG-DHXR-188' product_code, 600 planned_quantity, 540 completed_quantity, 520 inbound_quantity, 20 loss_quantity, 'BOXING' current_step, 'COMPLETED' status, DATE('2026-05-01') planned_date, TIMESTAMP('2026-05-01 08:30:00') started_at, TIMESTAMP('2026-05-01 16:20:00') completed_at, '演示生产批次：蛋黄鲜肉粽' remark UNION ALL
-  SELECT 'PO-DEMO-HSLXR-20260502', 'FP-ZONG-HSLXR-188-20260501', 'FP-ZONG-HSLXR-188', 300, 270, 260, 10, 'BOXING', 'COMPLETED', DATE('2026-05-02'), TIMESTAMP('2026-05-02 08:40:00'), TIMESTAMP('2026-05-02 15:50:00'), '演示生产批次：黑松露鲜肉粽' UNION ALL
-  SELECT 'PO-DEMO-SJCPDS-20260503', 'FP-ZONG-SJCPDS-160-20260501', 'FP-ZONG-SJCPDS-160', 420, 390, 380, 10, 'BOXING', 'COMPLETED', DATE('2026-05-03'), TIMESTAMP('2026-05-03 08:20:00'), TIMESTAMP('2026-05-03 16:10:00'), '演示生产批次：水晶陈皮豆沙粽'
+  -- 生产订单号格式：MO + yyyyMMddHHmmssSSS + 4 位随机
+  SELECT 'MO20260501083000000001' order_no, 'FP-ZONG-DHXR-188-20260501-001' batch_no, 'FP-ZONG-DHXR-188' product_code, 600 planned_quantity, 540 completed_quantity, 520 inbound_quantity, 20 loss_quantity, 'BOXING' current_step, 'COMPLETED' status, DATE('2026-05-01') planned_date, TIMESTAMP('2026-05-01 08:30:00') started_at, TIMESTAMP('2026-05-01 16:20:00') completed_at, '演示生产批次：蛋黄鲜肉粽' remark UNION ALL
+  SELECT 'MO20260502084000000002', 'FP-ZONG-HSLXR-188-20260501-001', 'FP-ZONG-HSLXR-188', 300, 270, 260, 10, 'BOXING', 'COMPLETED', DATE('2026-05-02'), TIMESTAMP('2026-05-02 08:40:00'), TIMESTAMP('2026-05-02 15:50:00'), '演示生产批次：黑松露鲜肉粽' UNION ALL
+  SELECT 'MO20260503082000000003', 'FP-ZONG-SJCPDS-160-20260501-001', 'FP-ZONG-SJCPDS-160', 420, 390, 380, 10, 'BOXING', 'COMPLETED', DATE('2026-05-03'), TIMESTAMP('2026-05-03 08:20:00'), TIMESTAMP('2026-05-03 16:10:00'), '演示生产批次：水晶陈皮豆沙粽'
 ) x
 JOIN product p ON p.code = x.product_code
 ON DUPLICATE KEY UPDATE
@@ -243,7 +247,7 @@ INSERT INTO production_order_step (
 SELECT po.id, prs.step_code, prs.step_name, prs.sort_order, prs.allow_loss, po.completed_quantity, 0
 FROM production_order po
 JOIN production_route_step prs ON prs.product_id = po.product_id
-WHERE po.order_no IN ('PO-DEMO-DHXR-20260501','PO-DEMO-HSLXR-20260502','PO-DEMO-SJCPDS-20260503')
+WHERE po.order_no IN ('MO20260501083000000001','MO20260502084000000002','MO20260503082000000003')
 ON DUPLICATE KEY UPDATE
   step_name = VALUES(step_name),
   sort_order = VALUES(sort_order),
@@ -403,9 +407,9 @@ ON DUPLICATE KEY UPDATE
 INSERT INTO production_material_plan (production_order_id, material_product_id, required_quantity, issued_quantity)
 SELECT po.id, rm.id, ROUND(x.planned_qty * bi.quantity_per_unit * (1 + bi.loss_rate)), ROUND(x.planned_qty * bi.quantity_per_unit * (1 + bi.loss_rate))
 FROM (
-  SELECT 'PO-DEMO-DHXR-20260501' order_no, 'FP-ZONG-DHXR-188' fp, 600 planned_qty UNION ALL
-  SELECT 'PO-DEMO-HSLXR-20260502', 'FP-ZONG-HSLXR-188', 300 UNION ALL
-  SELECT 'PO-DEMO-SJCPDS-20260503', 'FP-ZONG-SJCPDS-160', 420
+  SELECT 'MO20260501083000000001' order_no, 'FP-ZONG-DHXR-188' fp, 600 planned_qty UNION ALL
+  SELECT 'MO20260502084000000002', 'FP-ZONG-HSLXR-188', 300 UNION ALL
+  SELECT 'MO20260503082000000003', 'FP-ZONG-SJCPDS-160', 420
 ) x
 JOIN production_order po ON po.order_no = x.order_no
 JOIN product fp ON fp.code = x.fp
@@ -427,8 +431,8 @@ SELECT po.id, pmp.id, pmp.material_product_id, sb.id, sb.batch_no,
 FROM production_order po
 JOIN production_material_plan pmp ON pmp.production_order_id = po.id
 JOIN product rm ON rm.id = pmp.material_product_id
-JOIN stock_batch sb ON sb.product_id = pmp.material_product_id AND sb.batch_no = CONCAT(rm.code, '-20260501')
-WHERE po.order_no IN ('PO-DEMO-DHXR-20260501','PO-DEMO-HSLXR-20260502','PO-DEMO-SJCPDS-20260503');
+JOIN stock_batch sb ON sb.product_id = pmp.material_product_id AND sb.batch_no = CONCAT(rm.code, '-20260501-001')
+WHERE po.order_no IN ('MO20260501083000000001','MO20260502084000000002','MO20260503082000000003');
 
 -- ============================================================
 -- 工序执行记录
@@ -442,7 +446,7 @@ SELECT po.id, pos.step_code, pos.step_name, pos.completed_quantity, pos.loss_qua
        1, 'admin'
 FROM production_order po
 JOIN production_order_step pos ON pos.production_order_id = po.id
-WHERE po.order_no IN ('PO-DEMO-DHXR-20260501','PO-DEMO-HSLXR-20260502','PO-DEMO-SJCPDS-20260503')
+WHERE po.order_no IN ('MO20260501083000000001','MO20260502084000000002','MO20260503082000000003')
 ON DUPLICATE KEY UPDATE
   completed_quantity = VALUES(completed_quantity),
   loss_quantity = VALUES(loss_quantity),
@@ -454,10 +458,11 @@ ON DUPLICATE KEY UPDATE
 INSERT INTO purchase_order (order_no, supplier_id, status, expected_arrival_date, total_amount, operator_id, operator_name, remark, inbound_at)
 SELECT x.order_no, sup.id, x.status, x.arrival_date, x.total_amount, 1, 'admin', x.remark, x.inbound_at
 FROM (
-  SELECT 'PUR-DEMO-20260505' order_no, '合鑫米业' sup_name, 'INBOUNDED' status, DATE('2026-05-05') arrival_date, 2880.00 total_amount, '演示采购：糯米补货80袋' remark, TIMESTAMP('2026-05-05 09:00:00') inbound_at UNION ALL
-  SELECT 'PUR-DEMO-20260506', '鲜达食品', 'INBOUNDED', DATE('2026-05-06'), 3800.00, '演示采购：五花肉100kg', TIMESTAMP('2026-05-06 09:30:00') UNION ALL
-  SELECT 'PUR-DEMO-20260507', '绿源包材', 'INBOUNDED', DATE('2026-05-07'), 1580.00, '演示采购：礼盒冰袋补货', TIMESTAMP('2026-05-07 10:00:00') UNION ALL
-  SELECT 'PUR-DEMO-20260510', '金品蛋业', 'PENDING_INBOUND', DATE('2026-05-12'), 2700.00, '演示采购：咸蛋黄补货2000粒，待入库', NULL
+  -- 采购订单号格式：PO + yyyyMMddHHmmssSSS + 4 位随机
+  SELECT 'PO20260505090000000001' order_no, '合鑫米业' sup_name, 'INBOUNDED' status, DATE('2026-05-05') arrival_date, 2880.00 total_amount, '演示采购：糯米补货80袋' remark, TIMESTAMP('2026-05-05 09:00:00') inbound_at UNION ALL
+  SELECT 'PO20260506093000000002', '鲜达食品', 'INBOUNDED', DATE('2026-05-06'), 3800.00, '演示采购：五花肉100kg', TIMESTAMP('2026-05-06 09:30:00') UNION ALL
+  SELECT 'PO20260507100000000003', '绿源包材', 'INBOUNDED', DATE('2026-05-07'), 1580.00, '演示采购：礼盒冰袋补货', TIMESTAMP('2026-05-07 10:00:00') UNION ALL
+  SELECT 'PO20260510000000000004', '金品蛋业', 'PENDING_INBOUND', DATE('2026-05-12'), 2700.00, '演示采购：咸蛋黄补货2000粒，待入库', NULL
 ) x
 JOIN supplier sup ON sup.name = x.sup_name
 ON DUPLICATE KEY UPDATE
@@ -468,12 +473,12 @@ ON DUPLICATE KEY UPDATE
 INSERT INTO purchase_order_item (order_id, product_id, product_code, product_name, product_specification, product_unit, quantity, unit_price, amount)
 SELECT po.id, p.id, p.code, p.name, p.specification, p.unit, x.quantity, x.unit_price, x.quantity * x.unit_price
 FROM (
-  SELECT 'PUR-DEMO-20260505' order_no, 'RM-RICE-NM-25KG' p_code, 2000 quantity, 7.20 unit_price UNION ALL
-  SELECT 'PUR-DEMO-20260506', 'RM-PORK-WH-1KG', 100, 38.00 UNION ALL
-  SELECT 'PUR-DEMO-20260507', 'PK-GIFT-6', 80, 5.20 UNION ALL
-  SELECT 'PUR-DEMO-20260507', 'PK-GIFT-10', 60, 7.80 UNION ALL
-  SELECT 'PUR-DEMO-20260507', 'PK-ICE-BAG', 300, 1.10 UNION ALL
-  SELECT 'PUR-DEMO-20260510', 'RM-EGG-YOLK-20G', 2000, 1.35
+  SELECT 'PO20260505090000000001' order_no, 'RM-RICE-NM-25KG' p_code, 2000 quantity, 7.20 unit_price UNION ALL
+  SELECT 'PO20260506093000000002', 'RM-PORK-WH-1KG', 100, 38.00 UNION ALL
+  SELECT 'PO20260507100000000003', 'PK-GIFT-6', 80, 5.20 UNION ALL
+  SELECT 'PO20260507100000000003', 'PK-GIFT-10', 60, 7.80 UNION ALL
+  SELECT 'PO20260507100000000003', 'PK-ICE-BAG', 300, 1.10 UNION ALL
+  SELECT 'PO20260510000000000004', 'RM-EGG-YOLK-20G', 2000, 1.35
 ) x
 JOIN purchase_order po ON po.order_no = x.order_no
 JOIN product p ON p.code = x.p_code
@@ -488,12 +493,13 @@ ON DUPLICATE KEY UPDATE
 INSERT INTO sales_order (order_no, channel, channel_id, customer_name, customer_phone, customer_address, total_amount, status, order_date, operator_id, operator_name, remark, source_type)
 SELECT x.order_no, sc.code, sc.id, x.customer_name, x.customer_phone, x.customer_address, x.total_amount, x.status, x.order_date, 1, 'admin', x.remark, sc.source_type
 FROM (
-  SELECT 'SO-DEMO-OFFLINE-001' order_no, 'OFFLINE' channel_code, '陈先生' customer_name, '13900001001' customer_phone, '东莞市南城区' customer_address, 304.00 total_amount, 'COMPLETED' status, TIMESTAMP('2026-05-08 10:30:00') order_date, '线下熟客：礼盒粽子' remark UNION ALL
-  SELECT 'SO-DEMO-WECHAT-001', 'WECHAT_GROUP', '刘小姐', '13900001002', '东莞市东城区', 172.00, 'SHIPPED', TIMESTAMP('2026-05-09 14:20:00'), '微信群团购：散装零售' UNION ALL
-  SELECT 'SO-DEMO-DOUYIN-001', 'DOUYIN', '赵女士', '13900001003', '广州市天河区', 148.00, 'PENDING', TIMESTAMP('2026-05-10 09:15:00'), '抖音小店：混合礼盒' UNION ALL
-  SELECT 'SO-DEMO-OFFLINE-002', 'OFFLINE', '黄先生', '13900001004', '东莞市虎门镇', 88.00, 'PENDING', TIMESTAMP('2026-05-11 16:00:00'), '线下门店：蛋黄鲜肉礼盒' UNION ALL
-  SELECT 'SO-DEMO-PDD-001', 'PINDUODUO', '孙女士', '13900001005', '深圳市宝安区', 122.00, 'PENDING', TIMESTAMP('2026-05-11 18:45:00'), '拼多多：混合粽礼盒' UNION ALL
-  SELECT 'SO-DEMO-WECHAT-002', 'WECHAT_GROUP', '周小姐', '13900001006', '东莞市长安镇', 118.00, 'PENDING', TIMESTAMP('2026-05-12 08:30:00'), '微信群：黑松露礼盒'
+  -- 销售订单号格式：SO + yyyyMMddHHmmssSSS + 4 位随机
+  SELECT 'SO20260508103000000001' order_no, 'OFFLINE' channel_code, '陈先生' customer_name, '13900001001' customer_phone, '东莞市南城区' customer_address, 304.00 total_amount, 'COMPLETED' status, TIMESTAMP('2026-05-08 10:30:00') order_date, '线下熟客：礼盒粽子' remark UNION ALL
+  SELECT 'SO20260509142000000002', 'WECHAT_GROUP', '刘小姐', '13900001002', '东莞市东城区', 172.00, 'SHIPPED', TIMESTAMP('2026-05-09 14:20:00'), '微信群团购：散装零售' UNION ALL
+  SELECT 'SO20260510091500000003', 'DOUYIN', '赵女士', '13900001003', '广州市天河区', 148.00, 'PENDING', TIMESTAMP('2026-05-10 09:15:00'), '抖音小店：混合礼盒' UNION ALL
+  SELECT 'SO20260511160000000004', 'OFFLINE', '黄先生', '13900001004', '东莞市虎门镇', 88.00, 'PENDING', TIMESTAMP('2026-05-11 16:00:00'), '线下门店：蛋黄鲜肉礼盒' UNION ALL
+  SELECT 'SO20260511184500000005', 'PINDUODUO', '孙女士', '13900001005', '深圳市宝安区', 122.00, 'PENDING', TIMESTAMP('2026-05-11 18:45:00'), '拼多多：混合粽礼盒' UNION ALL
+  SELECT 'SO20260512083000000006', 'WECHAT_GROUP', '周小姐', '13900001006', '东莞市长安镇', 118.00, 'PENDING', TIMESTAMP('2026-05-12 08:30:00'), '微信群：黑松露礼盒'
 ) x
 JOIN sales_channel_config sc ON sc.code = x.channel_code
 ON DUPLICATE KEY UPDATE
@@ -505,14 +511,14 @@ ON DUPLICATE KEY UPDATE
 INSERT INTO sales_order_item (order_id, sales_sku_id, sku_name, sales_goods_id, goods_code, goods_name, goods_specification, goods_unit, quantity, unit_price, subtotal)
 SELECT so.id, sku.id, sku.name, sg.id, sg.code, sg.name, sg.specification, sg.unit, x.quantity, x.unit_price, x.quantity * x.unit_price
 FROM (
-  SELECT 'SO-DEMO-OFFLINE-001' order_no, 'SG-DHXR-6-GIFT' sg_code, 2 quantity, 88.00 unit_price UNION ALL
-  SELECT 'SO-DEMO-OFFLINE-001', 'SG-HSLXR-6-GIFT', 1, 128.00 UNION ALL
-  SELECT 'SO-DEMO-WECHAT-001', 'SG-DHXR-1', 10, 11.80 UNION ALL
-  SELECT 'SO-DEMO-WECHAT-001', 'SG-SJCPDS-1', 5, 10.80 UNION ALL
-  SELECT 'SO-DEMO-DOUYIN-001', 'SG-MIX-10-GIFT', 1, 148.00 UNION ALL
-  SELECT 'SO-DEMO-OFFLINE-002', 'SG-DHXR-6-GIFT', 1, 88.00 UNION ALL
-  SELECT 'SO-DEMO-PDD-001', 'SG-MIX-10-GIFT', 1, 122.00 UNION ALL
-  SELECT 'SO-DEMO-WECHAT-002', 'SG-HSLXR-6-GIFT', 1, 118.00
+  SELECT 'SO20260508103000000001' order_no, 'SG-DHXR-6-GIFT' sg_code, 2 quantity, 88.00 unit_price UNION ALL
+  SELECT 'SO20260508103000000001', 'SG-HSLXR-6-GIFT', 1, 128.00 UNION ALL
+  SELECT 'SO20260509142000000002', 'SG-DHXR-1', 10, 11.80 UNION ALL
+  SELECT 'SO20260509142000000002', 'SG-SJCPDS-1', 5, 10.80 UNION ALL
+  SELECT 'SO20260510091500000003', 'SG-MIX-10-GIFT', 1, 148.00 UNION ALL
+  SELECT 'SO20260511160000000004', 'SG-DHXR-6-GIFT', 1, 88.00 UNION ALL
+  SELECT 'SO20260511184500000005', 'SG-MIX-10-GIFT', 1, 122.00 UNION ALL
+  SELECT 'SO20260512083000000006', 'SG-HSLXR-6-GIFT', 1, 118.00
 ) x
 JOIN sales_order so ON so.order_no = x.order_no
 JOIN sales_goods sg ON sg.code = x.sg_code
@@ -525,11 +531,12 @@ ON DUPLICATE KEY UPDATE
 -- ============================================================
 -- 订单导入批次
 -- ============================================================
-INSERT INTO order_import_batch (batch_no, channel_id, source_type, file_name, total_count, parsed_count, ready_count, converted_count, error_count, status, operator_id, operator_name)
-SELECT x.batch_no, sc.id, x.source_type, x.file_name, x.total_count, x.parsed_count, x.ready_count, x.converted_count, 0, 'CONFIRMED', 1, 'admin'
+-- 订单导入单号格式：IB + yyyyMMddHHmmssSSS + 4 位随机；列名已 rename 为 import_no
+INSERT INTO order_import_batch (import_no, channel_id, source_type, file_name, total_count, parsed_count, ready_count, converted_count, error_count, status, operator_id, operator_name)
+SELECT x.import_no, sc.id, x.source_type, x.file_name, x.total_count, x.parsed_count, x.ready_count, x.converted_count, 0, 'CONFIRMED', 1, 'admin'
 FROM (
-  SELECT 'BATCH-DEMO-20260510' batch_no, 'DOUYIN' channel_code, 'EXCEL' source_type, '抖音订单导入-20260510.xlsx' file_name, 1 total_count, 1 parsed_count, 1 ready_count, 1 converted_count UNION ALL
-  SELECT 'BATCH-DEMO-20260511', 'PINDUODUO', 'EXCEL', '拼多多订单导入-20260511.xlsx', 1, 1, 1, 1
+  SELECT 'IB20260510120000000001' import_no, 'DOUYIN' channel_code, 'EXCEL' source_type, '抖音订单导入-20260510.xlsx' file_name, 1 total_count, 1 parsed_count, 1 ready_count, 1 converted_count UNION ALL
+  SELECT 'IB20260511180000000002', 'PINDUODUO', 'EXCEL', '拼多多订单导入-20260511.xlsx', 1, 1, 1, 1
 ) x
 JOIN sales_channel_config sc ON sc.code = x.channel_code
 ON DUPLICATE KEY UPDATE
@@ -542,10 +549,10 @@ ON DUPLICATE KEY UPDATE
 INSERT INTO external_order_raw (batch_id, channel_id, external_order_no, order_time, customer_name, customer_phone, customer_address, province, city, district, buyer_message, status, sales_order_id)
 SELECT b.id, b.channel_id, x.ext_no, x.order_time, x.customer_name, x.customer_phone, x.customer_address, x.province, x.city, x.district, x.buyer_message, x.status, so.id
 FROM (
-  SELECT 'BATCH-DEMO-20260510' batch_no, 'DOUYIN-20260510001' ext_no, TIMESTAMP('2026-05-10 09:15:00') order_time, '赵女士' customer_name, '13900001003' customer_phone, '广州市天河区体育西路88号' customer_address, '广东' province, '广州' city, '天河' district, '请发顺丰，端午礼盒' buyer_message, 'CONVERTED' status, 'SO-DEMO-DOUYIN-001' order_no UNION ALL
-  SELECT 'BATCH-DEMO-20260511', 'PDD-20260511001', TIMESTAMP('2026-05-11 18:45:00'), '孙女士', '13900001005', '深圳市宝安区西乡街道123号', '广东', '深圳', '宝安', '包装完好', 'CONVERTED', 'SO-DEMO-PDD-001'
+  SELECT 'IB20260510120000000001' import_no, 'DOUYIN-20260510001' ext_no, TIMESTAMP('2026-05-10 09:15:00') order_time, '赵女士' customer_name, '13900001003' customer_phone, '广州市天河区体育西路88号' customer_address, '广东' province, '广州' city, '天河' district, '请发顺丰，端午礼盒' buyer_message, 'CONVERTED' status, 'SO20260510091500000003' order_no UNION ALL
+  SELECT 'IB20260511180000000002', 'PDD-20260511001', TIMESTAMP('2026-05-11 18:45:00'), '孙女士', '13900001005', '深圳市宝安区西乡街道123号', '广东', '深圳', '宝安', '包装完好', 'CONVERTED', 'SO20260511184500000005'
 ) x
-JOIN order_import_batch b ON b.batch_no = x.batch_no
+JOIN order_import_batch b ON b.import_no = x.import_no
 LEFT JOIN sales_order so ON so.order_no = x.order_no
 ON DUPLICATE KEY UPDATE
   status = VALUES(status),
@@ -574,7 +581,7 @@ ON DUPLICATE KEY UPDATE
 -- 库存盘点单（五一节后盘点）
 -- ============================================================
 INSERT INTO stock_check_order (check_no, status, operator_id, operator_name, remark, confirmed_at)
-VALUES ('SC-DEMO-20260512', 'CONFIRMED', 1, 'admin', '五一节后盘点', NOW())
+VALUES ('CHK20260512120000000001', 'CONFIRMED', 1, 'admin', '五一节后盘点', NOW())
 ON DUPLICATE KEY UPDATE
   status = VALUES(status),
   remark = VALUES(remark);
@@ -586,9 +593,9 @@ FROM (
   SELECT 'FP-ZONG-DHXR-188', 1200, 1198, 'LOSS', '盘亏2只，疑似出库未登记' UNION ALL
   SELECT 'RM-PORK-WH-1KG', 85, 84, 'LOSS', '盘亏1袋，正常库耗'
 ) x
-JOIN stock_check_order sco ON sco.check_no = 'SC-DEMO-20260512'
+JOIN stock_check_order sco ON sco.check_no = 'CHK20260512120000000001'
 JOIN product p ON p.code = x.p_code
-JOIN stock_batch sb ON sb.product_id = p.id AND sb.batch_no = CONCAT(x.p_code, '-20260501')
+JOIN stock_batch sb ON sb.product_id = p.id AND sb.batch_no = CONCAT(x.p_code, '-20260501-001')
 ON DUPLICATE KEY UPDATE
   system_quantity = VALUES(system_quantity),
   actual_quantity = VALUES(actual_quantity),

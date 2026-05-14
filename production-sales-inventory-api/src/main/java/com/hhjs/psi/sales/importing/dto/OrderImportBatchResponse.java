@@ -8,7 +8,7 @@ import java.util.List;
 
 public record OrderImportBatchResponse(
         Long id,
-        String batchNo,
+        String importNo,
         Long channelId,
         String channelName,
         String sourceType,
@@ -35,7 +35,7 @@ public record OrderImportBatchResponse(
     public static OrderImportBatchResponse from(OrderImportBatch batch, List<ExternalOrderRawResponse> orders) {
         return new OrderImportBatchResponse(
                 batch.getId(),
-                batch.getBatchNo(),
+                batch.getImportNo(),
                 batch.getChannel() != null ? batch.getChannel().getId() : null,
                 batch.getChannel() != null ? batch.getChannel().getName() : null,
                 batch.getSourceType() != null ? batch.getSourceType().name() : null,
@@ -65,7 +65,7 @@ public record OrderImportBatchResponse(
                                                           List<ExternalOrderItemRawResponse> items) {
         return new OrderImportBatchResponse(
                 batch.getId(),
-                batch.getBatchNo(),
+                batch.getImportNo(),
                 batch.getChannel() != null ? batch.getChannel().getId() : null,
                 batch.getChannel() != null ? batch.getChannel().getName() : null,
                 batch.getSourceType() != null ? batch.getSourceType().name() : null,

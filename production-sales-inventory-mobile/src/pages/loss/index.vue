@@ -1,14 +1,14 @@
 <template>
   <NetworkBanner />
-  <view class="container stock-in-page">
+  <view class="container loss-page">
     <view class="summary-row">
       <view class="summary-card card">
         <text class="summary-card__label">当前状态</text>
         <text class="summary-card__value">{{ selectedStock ? '已选择商品' : '未选择商品' }}</text>
       </view>
       <view class="summary-card card">
-        <text class="summary-card__label">库存数量</text>
-        <text class="summary-card__value">{{ selectedStock ? `${selectedStock.quantity}${selectedStock.unit}` : '-' }}</text>
+        <text class="summary-card__label">批次可用</text>
+        <text class="summary-card__value">{{ selectedBatch ? `${selectedBatch.availableQuantity}${selectedBatch.productUnit}` : '-' }}</text>
       </view>
     </view>
 
@@ -67,19 +67,19 @@
 
     <view class="card section-card">
       <view class="section-head">
-        <text class="section-title">2. 填写入库信息</text>
+        <text class="section-title">2. 填写报损信息</text>
         <text class="section-tip">带 * 为必填项</text>
       </view>
 
       <view class="field-group">
-        <text class="field-label">操作类型 *</text>
+        <text class="field-label">报损类型 *</text>
         <view class="segmented">
           <view
-            v-for="option in operationOptions"
+            v-for="option in lossTypeOptions"
             :key="option.value"
             class="segmented__item"
-            :class="{ 'segmented__item--active': form.subType === option.value }"
-            @click="form.subType = option.value"
+            :class="{ 'segmented__item--active': form.lossType === option.value }"
+            @click="form.lossType = option.value"
           >
             {{ option.label }}
           </view>
@@ -87,69 +87,36 @@
       </view>
 
       <view class="field-group">
-        <text class="field-label">数量 *</text>
+        <text class="field-label">批次 *</text>
+        <picker
+          :disabled="!form.productId || batchesLoading || filteredBatches.length === 0"
+          :range="filteredBatches"
+          range-key="displayName"
+          :value="selectedBatchIndex"
+          @change="onBatchChange"
+        >
+          <view class="picker-display">{{ batchDisplayText }}</view>
+        </picker>
+      </view>
+
+      <view class="field-group">
+        <text class="field-label">报损数量 *</text>
         <input
           v-model.number="form.quantity"
           class="form-input mobile-input"
           type="digit"
-          placeholder="请输入入库数量"
+          placeholder="请输入报损数量"
         />
       </view>
 
       <view class="field-group">
-        <text class="field-label">批次号</text>
-        <input
-          v-model.trim="form.batchNo"
-          class="form-input mobile-input"
-          type="text"
-          placeholder="不填则自动生成"
-        />
-      </view>
-
-      <view class="field-group">
-        <text class="field-label">生产日期</text>
-        <picker mode="date" :value="form.productionDate" @change="onProductionDateChange">
-          <view class="picker-display">{{ form.productionDate || '请选择日期' }}</view>
-        </picker>
-        <text v-if="expiryHint" class="field-hint" :class="{ 'field-hint--muted': expiryHintMuted }">
-          {{ expiryHint }}
-        </text>
-      </view>
-
-      <view class="field-group">
-        <text class="field-label">供应商 / 备注</text>
+        <text class="field-label">原因说明 / 备注</text>
         <textarea
           v-model.trim="form.remark"
           class="remark-input"
-          placeholder="可填写供应商、进货说明等"
-          :maxlength="200"
+          placeholder="可填写损耗原因、责任批次说明等"
+          :maxlength="500"
         />
-      </view>
-    </view>
-
-    <view class="card preview-card" v-if="selectedStock">
-      <view class="preview-card__header">
-        <text class="preview-card__title">入库预览</text>
-        <text class="preview-card__badge">{{ selectedStock.productType === 'FINISHED_PRODUCT' ? '成品' : '原料' }}</text>
-      </view>
-
-      <view class="preview-grid">
-        <view class="preview-item">
-          <text class="preview-item__label">商品</text>
-          <text class="preview-item__value">{{ selectedStock.productName }}</text>
-        </view>
-        <view class="preview-item">
-          <text class="preview-item__label">编码</text>
-          <text class="preview-item__value">{{ selectedStock.productCode }}</text>
-        </view>
-        <view class="preview-item">
-          <text class="preview-item__label">当前库存</text>
-          <text class="preview-item__value">{{ selectedStock.quantity }}{{ selectedStock.unit }}</text>
-        </view>
-        <view class="preview-item">
-          <text class="preview-item__label">可用库存</text>
-          <text class="preview-item__value">{{ selectedStock.availableQuantity }}{{ selectedStock.unit }}</text>
-        </view>
       </view>
     </view>
 
@@ -159,8 +126,12 @@
 
     <view class="action-bar">
       <button class="secondary-button action-bar__btn" :disabled="submitting" @click="resetForm">重置</button>
-      <button class="primary-button action-bar__btn" :disabled="submitting || !selectedStock" @click="handleSubmit">
-        {{ submitting ? '提交中...' : '确认入库' }}
+      <button
+        class="primary-button action-bar__btn"
+        :disabled="submitting || !canSubmit"
+        @click="handleSubmit"
+      >
+        {{ submitting ? '提交中...' : '确认报损' }}
       </button>
     </view>
   </view>
@@ -168,53 +139,51 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { inventoryApi, type StockInSubType, type StockItem, type StockOperationRequest } from '@/api/inventory'
+import {
+  inventoryApi,
+  type StockBatch,
+  type StockItem,
+  type StockLossRequest,
+  type StockLossSubType
+} from '@/api/inventory'
 import NetworkBanner from '@/components/NetworkBanner.vue'
 
+interface LossBatchOption extends StockBatch {
+  displayName: string
+}
+
+const lossTypeOptions: Array<{ value: StockLossSubType; label: string }> = [
+  { value: 'DAMAGE_LOSS', label: '破损 / 变质' },
+  { value: 'PACKAGING_LOSS', label: '包装损坏' },
+  { value: 'SHIPPING_LOSS', label: '运输损耗' },
+  { value: 'EXPIRED_LOSS', label: '临期 / 过期' },
+  { value: 'PRODUCTION_LOSS', label: '生产报损' },
+  { value: 'OTHER_LOSS', label: '其他' }
+]
+
 const loadingStocks = ref(false)
+const batchesLoading = ref(false)
 const submitting = ref(false)
 const errorMessage = ref('')
 const searchKeyword = ref('')
 const stocks = ref<StockItem[]>([])
+const batches = ref<LossBatchOption[]>([])
+const selectedBatchIndex = ref(0)
 const productPicking = ref(true)
 
-const operationOptions: Array<{ value: StockInSubType; label: string }> = [
-  { value: 'PURCHASE', label: '采购入库' },
-  { value: 'PRODUCTION', label: '生产入库' }
-]
-
-const form = reactive<StockOperationRequest>({
+const form = reactive<StockLossRequest>({
   productId: 0,
-  subType: 'PURCHASE',
+  batchId: 0,
+  lossType: 'DAMAGE_LOSS',
   quantity: 1,
-  batchNo: '',
-  productionDate: '',
   remark: ''
 })
 
-const selectedStock = computed(() => stocks.value.find((item) => item.productId === form.productId) || null)
+const selectedStock = computed(
+  () => stocks.value.find((item) => item.productId === form.productId) || null
+)
 
-const computedExpiry = computed(() => {
-  const shelfDays = selectedStock.value?.shelfLifeDays
-  if (!form.productionDate || !shelfDays) return null
-  const prod = new Date(form.productionDate)
-  if (Number.isNaN(prod.getTime())) return null
-  const exp = new Date(prod.getTime() + shelfDays * 24 * 60 * 60 * 1000)
-  const y = exp.getFullYear()
-  const m = String(exp.getMonth() + 1).padStart(2, '0')
-  const d = String(exp.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-})
-
-const expiryHint = computed(() => {
-  if (!form.productionDate) return ''
-  if (!selectedStock.value) return ''
-  const shelfDays = selectedStock.value.shelfLifeDays
-  if (!shelfDays) return '该商品未设置保质期，到期日将由后端记为空'
-  return `到期日 ${computedExpiry.value}（保质期 ${shelfDays} 天，由系统计算）`
-})
-
-const expiryHintMuted = computed(() => !selectedStock.value?.shelfLifeDays)
+const selectedBatch = computed(() => batches.value[selectedBatchIndex.value] || null)
 
 const filteredStocks = computed(() => {
   const keyword = searchKeyword.value.trim().toLowerCase()
@@ -224,25 +193,53 @@ const filteredStocks = computed(() => {
   }
 
   return stocks.value.filter((item) => {
-    return item.productName.toLowerCase().includes(keyword) || item.productCode.toLowerCase().includes(keyword)
+    return (
+      item.productName.toLowerCase().includes(keyword) ||
+      item.productCode.toLowerCase().includes(keyword)
+    )
   })
+})
+
+const filteredBatches = computed(() => batches.value)
+
+const batchDisplayText = computed(() => {
+  if (!form.productId) return '请先选择商品'
+  if (batchesLoading.value) return '正在加载批次'
+  if (filteredBatches.value.length === 0) return '该商品暂无可用批次'
+
+  return selectedBatch.value
+    ? `${selectedBatch.value.batchNo} · 可用 ${selectedBatch.value.availableQuantity}${selectedBatch.value.productUnit}`
+    : '请选择批次'
+})
+
+const canSubmit = computed(() => {
+  return Boolean(form.productId && form.batchId && form.quantity > 0)
 })
 
 function resetForm() {
   form.productId = 0
-  form.subType = 'PURCHASE'
+  form.batchId = 0
+  form.lossType = 'DAMAGE_LOSS'
   form.quantity = 1
-  form.batchNo = ''
-  form.productionDate = ''
   form.remark = ''
   searchKeyword.value = ''
+  batches.value = []
+  selectedBatchIndex.value = 0
   errorMessage.value = ''
   productPicking.value = true
 }
 
 function selectStock(productId: number) {
+  const isSameProduct = form.productId === productId
   form.productId = productId
   productPicking.value = false
+
+  if (!isSameProduct) {
+    form.batchId = 0
+    selectedBatchIndex.value = 0
+    batches.value = []
+    void loadBatches(productId)
+  }
   errorMessage.value = ''
 }
 
@@ -250,18 +247,37 @@ function startPicking() {
   productPicking.value = true
 }
 
-function onProductionDateChange(event: { detail: { value: string } }) {
-  form.productionDate = event.detail.value
+function onBatchChange(event: { detail: { value: string } }) {
+  selectedBatchIndex.value = Number(event.detail.value)
+  form.batchId = selectedBatch.value?.id || 0
 }
 
 function validateForm() {
   if (!form.productId) {
-    errorMessage.value = '请选择要入库的商品'
+    errorMessage.value = '请选择要报损的商品'
     return false
   }
 
-  if (!Number.isInteger(form.quantity) || form.quantity <= 0) {
-    errorMessage.value = '请输入正确的入库数量'
+  if (!form.batchId) {
+    errorMessage.value = '请选择要报损的批次'
+    return false
+  }
+
+  if (!Number.isFinite(form.quantity) || form.quantity <= 0) {
+    errorMessage.value = '请输入大于 0 的报损数量'
+    return false
+  }
+
+  if (selectedBatch.value && form.quantity > selectedBatch.value.availableQuantity) {
+    const batch = selectedBatch.value
+    const msg = `批次「${batch.batchNo}」可用 ${batch.availableQuantity}${batch.productUnit}，少 ${form.quantity - batch.availableQuantity}${batch.productUnit}`
+    errorMessage.value = msg
+    uni.showModal({
+      title: '批次库存不足',
+      content: msg,
+      showCancel: false,
+      confirmText: '我知道了'
+    })
     return false
   }
 
@@ -277,9 +293,37 @@ async function loadStocks() {
     const response = await inventoryApi.getAllStocks(0, 200)
     stocks.value = response.content || []
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '加载库存失败'
+    errorMessage.value = error instanceof Error ? error.message : '加载商品失败'
   } finally {
     loadingStocks.value = false
+  }
+}
+
+async function loadBatches(productId: number) {
+  batchesLoading.value = true
+  errorMessage.value = ''
+
+  try {
+    const response = await inventoryApi.getBatchesByProductId(productId)
+    const sorted = [...(response || [])].sort((a, b) => {
+      const aDate = a.expiryDate || ''
+      const bDate = b.expiryDate || ''
+      return aDate.localeCompare(bDate)
+    })
+
+    batches.value = sorted.map((batch) => ({
+      ...batch,
+      displayName: `${batch.batchNo} · 可用 ${batch.availableQuantity}${batch.productUnit}`
+    }))
+
+    selectedBatchIndex.value = 0
+    form.batchId = batches.value[0]?.id || 0
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '批次加载失败'
+    batches.value = []
+    form.batchId = 0
+  } finally {
+    batchesLoading.value = false
   }
 }
 
@@ -292,20 +336,20 @@ async function handleSubmit() {
   errorMessage.value = ''
 
   try {
-    await inventoryApi.createInbound({
+    await inventoryApi.reportLoss({
       productId: form.productId,
-      subType: form.subType,
+      batchId: form.batchId,
+      lossType: form.lossType,
       quantity: form.quantity,
-      batchNo: form.batchNo || undefined,
-      productionDate: form.productionDate || undefined,
       remark: form.remark || undefined
     })
 
-    uni.showToast({ title: '入库成功', icon: 'success' })
+    uni.vibrateShort?.({ type: 'light' })
+    uni.showToast({ title: `已记录报损 ${form.quantity}`, icon: 'success' })
     resetForm()
     await loadStocks()
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '提交入库失败'
+    errorMessage.value = error instanceof Error ? error.message : '提交报损失败'
     uni.showToast({ title: errorMessage.value, icon: 'none' })
   } finally {
     submitting.value = false
@@ -318,7 +362,7 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-.stock-in-page {
+.loss-page {
   padding-bottom: 140rpx;
 }
 
@@ -372,10 +416,10 @@ onMounted(() => {
 .section-link {
   font-size: 26rpx;
   font-weight: 700;
-  color: #1d4ed8;
+  color: #c2410c;
   padding: 4rpx 14rpx;
   border-radius: 999rpx;
-  background: rgba(37, 99, 235, 0.08);
+  background: rgba(234, 88, 12, 0.1);
 }
 
 .selected-product {
@@ -444,8 +488,8 @@ onMounted(() => {
 }
 
 .stock-item--active {
-  background: rgba(37, 99, 235, 0.08);
-  border-color: rgba(37, 99, 235, 0.3);
+  background: rgba(234, 88, 12, 0.08);
+  border-color: rgba(234, 88, 12, 0.32);
 }
 
 .stock-item__main {
@@ -485,18 +529,6 @@ onMounted(() => {
   color: #475569;
 }
 
-.field-hint {
-  display: block;
-  margin-top: 12rpx;
-  font-size: 24rpx;
-  color: #047857;
-  line-height: 1.5;
-}
-
-.field-hint--muted {
-  color: #94a3b8;
-}
-
 .mobile-input,
 .remark-input,
 .picker-display {
@@ -525,12 +557,6 @@ onMounted(() => {
   color: #0f172a;
 }
 
-.field-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18rpx;
-}
-
 .segmented {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -548,77 +574,22 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  text-align: center;
 }
 
 .segmented__item--active {
-  background: #059669;
+  background: #c2410c;
   border-color: transparent;
   color: #ffffff;
   font-weight: 700;
 }
 
 .primary-button {
-  background: #059669;
+  background: #c2410c;
 }
 
 .primary-button:active {
-  background: #047857;
-}
-
-.section-link {
-  color: #047857;
-  background: rgba(5, 150, 105, 0.1);
-}
-
-.preview-card {
-  margin-bottom: 24rpx;
-}
-
-.preview-card__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 22rpx;
-}
-
-.preview-card__title {
-  font-size: 32rpx;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.preview-card__badge {
-  padding: 8rpx 16rpx;
-  border-radius: 999rpx;
-  background: rgba(37, 99, 235, 0.1);
-  color: #1d4ed8;
-  font-size: 22rpx;
-  font-weight: 700;
-}
-
-.preview-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18rpx;
-}
-
-.preview-item {
-  padding: 20rpx;
-  border-radius: 18rpx;
-  background: #f8fafc;
-}
-
-.preview-item__label {
-  display: block;
-  margin-bottom: 10rpx;
-  font-size: 22rpx;
-  color: #64748b;
-}
-
-.preview-item__value {
-  font-size: 28rpx;
-  font-weight: 700;
-  color: #0f172a;
+  background: #9a3412;
 }
 
 .notice-card {

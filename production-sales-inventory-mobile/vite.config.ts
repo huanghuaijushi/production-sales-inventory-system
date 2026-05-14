@@ -9,5 +9,17 @@ const uniCompat = uniModule as unknown as UniPlugin | { default: UniPlugin }
 const uni = typeof uniCompat === 'function' ? uniCompat : uniCompat.default
 
 export default defineConfig({
-  plugins: [uni()]
+  plugins: [uni()],
+  server: {
+    host: '0.0.0.0',
+    port: 5174,
+    strictPort: true
+  },
+  css: {
+    preprocessorOptions: {
+      scss: {
+        api: 'modern'
+      }
+    }
+  }
 })

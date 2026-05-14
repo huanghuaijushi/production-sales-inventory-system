@@ -52,7 +52,7 @@ import java.util.concurrent.ThreadLocalRandom;
 @Service
 public class OrderImportService {
 
-    private static final DateTimeFormatter BATCH_NO_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
+    private static final DateTimeFormatter IMPORT_NO_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
 
     private final OrderImportBatchRepository batchRepository;
     private final ExternalOrderRawRepository externalOrderRepository;
@@ -236,7 +236,7 @@ public class OrderImportService {
     public ImportedOrderResponse confirmBatch(Long batchId) {
         OrderImportBatch batch = findBatch(batchId);
         if (batch.getStatus() == ImportBatchStatus.CONFIRMED) {
-            throw BusinessException.badRequest("批次已确认过: " + batch.getBatchNo());
+            throw BusinessException.badRequest("批次已确认过: " + batch.getImportNo());
         }
         List<ExternalOrderRaw> readyOrders = externalOrderRepository.findByBatchIdAndStatus(batchId, ExternalOrderStatus.READY);
         if (readyOrders.isEmpty()) {
@@ -411,7 +411,7 @@ public class OrderImportService {
         var currentSysUser = SecurityUtils.requireCurrentSysUser();
         var operator = sysUserRepository.findById(currentSysUser.id())
                 .orElseThrow(() -> BusinessException.unauthorized("当前用户不存在"));
-        return batchRepository.save(OrderImportBatch.create(generateBatchNo(), channel, sourceType, fileName, rawText, operator, currentSysUser.username()));
+        return batchRepository.save(OrderImportBatch.create(generateImportNo(), channel, sourceType, fileName, rawText, operator, currentSysUser.username()));
     }
 
     private OrderImportBatch findBatch(Long batchId) {
@@ -522,7 +522,7 @@ public class OrderImportService {
         return "{\"text\":\"" + text.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\"}";
     }
 
-    private String generateBatchNo() {
-        return "IB" + LocalDateTime.now().format(BATCH_NO_FORMATTER) + ThreadLocalRandom.current().nextInt(1000, 10000);
+    private String generateImportNo() {
+        return "IB" + LocalDateTime.now().format(IMPORT_NO_FORMATTER) + ThreadLocalRandom.current().nextInt(1000, 10000);
     }
 }

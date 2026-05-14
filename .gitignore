@@ -28,3 +28,14 @@ production-sales-inventory-android/
 # Logs
 *.log
 logs/
+
+# Local skills (not tracked by git)
+skills/
+
+# Local scratch notes / screenshots at repo root
+/*.md
+!/README.md
+!/AGENTS.md
+/*.png
+/*.jpg
+/*.jpeg

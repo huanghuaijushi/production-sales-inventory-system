@@ -1,4 +1,5 @@
 <template>
+  <NetworkBanner />
   <view class="container inventory-page">
     <view class="search-panel">
       <view class="search-box">
@@ -95,7 +96,9 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import { onPullDownRefresh } from '@dcloudio/uni-app'
 import { inventoryApi, type StockItem } from '@/api/inventory'
+import NetworkBanner from '@/components/NetworkBanner.vue'
 
 const pageSize = 12
 
@@ -187,6 +190,14 @@ function formatQuantity(value: number, unit: string) {
 
 onMounted(() => {
   loadStocks()
+})
+
+onPullDownRefresh(async () => {
+  try {
+    await loadStocks(0)
+  } finally {
+    uni.stopPullDownRefresh()
+  }
 })
 </script>
 

@@ -155,7 +155,7 @@ export interface ExternalOrderRaw {
 
 export interface OrderImportBatch {
   id: number
-  batchNo: string
+  importNo: string
   channelId: number
   channelName: string
   sourceType: 'EXCEL' | 'TEXT' | 'MANUAL' | 'CONTRACT' | 'API'

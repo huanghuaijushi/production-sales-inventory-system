@@ -19,6 +19,17 @@ button {
 .container {
   min-height: 100vh;
   padding: 32rpx;
+  padding-bottom: calc(32rpx + env(safe-area-inset-bottom));
+}
+
+// 自定义导航栏（如 login）需要的顶部安全区
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+// 底部固定操作栏需要的安全区（出库/入库/盘点/报损 action-bar 自带处理）
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .card {
@@ -46,10 +57,25 @@ button {
   line-height: 88rpx;
   border: none;
   border-radius: 20rpx;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  background: #1e40af;
   color: #ffffff;
   font-size: 30rpx;
   font-weight: 600;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.primary-button:active {
+  background: #1e3a8a;
+  transform: scale(0.99);
+}
+
+.primary-button[disabled] {
+  background: #94a3b8;
+  color: #ffffff;
+}
+
+.primary-button[disabled]::after {
+  border: none;
 }
 
 .secondary-button {

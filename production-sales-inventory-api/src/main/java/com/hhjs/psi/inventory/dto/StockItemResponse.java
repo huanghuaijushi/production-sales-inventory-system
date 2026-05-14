@@ -19,6 +19,7 @@ public record StockItemResponse(
         Integer availableQuantity,
         Integer alertQuantity,
         BigDecimal costPrice,
+        Integer shelfLifeDays,
         boolean isLowStock
 ) {
 }

@@ -43,6 +43,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -102,7 +103,7 @@ public class SalesOrderService {
         var currentSysUser = SecurityUtils.requireCurrentSysUser();
         SysUser operator = sysUserRepository.findById(currentSysUser.id())
                 .orElseThrow(() -> BusinessException.unauthorized("当前用户不存在"));
-        String orderNo = "SO" + Instant.now().toString().replace("-", "").replace(":", "").replace("T", "").replace("Z", "").substring(0, 14) + String.format("%04d", ThreadLocalRandom.current().nextInt(1000, 10000));
+        String orderNo = generateOrderNo();
         SalesOrder order = SalesOrder.create(
                 orderNo,
                 request.channel(),
@@ -185,7 +186,7 @@ public class SalesOrderService {
         var currentSysUser = SecurityUtils.requireCurrentSysUser();
         SysUser operator = sysUserRepository.findById(currentSysUser.id())
                 .orElseThrow(() -> BusinessException.unauthorized("当前用户不存在"));
-        String orderNo = "SO" + Instant.now().toString().replace("-", "").replace(":", "").replace("T", "").replace("Z", "").substring(0, 14) + String.format("%04d", ThreadLocalRandom.current().nextInt(1000, 10000));
+        String orderNo = generateOrderNo();
         SalesOrder order = SalesOrder.create(
                 orderNo,
                 channel,
@@ -371,8 +372,18 @@ public class SalesOrderService {
         }
     }
 
+    private static final DateTimeFormatter NO_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
+
+    private String generateOrderNo() {
+        String timestamp = LocalDateTime.now().format(NO_FORMATTER);
+        int random = ThreadLocalRandom.current().nextInt(1000, 10000);
+        return "SO%s%d".formatted(timestamp, random);
+    }
+
     private String generateRecordNo() {
-        return "SR" + Instant.now().toString().replace("-", "").replace(":", "").replace("T", "").replace("Z", "").substring(0, 14) + String.format("%04d", ThreadLocalRandom.current().nextInt(1000, 10000));
+        String timestamp = LocalDateTime.now().format(NO_FORMATTER);
+        int random = ThreadLocalRandom.current().nextInt(1000, 10000);
+        return "SR%s%d".formatted(timestamp, random);
     }
 
     private String normalizeOptional(String value) {

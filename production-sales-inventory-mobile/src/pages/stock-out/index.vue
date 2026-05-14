@@ -1,11 +1,6 @@
 <template>
+  <NetworkBanner />
   <view class="container stock-out-page">
-    <view class="hero card">
-      <text class="hero__eyebrow">Inventory Outbound</text>
-      <text class="hero__title">出库</text>
-      <text class="hero__subtitle">按网站版逻辑选择商品、批次和数量，完成销售出库、生产领料或盘点调整。</text>
-    </view>
-
     <view class="summary-row">
       <view class="summary-card card">
         <text class="summary-card__label">当前状态</text>
@@ -19,41 +14,53 @@
 
     <view class="card section-card">
       <view class="section-head">
-        <text class="section-title">1. 选择商品</text>
-        <text class="section-tip">先选商品，再选择批次</text>
+        <text class="section-title">{{ productPicking ? '1. 选择商品' : '已选商品' }}</text>
+        <text v-if="!productPicking" class="section-link" @click="startPicking">更换</text>
+        <text v-else class="section-tip">先选商品，再选择批次</text>
       </view>
 
-      <view class="search-box">
-        <text class="search-box__icon">⌕</text>
-        <input
-          v-model.trim="searchKeyword"
-          class="search-box__input"
-          placeholder="按名称或编码搜索"
-          confirm-type="search"
-        />
-      </view>
-
-      <view class="stock-list">
-        <view
-          v-for="stock in filteredStocks"
-          :key="stock.productId"
-          class="stock-item"
-          :class="{ 'stock-item--active': stock.productId === form.productId }"
-          @click="selectStock(stock.productId)"
-        >
-          <view class="stock-item__main">
-            <text class="stock-item__name">{{ stock.productName }}</text>
-            <text class="stock-item__code">{{ stock.productCode }}</text>
-          </view>
-          <view class="stock-item__meta">
-            <text>当前 {{ stock.quantity }}{{ stock.unit }}</text>
-            <text>可用 {{ stock.availableQuantity }}{{ stock.unit }}</text>
-          </view>
+      <view v-if="productPicking">
+        <view class="search-box">
+          <text class="search-box__icon">⌕</text>
+          <input
+            v-model.trim="searchKeyword"
+            class="search-box__input"
+            placeholder="按名称或编码搜索"
+            confirm-type="search"
+          />
         </view>
 
-        <view v-if="!loadingStocks && filteredStocks.length === 0" class="empty-state">
-          <text class="empty-state__title">没有找到匹配商品</text>
-          <text class="empty-state__desc">请尝试使用名称或编码搜索</text>
+        <view class="stock-list">
+          <view
+            v-for="stock in filteredStocks"
+            :key="stock.productId"
+            class="stock-item"
+            :class="{ 'stock-item--active': stock.productId === form.productId }"
+            @click="selectStock(stock.productId)"
+          >
+            <view class="stock-item__main">
+              <text class="stock-item__name">{{ stock.productName }}</text>
+              <text class="stock-item__code">{{ stock.productCode }}</text>
+            </view>
+            <view class="stock-item__meta">
+              <text>当前 {{ stock.quantity }}{{ stock.unit }}</text>
+              <text>可用 {{ stock.availableQuantity }}{{ stock.unit }}</text>
+            </view>
+          </view>
+
+          <view v-if="!loadingStocks && filteredStocks.length === 0" class="empty-state">
+            <text class="empty-state__title">没有找到匹配商品</text>
+            <text class="empty-state__desc">请尝试使用名称或编码搜索</text>
+          </view>
+        </view>
+      </view>
+
+      <view v-else-if="selectedStock" class="selected-product">
+        <text class="selected-product__name">{{ selectedStock.productName }}</text>
+        <text class="selected-product__code">编码 {{ selectedStock.productCode }}</text>
+        <view class="selected-product__meta">
+          <text>当前 {{ selectedStock.quantity }}{{ selectedStock.unit }}</text>
+          <text>可用 {{ selectedStock.availableQuantity }}{{ selectedStock.unit }}</text>
         </view>
       </view>
     </view>
@@ -84,9 +91,7 @@
         <input
           v-model.number="form.businessUnitPrice"
           class="form-input mobile-input"
-          type="number"
-          min="0"
-          step="0.01"
+          type="digit"
           placeholder="不填则使用建议销售单价"
         />
       </view>
@@ -96,9 +101,7 @@
         <input
           v-model.number="form.quantity"
           class="form-input mobile-input"
-          type="number"
-          min="1"
-          step="1"
+          type="digit"
           placeholder="请输入出库数量"
         />
       </view>
@@ -167,7 +170,8 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { inventoryApi, type StockBatch, type StockItem, type StockOperationRequest, type StockRecordSubType } from '@/api/inventory'
+import { inventoryApi, type StockBatch, type StockItem, type StockOperationRequest, type StockOutSubType } from '@/api/inventory'
+import NetworkBanner from '@/components/NetworkBanner.vue'
 
 interface OutboundBatch extends StockBatch {
   displayName: string
@@ -181,19 +185,15 @@ const searchKeyword = ref('')
 const stocks = ref<StockItem[]>([])
 const batches = ref<OutboundBatch[]>([])
 const selectedBatchIndex = ref(0)
+const productPicking = ref(true)
 
-const operationOptions: Array<{ value: StockRecordSubType; label: string }> = [
+const operationOptions: Array<{ value: StockOutSubType; label: string }> = [
   { value: 'SALES', label: '销售出库' },
-  { value: 'PRODUCTION_USAGE', label: '生产领料' },
-  { value: 'PRODUCTION_LOSS', label: '生产报损' },
-  { value: 'PACKAGING_LOSS', label: '包装报损' },
-  { value: 'SHIPPING_LOSS', label: '运输报损' },
-  { value: 'INVENTORY', label: '盘亏出库' }
+  { value: 'PRODUCTION_USAGE', label: '生产领料' }
 ]
 
 const form = reactive<StockOperationRequest>({
   productId: 0,
-  type: 'OUT',
   subType: 'SALES',
   quantity: 1,
   batchId: 0,
@@ -237,15 +237,25 @@ function resetForm() {
   batches.value = []
   selectedBatchIndex.value = 0
   errorMessage.value = ''
+  productPicking.value = true
 }
 
 function selectStock(productId: number) {
+  const isSameProduct = form.productId === productId
   form.productId = productId
-  form.batchId = 0
-  selectedBatchIndex.value = 0
-  batches.value = []
+  productPicking.value = false
+
+  if (!isSameProduct) {
+    form.batchId = 0
+    selectedBatchIndex.value = 0
+    batches.value = []
+    void loadBatches(productId)
+  }
   errorMessage.value = ''
-  void loadBatches(productId)
+}
+
+function startPicking() {
+  productPicking.value = true
 }
 
 function onBatchChange(event: { detail: { value: string } }) {
@@ -271,13 +281,27 @@ function validateForm() {
 
   const batch = selectedBatch.value
   if (batch && form.quantity > batch.availableQuantity) {
-    errorMessage.value = '出库数量不能超过批次可用库存'
+    const msg = `批次「${batch.batchNo}」可用 ${batch.availableQuantity}${batch.productUnit}，少 ${form.quantity - batch.availableQuantity}${batch.productUnit}`
+    errorMessage.value = msg
+    uni.showModal({
+      title: '批次库存不足',
+      content: msg,
+      showCancel: false,
+      confirmText: '我知道了'
+    })
     return false
   }
 
   const stock = selectedStock.value
   if (stock && form.quantity > stock.availableQuantity) {
-    errorMessage.value = '出库数量不能超过可用库存'
+    const msg = `${stock.productName} 可用 ${stock.availableQuantity}${stock.unit}，少 ${form.quantity - stock.availableQuantity}${stock.unit}`
+    errorMessage.value = msg
+    uni.showModal({
+      title: '库存不足',
+      content: msg,
+      showCancel: false,
+      confirmText: '我知道了'
+    })
     return false
   }
 
@@ -295,7 +319,7 @@ async function loadStocks() {
   errorMessage.value = ''
 
   try {
-    const response = await inventoryApi.getAllStocks(0, 1000)
+    const response = await inventoryApi.getAllStocks(0, 200)
     stocks.value = response.content || []
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '库存商品加载失败'
@@ -310,7 +334,14 @@ async function loadBatches(productId: number) {
 
   try {
     const response = await inventoryApi.getBatchesByProductId(productId)
-    batches.value = (response || []).map((batch) => ({
+    const sorted = [...(response || [])].sort((a, b) => {
+      // 按到期日升序：最临期的排在最前面，作为 FIFO 默认推荐
+      const aDate = a.expiryDate || '9999-12-31'
+      const bDate = b.expiryDate || '9999-12-31'
+      return aDate.localeCompare(bDate)
+    })
+
+    batches.value = sorted.map((batch) => ({
       ...batch,
       displayName: `${batch.batchNo} · 可用 ${batch.availableQuantity}${batch.productUnit}`
     }))
@@ -336,7 +367,6 @@ async function handleSubmit() {
   try {
     await inventoryApi.createOutbound({
       productId: form.productId,
-      type: 'OUT',
       subType: form.subType,
       quantity: form.quantity,
       batchId: form.batchId,
@@ -363,36 +393,6 @@ onMounted(() => {
 <style scoped lang="scss">
 .stock-out-page {
   padding-bottom: 140rpx;
-}
-
-.hero {
-  display: flex;
-  flex-direction: column;
-  gap: 12rpx;
-  margin-bottom: 24rpx;
-  background: linear-gradient(135deg, #1d4ed8, #2563eb);
-  color: #ffffff;
-}
-
-.hero__eyebrow {
-  width: fit-content;
-  padding: 8rpx 18rpx;
-  border-radius: 999rpx;
-  background: rgba(255, 255, 255, 0.16);
-  font-size: 22rpx;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
-.hero__title {
-  font-size: 48rpx;
-  font-weight: 800;
-}
-
-.hero__subtitle {
-  font-size: 26rpx;
-  line-height: 1.7;
-  opacity: 0.92;
 }
 
 .summary-row {
@@ -440,6 +440,43 @@ onMounted(() => {
 .section-tip {
   font-size: 24rpx;
   color: #94a3b8;
+}
+
+.section-link {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #1d4ed8;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.selected-product {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  padding: 22rpx 24rpx;
+  border-radius: 18rpx;
+  background: #f8fafc;
+  border: 2rpx solid #dbe3f0;
+}
+
+.selected-product__name {
+  font-size: 32rpx;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.selected-product__code {
+  font-size: 24rpx;
+  color: #64748b;
+}
+
+.selected-product__meta {
+  display: flex;
+  gap: 24rpx;
+  font-size: 24rpx;
+  color: #475569;
 }
 
 .search-box {
@@ -557,20 +594,30 @@ onMounted(() => {
 
 .segmented__item {
   min-height: 80rpx;
-  padding: 16rpx 12rpx;
+  padding: 0 18rpx;
   border-radius: 18rpx;
   background: #f8fafc;
   border: 2rpx solid #dbe3f0;
   font-size: 24rpx;
-  text-align: center;
   color: #334155;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .segmented__item--active {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  background: #1d4ed8;
   border-color: transparent;
   color: #ffffff;
   font-weight: 700;
+}
+
+.primary-button {
+  background: #1d4ed8;
+}
+
+.primary-button:active {
+  background: #1e40af;
 }
 
 .preview-card {
@@ -678,7 +725,7 @@ onMounted(() => {
   position: fixed;
   left: 32rpx;
   right: 32rpx;
-  bottom: 28rpx;
+  bottom: calc(28rpx + env(safe-area-inset-bottom));
   display: grid;
   grid-template-columns: 1fr 1.2fr;
   gap: 18rpx;

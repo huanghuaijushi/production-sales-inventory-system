@@ -9,19 +9,17 @@
     {
       "path": "pages/home/index",
       "style": {
-        "navigationBarTitleText": "工作台"
-      }
-    },
-    {
-      "path": "pages/scan/index",
-      "style": {
-        "navigationBarTitleText": "扫码"
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true,
+        "backgroundTextStyle": "dark"
       }
     },
     {
       "path": "pages/inventory/index",
       "style": {
-        "navigationBarTitleText": "库存查询"
+        "navigationBarTitleText": "库存查询",
+        "enablePullDownRefresh": true,
+        "backgroundTextStyle": "dark"
       }
     },
     {
@@ -37,15 +35,31 @@
       }
     },
     {
-      "path": "pages/production/index",
+      "path": "pages/check/index",
       "style": {
-        "navigationBarTitleText": "生产报工"
+        "navigationBarTitleText": "盘点"
       }
     },
     {
-      "path": "pages/exception/index",
+      "path": "pages/loss/index",
       "style": {
-        "navigationBarTitleText": "异常上报"
+        "navigationBarTitleText": "报损"
+      }
+    },
+    {
+      "path": "pages/batch/index",
+      "style": {
+        "navigationBarTitleText": "批次查询",
+        "enablePullDownRefresh": true,
+        "backgroundTextStyle": "dark"
+      }
+    },
+    {
+      "path": "pages/records/index",
+      "style": {
+        "navigationBarTitleText": "库存流水",
+        "enablePullDownRefresh": true,
+        "backgroundTextStyle": "dark"
       }
     }
   ],

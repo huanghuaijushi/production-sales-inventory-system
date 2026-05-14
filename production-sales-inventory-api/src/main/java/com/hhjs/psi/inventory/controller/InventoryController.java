@@ -5,6 +5,7 @@ import com.hhjs.psi.common.dto.PageResponse;
 import com.hhjs.psi.inventory.dto.BusinessFlowTrendItemResponse;
 import com.hhjs.psi.inventory.dto.InventoryDashboardResponse;
 import com.hhjs.psi.inventory.dto.InventoryValueTrendItemResponse;
+import com.hhjs.psi.inventory.dto.MobileHomeResponse;
 import com.hhjs.psi.inventory.dto.StockBatchResponse;
 import com.hhjs.psi.inventory.dto.StockCheckOrderResponse;
 import com.hhjs.psi.inventory.dto.StockCheckRequest;
@@ -40,6 +41,11 @@ public class InventoryController {
     @GetMapping("/dashboard")
     public ApiResponse<InventoryDashboardResponse> getDashboard() {
         return ApiResponse.ok(inventoryService.getDashboard());
+    }
+
+    @GetMapping("/mobile/home")
+    public ApiResponse<MobileHomeResponse> getMobileHome() {
+        return ApiResponse.ok(inventoryService.getMobileHome());
     }
 
     @GetMapping("/trends")
@@ -82,6 +88,18 @@ public class InventoryController {
     @GetMapping("/batches/product/{productId}")
     public ApiResponse<List<StockBatchResponse>> getBatchesByProductId(@PathVariable Long productId) {
         return ApiResponse.ok(inventoryService.getBatchesByProductId(productId));
+    }
+
+    @GetMapping("/batches")
+    public ApiResponse<PageResponse<StockBatchResponse>> getAvailableBatches(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) Integer expiringWithinDays,
+            @RequestParam(defaultValue = "true") boolean availableOnly
+    ) {
+        return ApiResponse.ok(PageResponse.from(
+                inventoryService.getAvailableBatches(page, size, expiringWithinDays, availableOnly)
+        ));
     }
 
     @PostMapping("/batches/backfill")

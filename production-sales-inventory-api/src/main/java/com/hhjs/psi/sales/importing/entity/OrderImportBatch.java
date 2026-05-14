@@ -25,8 +25,8 @@ public class OrderImportBatch {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "batch_no", nullable = false, unique = true, length = 64)
-    private String batchNo;
+    @Column(name = "import_no", nullable = false, unique = true, length = 64)
+    private String importNo;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "channel_id", nullable = false)
@@ -79,9 +79,9 @@ public class OrderImportBatch {
     protected OrderImportBatch() {
     }
 
-    public static OrderImportBatch create(String batchNo, SalesChannelConfig channel, ImportSourceType sourceType, String fileName, String rawText, SysUser operator, String operatorName) {
+    public static OrderImportBatch create(String importNo, SalesChannelConfig channel, ImportSourceType sourceType, String fileName, String rawText, SysUser operator, String operatorName) {
         OrderImportBatch batch = new OrderImportBatch();
-        batch.batchNo = batchNo;
+        batch.importNo = importNo;
         batch.channel = channel;
         batch.sourceType = sourceType;
         batch.fileName = fileName;
@@ -109,7 +109,7 @@ public class OrderImportBatch {
     }
 
     public Long getId() { return id; }
-    public String getBatchNo() { return batchNo; }
+    public String getImportNo() { return importNo; }
     public SalesChannelConfig getChannel() { return channel; }
     public ImportSourceType getSourceType() { return sourceType; }
     public String getFileName() { return fileName; }
