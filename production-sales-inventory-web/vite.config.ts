@@ -5,12 +5,15 @@ import { defineConfig } from 'vite'
 
 const apiProxyTarget = process.env.VITE_API_PROXY_TARGET || 'http://localhost:8080'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [vue()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
+  },
+  build: {
+    outDir: mode === 'guanrui' || mode === 'wenhuizhai' ? `dist-${mode}` : 'dist'
   },
   server: {
     host: '0.0.0.0',
@@ -28,4 +31,4 @@ export default defineConfig({
     port: 4173,
     strictPort: true
   }
-})
+}))

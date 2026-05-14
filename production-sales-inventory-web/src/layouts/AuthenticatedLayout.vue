@@ -4,10 +4,10 @@
       <div class="sidebar-header">
         <div class="logo">
           <div class="logo-icon">
-            <img src="/brand/logo.png" alt="莞瑞" />
+            <img :src="tenantLogo" :alt="tenantShort" />
           </div>
           <div class="logo-text">
-            <div class="logo-title">莞瑞</div>
+            <div class="logo-title">{{ tenantShort }}</div>
             <div class="logo-subtitle">产销存系统</div>
           </div>
         </div>
@@ -140,6 +140,9 @@ import {
   ShieldCheckIcon,
   LockClosedIcon
 } from '@heroicons/vue/24/outline'
+
+const tenantShort = import.meta.env.VITE_TENANT_SHORT
+const tenantLogo = import.meta.env.VITE_TENANT_LOGO
 
 const authStore = useAuthStore()
 const route = useRoute()

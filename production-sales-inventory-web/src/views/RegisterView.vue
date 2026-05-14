@@ -2,12 +2,12 @@
   <main class="login-page">
     <section class="login-brand" aria-label="系统介绍">
       <div class="login-brand__content">
-        <img class="login-brand__logo" src="/brand/logo.png" alt="莞瑞" />
-        <div class="login-brand__badge">GUANRUI PSI</div>
+        <img class="login-brand__logo" :src="tenantLogo" :alt="tenantShort" />
+        <div class="login-brand__badge">{{ tenantBadge }}</div>
         <h1>创建管理员账号</h1>
         <div class="login-brand__mark" aria-hidden="true"></div>
         <p>
-          为莞瑞产销存系统创建后台管理员账号，后续可进入控制台管理采购、销售、生产和库存数据。
+          为{{ tenantFull }}创建后台管理员账号，后续可进入控制台管理采购、销售、生产和库存数据。
         </p>
 
         <ul class="login-feature-list" aria-label="系统能力">
@@ -27,9 +27,9 @@
       <div class="login-card">
         <div class="login-mobile-brand">
           <div class="login-mobile-brand__logo" aria-hidden="true">
-            <img src="/brand/logo.png" alt="" />
+            <img :src="tenantLogo" alt="" />
           </div>
-          <h2>莞瑞产销存系统</h2>
+          <h2>{{ tenantFull }}</h2>
         </div>
 
         <header class="login-header">
@@ -118,7 +118,7 @@
         </form>
 
         <footer class="login-footer">
-          <span>&copy; 2026 莞瑞产销存系统</span>
+          <span>&copy; 2026 {{ tenantFull }}</span>
           <nav aria-label="注册页辅助链接">
             <a href="#" @click.prevent>服务协议</a>
             <a href="#" @click.prevent>隐私政策</a>
@@ -140,6 +140,11 @@ import type { RegisterRequest } from '@/types/auth'
 interface RegisterForm extends RegisterRequest {
   confirmPassword: string
 }
+
+const tenantShort = import.meta.env.VITE_TENANT_SHORT
+const tenantFull = import.meta.env.VITE_TENANT_FULL
+const tenantBadge = import.meta.env.VITE_TENANT_BADGE
+const tenantLogo = import.meta.env.VITE_TENANT_LOGO
 
 const features = ['管理员身份管理', '操作数据可追踪', '账户密码加密', '后台访问保护']
 

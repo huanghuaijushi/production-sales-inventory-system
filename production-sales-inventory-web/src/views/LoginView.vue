@@ -2,9 +2,9 @@
   <main class="login-page">
     <section class="login-brand" aria-label="系统介绍">
       <div class="login-brand__content">
-        <img class="login-brand__logo" src="/brand/logo.png" alt="莞瑞" />
-        <div class="login-brand__badge">GUANRUI PSI</div>
-        <h1>莞瑞产销存系统</h1>
+        <img class="login-brand__logo" :src="tenantLogo" :alt="tenantShort" />
+        <div class="login-brand__badge">{{ tenantBadge }}</div>
+        <h1>{{ tenantFull }}</h1>
         <div class="login-brand__mark" aria-hidden="true"></div>
         <p>
           覆盖采购、销售、生产、库存和往来资料，帮助团队实时掌握经营状态和业务变化。
@@ -27,9 +27,9 @@
       <div class="login-card">
         <div class="login-mobile-brand">
           <div class="login-mobile-brand__logo" aria-hidden="true">
-            <img src="/brand/logo.png" alt="" />
+            <img :src="tenantLogo" alt="" />
           </div>
-          <h2>莞瑞产销存系统</h2>
+          <h2>{{ tenantFull }}</h2>
         </div>
 
         <header class="login-header">
@@ -106,7 +106,7 @@
         </form>
 
         <footer class="login-footer">
-          <span>&copy; 2026 莞瑞产销存系统</span>
+          <span>&copy; 2026 {{ tenantFull }}</span>
           <nav aria-label="登录页辅助链接">
             <a href="#" @click.prevent>服务协议</a>
             <a href="#" @click.prevent>隐私政策</a>
@@ -124,6 +124,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { ApiError } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
 import type { LoginRequest } from '@/types/auth'
+
+const tenantShort = import.meta.env.VITE_TENANT_SHORT
+const tenantFull = import.meta.env.VITE_TENANT_FULL
+const tenantBadge = import.meta.env.VITE_TENANT_BADGE
+const tenantLogo = import.meta.env.VITE_TENANT_LOGO
 
 const features = ['产销存数据联动', '库存预警提醒', '供应商客户协同', '安全加密防护']
 
