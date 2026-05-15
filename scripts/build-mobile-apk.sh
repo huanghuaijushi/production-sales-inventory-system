@@ -48,13 +48,10 @@ if [[ ! -f "$APK_SOURCE" ]]; then
   exit 1
 fi
 
-API_BASE_URL="$(grep -E '^VITE_API_BASE_URL=' "$MOBILE_DIR/.env.production" | tail -1 | cut -d '=' -f 2- || true)"
-API_HOST="$(printf '%s' "$API_BASE_URL" | sed -E 's#^https?://([^:/]+).*#\1#')"
-if [[ -z "$API_HOST" || "$API_HOST" == "$API_BASE_URL" ]]; then
-  API_HOST="release"
-fi
+TENANT="${TENANT:-wenhuizhai}"
+BUILD_TS="$(date +%Y%m%d-%H%M)"
 
-APK_TARGET="$APK_OUTPUT_DIR/production-sales-inventory-mobile-$API_HOST.apk"
+APK_TARGET="$APK_OUTPUT_DIR/psi-mobile-${TENANT}-${BUILD_TS}.apk"
 cp "$APK_SOURCE" "$APK_TARGET"
 
 echo "==> APK ready"
