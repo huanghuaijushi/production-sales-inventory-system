@@ -36,7 +36,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-echo "HHJS 产销存系统局域网启动"
+echo "雯慧斋掌柜 · 产销存系统局域网启动"
 echo "前端访问地址: http://$LAN_IP:$WEB_PORT"
 echo "后端接口地址: http://$LAN_IP:$API_PORT/api/v1"
 echo "同一 Wi-Fi 下的电脑或手机打开上面的前端地址即可。按 Ctrl+C 停止。"

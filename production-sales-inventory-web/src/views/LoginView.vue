@@ -103,10 +103,10 @@ import { ApiError } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
 import type { LoginRequest } from '@/types/auth'
 
-const tenantShort = import.meta.env.VITE_TENANT_SHORT
-const tenantFull = import.meta.env.VITE_TENANT_FULL
-const tenantBadge = import.meta.env.VITE_TENANT_BADGE
-const tenantLogo = import.meta.env.VITE_TENANT_LOGO
+const tenantShort = '雯慧斋掌柜'
+const tenantFull = '雯慧斋掌柜'
+const tenantBadge = 'WENHUIZHAI'
+const tenantLogo = '/logo.png'
 
 const router = useRouter()
 const route = useRoute()

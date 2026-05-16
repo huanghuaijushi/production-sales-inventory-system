@@ -48,10 +48,9 @@ if [[ ! -f "$APK_SOURCE" ]]; then
   exit 1
 fi
 
-TENANT="${TENANT:-wenhuizhai}"
 BUILD_TS="$(date +%Y%m%d-%H%M)"
 
-APK_TARGET="$APK_OUTPUT_DIR/psi-mobile-${TENANT}-${BUILD_TS}.apk"
+APK_TARGET="$APK_OUTPUT_DIR/wenhuizhai-mobile-${BUILD_TS}.apk"
 cp "$APK_SOURCE" "$APK_TARGET"
 
 echo "==> APK ready"

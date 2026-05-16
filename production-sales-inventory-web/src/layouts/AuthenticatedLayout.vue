@@ -4,11 +4,10 @@
       <div class="sidebar-header">
         <div class="logo">
           <div class="logo-icon">
-            <img :src="tenantLogo" :alt="tenantShort" />
+            <img :src="brandLogo" :alt="brandName" />
           </div>
           <div class="logo-text">
-            <div class="logo-title">{{ tenantShort }}</div>
-            <div class="logo-subtitle">产销存系统</div>
+            <div class="logo-title">{{ brandName }}</div>
           </div>
         </div>
       </div>
@@ -138,8 +137,8 @@ import {
   Cog6ToothIcon
 } from '@heroicons/vue/24/outline'
 
-const tenantShort = import.meta.env.VITE_TENANT_SHORT
-const tenantLogo = import.meta.env.VITE_TENANT_LOGO
+const brandName = '雯慧斋掌柜'
+const brandLogo = '/logo.png'
 
 const authStore = useAuthStore()
 const route = useRoute()

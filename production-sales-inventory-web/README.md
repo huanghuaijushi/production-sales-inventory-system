@@ -1,6 +1,6 @@
-# HHJS Production Sales Inventory Web
+# 雯慧斋掌柜 · 产销存系统 · Web
 
-Frontend application for the HHJS production, sales and inventory system.
+Frontend application for 雯慧斋掌柜 production, sales and inventory system.
 
 ## Stack
 

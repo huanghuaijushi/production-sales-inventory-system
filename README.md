@@ -1,6 +1,6 @@
-# Production Sales Inventory System
+# 雯慧斋掌柜 · 产销存系统
 
-HHJS 产销存系统项目，采用前后端分离架构。
+雯慧斋掌柜产销存系统，采用前后端分离架构。
 
 ## Project Structure
 

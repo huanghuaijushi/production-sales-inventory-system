@@ -4,13 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0 --mode guanrui",
-    "dev:wenhuizhai": "vite --host 0.0.0.0 --mode wenhuizhai",
+    "dev": "vite --host 0.0.0.0",
     "type-check": "vue-tsc --noEmit -p tsconfig.app.json",
-    "build": "npm run build:guanrui && npm run build:wenhuizhai",
-    "build:guanrui": "vite build --mode guanrui",
-    "build:wenhuizhai": "vite build --mode wenhuizhai",
-    "preview": "vite preview --host 0.0.0.0 --mode guanrui"
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
     "@heroicons/vue": "^2.2.0",

@@ -1,14 +1,14 @@
 {
-  "name": "莞瑞产销存系统",
-  "short_name": "莞瑞产销存",
-  "description": "莞瑞产销存管理系统",
+  "name": "雯慧斋掌柜",
+  "short_name": "雯慧斋掌柜",
+  "description": "雯慧斋掌柜产销存系统",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f6f8fb",
   "theme_color": "#2563eb",
   "icons": [
     {
-      "src": "/brand/logo.png",
+      "src": "/logo.png",
       "sizes": "any",
       "type": "image/png",
       "purpose": "any maskable"
