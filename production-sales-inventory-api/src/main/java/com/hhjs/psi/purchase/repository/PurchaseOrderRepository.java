@@ -51,4 +51,6 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
             GROUP BY item.product.id
             """)
     List<Object[]> sumItemQuantitiesByStatus(PurchaseOrderStatus status);
+
+    long countByStatus(PurchaseOrderStatus status);
 }

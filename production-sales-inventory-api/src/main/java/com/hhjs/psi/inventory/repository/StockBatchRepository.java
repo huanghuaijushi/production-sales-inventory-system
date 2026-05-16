@@ -45,6 +45,18 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Long> {
             Pageable pageable
     );
 
+    @Query("""
+            SELECT sb FROM StockBatch sb
+            JOIN FETCH sb.product p
+            WHERE sb.availableQuantity > 0
+              AND sb.expiryDate IS NOT NULL
+              AND sb.expiryDate <= :threshold
+              AND p.type = com.hhjs.psi.inventory.entity.ProductType.FINISHED_PRODUCT
+              AND p.enabled = true
+            ORDER BY sb.expiryDate ASC
+            """)
+    List<StockBatch> findFinishedExpiringBefore(@Param("threshold") LocalDate threshold);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT sb FROM StockBatch sb JOIN FETCH sb.product WHERE sb.id = :id")
     Optional<StockBatch> findByIdForUpdate(Long id);

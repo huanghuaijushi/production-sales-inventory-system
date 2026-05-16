@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Optional;
 
 @Repository
@@ -28,4 +30,17 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
 
     @EntityGraph(attributePaths = {"items", "items.salesSku", "items.salesSku.components", "items.salesSku.components.product"})
     Optional<SalesOrder> findWithDetailsById(Long id);
+
+    long countByStatus(SalesOrderStatus status);
+
+    @Query("""
+            SELECT COALESCE(SUM(so.totalAmount), 0)
+            FROM SalesOrder so
+            WHERE so.status IN (com.hhjs.psi.sales.entity.SalesOrderStatus.SHIPPED,
+                                com.hhjs.psi.sales.entity.SalesOrderStatus.COMPLETED)
+              AND so.shipDate IS NOT NULL
+              AND so.shipDate >= :start
+              AND so.shipDate < :end
+            """)
+    BigDecimal sumRevenueByShipDateBetween(Instant start, Instant end);
 }

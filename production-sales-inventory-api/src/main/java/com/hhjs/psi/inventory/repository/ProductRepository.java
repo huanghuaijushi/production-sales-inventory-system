@@ -28,6 +28,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     Page<Product> findByEnabledTrue(Pageable pageable);
 
+    long countByEnabledTrue();
+
     @Query("""
             SELECT p FROM Product p LEFT JOIN p.category pc
             WHERE p.enabled = true
