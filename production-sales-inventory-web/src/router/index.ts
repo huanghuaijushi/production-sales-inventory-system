@@ -5,17 +5,13 @@ import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue'
 import DashboardView from '@/views/DashboardView.vue'
 import InventoryView from '@/views/InventoryView.vue'
 import ProductManagementView from '@/views/ProductManagementView.vue'
-import GoodsManagementView from '@/views/GoodsManagementView.vue'
 import PurchaseManagementView from '@/views/PurchaseManagementView.vue'
 import SupplierManagementView from '@/views/SupplierManagementView.vue'
 import ProductionPlanView from '@/views/ProductionPlanView.vue'
 import ProductionConfigView from '@/views/ProductionConfigView.vue'
 import SalesManagementView from '@/views/SalesManagementView.vue'
-import SysUserManagementView from '@/views/SysUserManagementView.vue'
-import RoleManagementView from '@/views/RoleManagementView.vue'
-import PermissionManagementView from '@/views/PermissionManagementView.vue'
+import SystemSettingsView from '@/views/SystemSettingsView.vue'
 import LoginView from '@/views/LoginView.vue'
-import RegisterView from '@/views/RegisterView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -28,14 +24,6 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: LoginView,
-      meta: {
-        guestOnly: true
-      }
-    },
-    {
-      path: '/register',
-      name: 'register',
-      component: RegisterView,
       meta: {
         guestOnly: true
       }
@@ -64,8 +52,7 @@ const router = createRouter({
         },
         {
           path: 'goods',
-          name: 'goods',
-          component: GoodsManagementView
+          redirect: { name: 'sales', query: { tab: 'goods' } }
         },
         {
           path: 'purchase',
@@ -93,19 +80,21 @@ const router = createRouter({
           component: SalesManagementView
         },
         {
+          path: 'system',
+          name: 'system',
+          component: SystemSettingsView
+        },
+        {
           path: 'sys-users',
-          name: 'sys-users',
-          component: SysUserManagementView
+          redirect: { name: 'system', query: { tab: 'users' } }
         },
         {
           path: 'roles',
-          name: 'roles',
-          component: RoleManagementView
+          redirect: { name: 'system', query: { tab: 'roles' } }
         },
         {
           path: 'permissions',
-          name: 'permissions',
-          component: PermissionManagementView
+          redirect: { name: 'system', query: { tab: 'permissions' } }
         }
       ]
     }

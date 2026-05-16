@@ -1,10 +1,8 @@
 <template>
-  <div class="page">
-    <div class="page-header">
+  <div :class="['page', { 'page--embedded': embedded }]">
+    <div v-if="!embedded" class="page-header">
       <div>
-        <p class="page-eyebrow">系统设置</p>
         <h1>权限管理</h1>
-        <p>按模块查看系统权限，便于给角色分配菜单与操作权限。</p>
       </div>
     </div>
 
@@ -34,6 +32,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { sysUserApi } from '@/api/sysUser'
 import type { PermissionGroupResponse } from '@/types/auth'
+
+withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
 
 const query = ref('')
 const groups = ref<PermissionGroupResponse[]>([])

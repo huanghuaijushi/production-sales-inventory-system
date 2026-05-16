@@ -2,14 +2,10 @@
   <div class="page">
     <div class="page-header">
       <div>
-        <p class="page-eyebrow">供应商管理</p>
         <h1>供应商资料与供货规则</h1>
-        <p>先选择供应商，再维护它可以供应的原材料、价格、起订量和交期。</p>
       </div>
       <button type="button" class="primary-button" @click="openSupplierModal()">新增供应商</button>
     </div>
-
-    <p v-if="message" class="operation-message">{{ message }}</p>
 
     <div class="supplier-workspace">
       <aside class="panel supplier-directory">
@@ -33,7 +29,14 @@
 
         <div class="supplier-list">
           <div v-if="suppliersLoading" class="empty-box">正在加载供应商...</div>
-          <div v-else-if="suppliers.length === 0" class="empty-box">暂无供应商</div>
+          <EmptyState
+            v-else-if="suppliers.length === 0"
+            size="compact"
+            title="还没有供应商"
+            description="先建立供应商资料，再维护它能供应的原材料、价格和交期。"
+            action-label="新增供应商"
+            @action="openSupplierModal()"
+          />
           <button
             v-for="supplier in suppliers"
             v-else
@@ -119,7 +122,14 @@
             </div>
           </div>
 
-          <div v-if="visibleSupplierMaterials.length === 0" class="empty-box">暂无供货规则</div>
+          <EmptyState
+            v-if="visibleSupplierMaterials.length === 0"
+            size="compact"
+            title="还没有供货规则"
+            description="为选中的供应商新增可供应的原材料、起订量和交期。"
+            action-label="新增供货规则"
+            @action="openSupplierMaterialModal()"
+          />
           <div v-else class="rule-table">
             <div class="rule-table-head">
               <span>原材料</span>
@@ -258,6 +268,12 @@ import { ApiError } from '@/api/http'
 import { productApi, type Product } from '@/api/product'
 import { productionApi, type SupplierMaterial } from '@/api/production'
 import { supplierApi, type Supplier } from '@/api/supplier'
+import { useToast } from '@/composables/useToast'
+import { useConfirm } from '@/composables/useConfirm'
+import EmptyState from '@/components/common/EmptyState.vue'
+
+const toast = useToast()
+const confirm = useConfirm()
 
 const route = useRoute()
 const suppliers = ref<Supplier[]>([])
@@ -273,7 +289,6 @@ const showAllRules = ref(false)
 const supplierQuery = ref('')
 const materialQuery = ref('')
 const ruleQuery = ref('')
-const message = ref('')
 const supplierForm = reactive({
   id: null as number | null,
   name: '',
@@ -294,7 +309,6 @@ const supplierMaterialForm = reactive({
   remark: ''
 })
 let supplierSearchTimer: number | undefined
-let messageTimer: number | undefined
 let supplierSelectionInitialized = false
 
 const rawMaterials = computed(() => products.value.filter(product => product.type === 'RAW_MATERIAL'))
@@ -356,7 +370,7 @@ async function loadSuppliers() {
     suppliers.value = result.content
     syncSelectedSupplier()
   } catch (error) {
-    showMessage(getErrorMessage(error, '加载供应商失败'))
+    toast.error(getErrorMessage(error, '加载供应商失败'))
   } finally {
     suppliersLoading.value = false
   }
@@ -367,7 +381,7 @@ async function loadProducts() {
     const result = await productApi.getAllProducts(0, 300)
     products.value = result.content
   } catch (error) {
-    showMessage(getErrorMessage(error, '加载商品失败'))
+    toast.error(getErrorMessage(error, '加载商品失败'))
   }
 }
 
@@ -375,7 +389,7 @@ async function loadSupplierMaterials() {
   try {
     supplierMaterials.value = await productionApi.getSupplierMaterials()
   } catch (error) {
-    showMessage(getErrorMessage(error, '加载供货规则失败'))
+    toast.error(getErrorMessage(error, '加载供货规则失败'))
   }
 }
 
@@ -392,7 +406,7 @@ async function prefillFromQuery() {
   }
   await nextTick()
   supplierMaterialModalOpen.value = true
-  showMessage('已带出原材料，请选择供应商后保存供货规则。')
+  toast.info('已带出原材料，请选择供应商后保存供货规则。')
 }
 
 function selectSupplier(supplier: Supplier) {
@@ -458,7 +472,7 @@ function closeSupplierMaterialModal() {
 
 async function submitSupplier() {
   if (!supplierForm.name.trim()) {
-    showMessage('请填写供应商名称。')
+    toast.warning('请填写供应商名称。')
     return
   }
 
@@ -474,31 +488,36 @@ async function submitSupplier() {
     const savedSupplier = supplierForm.id
       ? await supplierApi.updateSupplier(supplierForm.id, payload)
       : await supplierApi.createSupplier(payload)
-    showMessage(supplierForm.id ? '供应商已更新。' : '供应商已新增。')
+    toast.success(supplierForm.id ? '供应商已更新。' : '供应商已新增。')
     selectedSupplierId.value = savedSupplier.id
     closeSupplierModal()
     await loadSuppliers()
   } catch (error) {
-    showMessage(getErrorMessage(error, '保存供应商失败'))
+    toast.error(getErrorMessage(error, '保存供应商失败'))
   } finally {
     supplierSubmitting.value = false
   }
 }
 
 async function deleteSupplier(supplier: Supplier) {
-  const confirmed = window.confirm(`确定删除供应商「${supplier.name}」吗？`)
+  const confirmed = await confirm({
+    title: '删除供应商',
+    message: `确定删除供应商「${supplier.name}」吗？`,
+    confirmText: '删除',
+    tone: 'danger'
+  })
   if (!confirmed) return
 
   try {
     await supplierApi.deleteSupplier(supplier.id)
-    showMessage('供应商已删除。')
+    toast.success('供应商已删除。')
     if (selectedSupplierId.value === supplier.id) {
       selectedSupplierId.value = null
       showAllRules.value = true
     }
     await Promise.all([loadSuppliers(), loadSupplierMaterials()])
   } catch (error) {
-    showMessage(getErrorMessage(error, '删除供应商失败'))
+    toast.error(getErrorMessage(error, '删除供应商失败'))
   }
 }
 
@@ -509,23 +528,23 @@ function syncSupplierMaterialPrice() {
 
 async function submitSupplierMaterial() {
   if (supplierMaterialForm.supplierId <= 0 || supplierMaterialForm.productId <= 0) {
-    showMessage('请选择供应商和原材料。')
+    toast.warning('请选择供应商和原材料。')
     return
   }
   if (!Number.isFinite(supplierMaterialForm.defaultUnitPrice) || supplierMaterialForm.defaultUnitPrice < 0) {
-    showMessage('默认单价不能小于 0。')
+    toast.warning('默认单价不能小于 0。')
     return
   }
   if (!Number.isFinite(supplierMaterialForm.minOrderQuantity) || supplierMaterialForm.minOrderQuantity <= 0) {
-    showMessage('起订量必须大于 0。')
+    toast.warning('起订量必须大于 0。')
     return
   }
   if (!Number.isFinite(supplierMaterialForm.orderMultiple) || supplierMaterialForm.orderMultiple <= 0) {
-    showMessage('采购倍数必须大于 0。')
+    toast.warning('采购倍数必须大于 0。')
     return
   }
   if (!Number.isFinite(supplierMaterialForm.leadTimeDays) || supplierMaterialForm.leadTimeDays < 0) {
-    showMessage('交期不能小于 0。')
+    toast.warning('交期不能小于 0。')
     return
   }
 
@@ -543,17 +562,17 @@ async function submitSupplierMaterial() {
     }
     if (supplierMaterialForm.id) {
       await productionApi.updateSupplierMaterial(supplierMaterialForm.id, payload)
-      showMessage('供货规则已更新。')
+      toast.success('供货规则已更新。')
     } else {
       await productionApi.createSupplierMaterial(payload)
-      showMessage('供货规则已添加。')
+      toast.success('供货规则已添加。')
     }
     selectedSupplierId.value = payload.supplierId
     supplierMaterialModalOpen.value = false
     resetSupplierMaterialForm()
     await loadSupplierMaterials()
   } catch (error) {
-    showMessage(getErrorMessage(error, '保存供货规则失败'))
+    toast.error(getErrorMessage(error, '保存供货规则失败'))
   } finally {
     supplierMaterialSubmitting.value = false
   }
@@ -575,18 +594,23 @@ function editSupplierMaterial(item: SupplierMaterial) {
 }
 
 async function deleteSupplierMaterial(item: SupplierMaterial) {
-  const confirmed = window.confirm(`确定删除「${item.supplierName} - ${item.productName}」这条供货规则吗？`)
+  const confirmed = await confirm({
+    title: '删除供货规则',
+    message: `确定删除「${item.supplierName} - ${item.productName}」这条供货规则吗？`,
+    confirmText: '删除',
+    tone: 'danger'
+  })
   if (!confirmed) return
 
   try {
     await productionApi.deleteSupplierMaterial(item.id)
-    showMessage('供货规则已删除。')
+    toast.success('供货规则已删除。')
     if (supplierMaterialForm.id === item.id) {
       resetSupplierMaterialForm()
     }
     await loadSupplierMaterials()
   } catch (error) {
-    showMessage(getErrorMessage(error, '删除供货规则失败'))
+    toast.error(getErrorMessage(error, '删除供货规则失败'))
   }
 }
 
@@ -645,13 +669,6 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback
 }
 
-function showMessage(value: string) {
-  message.value = value
-  window.clearTimeout(messageTimer)
-  messageTimer = window.setTimeout(() => {
-    message.value = ''
-  }, 2800)
-}
 </script>
 
 <style scoped>
@@ -734,18 +751,6 @@ function showMessage(value: string) {
   opacity: 0.55;
 }
 
-.operation-message {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 80;
-  border: 1px solid #bfdbfe;
-  border-radius: 8px;
-  padding: 12px 16px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  box-shadow: 0 16px 36px rgba(37, 99, 235, 0.14);
-}
 
 .supplier-workspace {
   display: grid;

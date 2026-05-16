@@ -1,15 +1,11 @@
 <template>
-  <div class="page">
-    <div class="page-header">
+  <div :class="['page', { 'page--embedded': embedded }]">
+    <div v-if="!embedded" class="page-header">
       <div>
-        <p class="page-eyebrow">系统设置</p>
         <h1>用户管理</h1>
-        <p>由系统用户创建账号、重置密码，并控制后台账号是否可登录。</p>
       </div>
       <button v-if="canCreateUser" type="button" class="primary-button" @click="openCreateModal">新增用户</button>
     </div>
-
-    <p v-if="message" class="operation-message">{{ message }}</p>
 
     <section class="panel filter-panel">
       <input
@@ -19,6 +15,7 @@
         @keyup.enter="loadUsers(true)"
       />
       <button type="button" class="secondary-button" @click="loadUsers(true)">查询</button>
+      <button v-if="embedded && canCreateUser" type="button" class="primary-button" @click="openCreateModal">新增用户</button>
     </section>
 
     <section class="panel user-table-panel">
@@ -47,7 +44,22 @@
               <td colspan="7" class="empty-cell">正在加载用户...</td>
             </tr>
             <tr v-else-if="users.length === 0">
-              <td colspan="7" class="empty-cell">暂无用户账号</td>
+              <td colspan="7">
+                <EmptyState
+                  v-if="canCreateUser"
+                  size="compact"
+                  title="还没有用户账号"
+                  description="由管理员新增系统账号，分配角色后即可登录。"
+                  action-label="新增用户"
+                  @action="openCreateModal"
+                />
+                <EmptyState
+                  v-else
+                  size="compact"
+                  title="还没有用户账号"
+                  description="请联系管理员创建账号。"
+                />
+              </td>
             </tr>
             <tr v-for="user in users" v-else :key="user.id">
               <td>
@@ -56,9 +68,7 @@
               <td>{{ user.nickname }}</td>
               <td>{{ formatRoles(user.roles) }}</td>
               <td>
-                <span class="status-pill" :class="user.status === 'ACTIVE' ? 'status-pill--active' : 'status-pill--disabled'">
-                  {{ user.status === 'ACTIVE' ? '正常' : '禁用' }}
-                </span>
+                <StatusPill :semantic="toStatusSemantic(user.status)" :label="user.status === 'ACTIVE' ? '正常' : '禁用'" />
               </td>
               <td>{{ formatDateTime(user.lastLoginAt) }}</td>
               <td>{{ formatDateTime(user.createdAt) }}</td>
@@ -187,6 +197,16 @@ import { ApiError } from '@/api/http'
 import { sysUserApi } from '@/api/sysUser'
 import { useAuthStore } from '@/stores/auth'
 import type { RoleOption, SysUserProfile } from '@/types/auth'
+import { useToast } from '@/composables/useToast'
+import { useConfirm } from '@/composables/useConfirm'
+import EmptyState from '@/components/common/EmptyState.vue'
+import StatusPill from '@/components/common/StatusPill.vue'
+import { toStatusSemantic } from '@/utils/statusSemantic'
+
+withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
+
+const toast = useToast()
+const confirm = useConfirm()
 
 const authStore = useAuthStore()
 const users = ref<SysUserProfile[]>([])
@@ -200,7 +220,6 @@ const selectedUser = ref<SysUserProfile | null>(null)
 const editingRoleCodes = ref<string[]>([])
 const newPassword = ref('')
 const query = ref('')
-const message = ref('')
 const pageState = reactive({
   number: 0,
   size: 10,
@@ -214,7 +233,6 @@ const createForm = reactive({
   roleCodes: [] as string[]
 })
 let searchTimer: number | undefined
-let messageTimer: number | undefined
 
 const canCreateUser = computed(() => authStore.hasPermission('auth:user:create'))
 const canUpdateUser = computed(() => authStore.hasPermission('auth:user:update'))
@@ -243,7 +261,7 @@ async function loadUsers(resetPage = false) {
     pageState.totalElements = result.totalElements
     pageState.totalPages = result.totalPages
   } catch (error) {
-    showMessage(getErrorMessage(error, '加载用户失败'))
+    toast.error(getErrorMessage(error, '加载用户失败'))
   } finally {
     loading.value = false
   }
@@ -253,7 +271,7 @@ async function loadRoleOptions() {
   try {
     roleOptions.value = await sysUserApi.getRoleOptions()
   } catch (error) {
-    showMessage(getErrorMessage(error, '加载角色失败'))
+    toast.error(getErrorMessage(error, '加载角色失败'))
   }
 }
 
@@ -277,7 +295,7 @@ function closeCreateModal() {
 async function createUser() {
   const validationMessage = validateUserForm(createForm.username, createForm.nickname, createForm.password)
   if (validationMessage) {
-    showMessage(validationMessage)
+    toast.warning(validationMessage)
     return
   }
 
@@ -289,11 +307,11 @@ async function createUser() {
       password: createForm.password,
       roleCodes: createForm.roleCodes
     })
-    showMessage('用户账号已创建。')
+    toast.success('用户账号已创建。')
     closeCreateModal()
     await loadUsers(true)
   } catch (error) {
-    showMessage(getErrorMessage(error, '创建用户失败'))
+    toast.error(getErrorMessage(error, '创建用户失败'))
   } finally {
     submitting.value = false
   }
@@ -318,11 +336,11 @@ async function saveUserRoles() {
     await sysUserApi.updateUserRoles(selectedUser.value.id, {
       roleCodes: editingRoleCodes.value
     })
-    showMessage('用户角色已更新。')
+    toast.success('用户角色已更新。')
     closeRoleModal()
     await loadUsers()
   } catch (error) {
-    showMessage(getErrorMessage(error, '更新用户角色失败'))
+    toast.error(getErrorMessage(error, '更新用户角色失败'))
   } finally {
     submitting.value = false
   }
@@ -344,18 +362,18 @@ async function resetPassword() {
   if (!selectedUser.value) return
   const validationMessage = validatePassword(newPassword.value)
   if (validationMessage) {
-    showMessage(validationMessage)
+    toast.warning(validationMessage)
     return
   }
 
   submitting.value = true
   try {
     await sysUserApi.resetPassword(selectedUser.value.id, newPassword.value)
-    showMessage('密码已重置。')
+    toast.success('密码已重置。')
     closePasswordModal()
     await loadUsers()
   } catch (error) {
-    showMessage(getErrorMessage(error, '重置密码失败'))
+    toast.error(getErrorMessage(error, '重置密码失败'))
   } finally {
     submitting.value = false
   }
@@ -365,26 +383,31 @@ async function activateUser(user: SysUserProfile) {
   submitting.value = true
   try {
     await sysUserApi.activateUser(user.id)
-    showMessage('用户已启用。')
+    toast.success('用户已启用。')
     await loadUsers()
   } catch (error) {
-    showMessage(getErrorMessage(error, '启用用户失败'))
+    toast.error(getErrorMessage(error, '启用用户失败'))
   } finally {
     submitting.value = false
   }
 }
 
 async function disableUser(user: SysUserProfile) {
-  const confirmed = window.confirm(`确定禁用用户「${user.nickname}」吗？`)
+  const confirmed = await confirm({
+    title: '禁用用户',
+    message: `确定禁用用户「${user.nickname}」吗？`,
+    confirmText: '禁用',
+    tone: 'danger'
+  })
   if (!confirmed) return
 
   submitting.value = true
   try {
     await sysUserApi.disableUser(user.id)
-    showMessage('用户已禁用。')
+    toast.success('用户已禁用。')
     await loadUsers()
   } catch (error) {
-    showMessage(getErrorMessage(error, '禁用用户失败'))
+    toast.error(getErrorMessage(error, '禁用用户失败'))
   } finally {
     submitting.value = false
   }
@@ -431,13 +454,6 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback
 }
 
-function showMessage(value: string) {
-  message.value = value
-  window.clearTimeout(messageTimer)
-  messageTimer = window.setTimeout(() => {
-    message.value = ''
-  }, 2800)
-}
 </script>
 
 <style scoped>
@@ -488,11 +504,16 @@ function showMessage(value: string) {
 }
 
 .filter-panel {
-  display: grid;
-  grid-template-columns: minmax(260px, 1fr) auto;
+  display: flex;
+  align-items: center;
   gap: 12px;
   margin-bottom: 16px;
   padding: 14px 16px;
+}
+
+.filter-panel input {
+  flex: 1;
+  min-width: 0;
 }
 
 input {
@@ -587,24 +608,6 @@ input:focus {
   color: #0f172a;
 }
 
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.status-pill--active {
-  background: #ecfdf5;
-  color: #047857;
-}
-
-.status-pill--disabled {
-  background: #f1f5f9;
-  color: #64748b;
-}
 
 .row-actions,
 .modal-actions {
@@ -664,18 +667,6 @@ input:focus {
   cursor: pointer;
 }
 
-.operation-message {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 80;
-  border: 1px solid #bfdbfe;
-  border-radius: 8px;
-  padding: 12px 16px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  box-shadow: 0 16px 36px rgba(37, 99, 235, 0.14);
-}
 
 .modal-backdrop {
   position: fixed;

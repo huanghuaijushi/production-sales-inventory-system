@@ -2,13 +2,9 @@
   <div class="page">
     <div class="page-header">
       <div>
-        <p class="page-eyebrow">生产配置</p>
         <h1>成品配方</h1>
-        <p>维护“生产 1 个成品”需要消耗哪些原材料，用来计算可生产量和原材料缺口。</p>
       </div>
     </div>
-
-    <p v-if="message" class="operation-message">{{ message }}</p>
 
     <div class="config-tabs">
       <button
@@ -53,7 +49,12 @@
             <p>共 {{ recipeTotalGroups }} 个成品，{{ filteredBomItemCount }} 条明细。</p>
           </div>
         </div>
-        <div v-if="paginatedBomGroups.length === 0" class="empty-box">暂无配方明细</div>
+        <EmptyState
+          v-if="paginatedBomGroups.length === 0"
+          size="compact"
+          title="暂无配方明细"
+          description="选择成品后新增配方，定义每件成品要用到的原材料。"
+        />
         <div v-for="group in paginatedBomGroups" v-else :key="group.productId" class="recipe-card">
           <div class="recipe-card-head">
             <div>
@@ -196,7 +197,12 @@
             <p>点击任意工序即可在左侧编辑；没有配置的成品会使用系统默认路线。</p>
           </div>
         </div>
-        <div v-if="routeGroups.length === 0" class="empty-box">暂无工序路线。</div>
+        <EmptyState
+          v-if="routeGroups.length === 0"
+          size="compact"
+          title="暂无工序路线"
+          description="为成品定义生产步骤、损耗率和顺序，用于生产工单跟踪。"
+        />
         <div v-for="group in routeGroups" v-else :key="group.productId" class="route-card">
           <div class="route-card-head">
             <div>
@@ -231,6 +237,12 @@ import { useRoute, useRouter } from 'vue-router'
 import { ApiError } from '@/api/http'
 import { productApi, type Product } from '@/api/product'
 import { productionApi, type BomItem, type ProductionRouteStep } from '@/api/production'
+import { useToast } from '@/composables/useToast'
+import { useConfirm } from '@/composables/useConfirm'
+import EmptyState from '@/components/common/EmptyState.vue'
+
+const toast = useToast()
+const confirm = useConfirm()
 
 const route = useRoute()
 const router = useRouter()
@@ -239,7 +251,6 @@ const bomItems = ref<BomItem[]>([])
 const routeSteps = ref<ProductionRouteStep[]>([])
 const bomSubmitting = ref(false)
 const routeSubmitting = ref(false)
-const message = ref('')
 const selectedFinishedProductId = ref(0)
 const recipeSearch = ref('')
 const recipePage = ref(1)
@@ -264,7 +275,6 @@ const routeForm = reactive({
   sortOrder: 10,
   allowLoss: true
 })
-let messageTimer: number | undefined
 
 const rawMaterialProducts = computed(() => products.value.filter(product => product.type === 'RAW_MATERIAL'))
 const finishedProducts = computed(() => products.value.filter(product => product.type === 'FINISHED_PRODUCT'))
@@ -350,7 +360,7 @@ async function loadProducts() {
     const result = await productApi.getAllProducts(0, 300)
     products.value = result.content
   } catch (error) {
-    showMessage(getErrorMessage(error, '加载商品失败'))
+    toast.error(getErrorMessage(error, '加载商品失败'))
   }
 }
 
@@ -358,7 +368,7 @@ async function loadBomItems() {
   try {
     bomItems.value = await productionApi.getBomItems()
   } catch (error) {
-    showMessage(getErrorMessage(error, '加载配方失败'))
+    toast.error(getErrorMessage(error, '加载配方失败'))
   }
 }
 
@@ -366,7 +376,7 @@ async function loadRouteSteps() {
   try {
     routeSteps.value = await productionApi.getRouteSteps()
   } catch (error) {
-    showMessage(getErrorMessage(error, '加载工序路线失败'))
+    toast.error(getErrorMessage(error, '加载工序路线失败'))
   }
 }
 
@@ -376,15 +386,15 @@ function changeRecipePage(page: number) {
 
 async function submitBomItem() {
   if (bomForm.finishedProductId <= 0 || bomForm.materialProductId <= 0) {
-    showMessage('请选择成品和原材料。')
+    toast.warning('请选择成品和原材料。')
     return
   }
   if (!Number.isFinite(bomForm.quantityPerUnit) || bomForm.quantityPerUnit <= 0) {
-    showMessage('单位用量必须大于 0。')
+    toast.warning('单位用量必须大于 0。')
     return
   }
   if (!Number.isFinite(bomForm.lossRate) || bomForm.lossRate < 0 || bomForm.lossRate > 1) {
-    showMessage('损耗率必须在 0 到 1 之间。')
+    toast.warning('损耗率必须在 0 到 1 之间。')
     return
   }
 
@@ -399,15 +409,15 @@ async function submitBomItem() {
     }
     if (bomForm.id) {
       await productionApi.updateBomItem(bomForm.id, payload)
-      showMessage('配方已更新。')
+      toast.success('配方已更新。')
     } else {
       await productionApi.createBomItem(payload)
-      showMessage('配方已添加。')
+      toast.success('配方已添加。')
     }
     await loadBomItems()
     resetBomForm()
   } catch (error) {
-    showMessage(getErrorMessage(error, '保存配方失败'))
+    toast.error(getErrorMessage(error, '保存配方失败'))
   } finally {
     bomSubmitting.value = false
   }
@@ -415,7 +425,7 @@ async function submitBomItem() {
 
 async function submitRouteStep() {
   if (routeForm.productId <= 0 || !routeForm.stepCode.trim() || !routeForm.stepName.trim()) {
-    showMessage('请选择成品，并填写工序编码和名称。')
+    toast.warning('请选择成品，并填写工序编码和名称。')
     return
   }
   routeSubmitting.value = true
@@ -430,15 +440,15 @@ async function submitRouteStep() {
     }
     if (routeForm.id) {
       await productionApi.updateRouteStep(routeForm.id, payload)
-      showMessage('工序已更新。')
+      toast.success('工序已更新。')
     } else {
       await productionApi.createRouteStep(payload)
-      showMessage('工序已添加。')
+      toast.success('工序已添加。')
     }
     resetRouteForm()
     await loadRouteSteps()
   } catch (error) {
-    showMessage(getErrorMessage(error, '保存工序失败'))
+    toast.error(getErrorMessage(error, '保存工序失败'))
   } finally {
     routeSubmitting.value = false
   }
@@ -484,30 +494,40 @@ function editBomItem(item: BomItem) {
 }
 
 async function deleteBomItem(item: BomItem) {
-  const confirmed = window.confirm(`确定删除「${item.finishedProductName} - ${item.materialProductName}」这条配方吗？`)
+  const confirmed = await confirm({
+    title: '删除配方',
+    message: `确定删除「${item.finishedProductName} - ${item.materialProductName}」这条配方吗？`,
+    confirmText: '删除',
+    tone: 'danger'
+  })
   if (!confirmed) return
 
   try {
     await productionApi.deleteBomItem(item.id)
-    showMessage('配方已删除。')
+    toast.success('配方已删除。')
     await loadBomItems()
   } catch (error) {
-    showMessage(getErrorMessage(error, '删除配方失败'))
+    toast.error(getErrorMessage(error, '删除配方失败'))
   }
 }
 
 async function deleteRouteStepByForm() {
   if (!routeForm.id) return
-  const confirmed = window.confirm(`确定删除「${routeForm.stepName}」这道工序吗？`)
+  const confirmed = await confirm({
+    title: '删除工序',
+    message: `确定删除「${routeForm.stepName}」这道工序吗？`,
+    confirmText: '删除',
+    tone: 'danger'
+  })
   if (!confirmed) return
 
   try {
     await productionApi.deleteRouteStep(routeForm.id)
-    showMessage('工序已删除。')
+    toast.success('工序已删除。')
     resetRouteForm()
     await loadRouteSteps()
   } catch (error) {
-    showMessage(getErrorMessage(error, '删除工序失败'))
+    toast.error(getErrorMessage(error, '删除工序失败'))
   }
 }
 
@@ -572,13 +592,6 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback
 }
 
-function showMessage(value: string) {
-  message.value = value
-  window.clearTimeout(messageTimer)
-  messageTimer = window.setTimeout(() => {
-    message.value = ''
-  }, 2800)
-}
 </script>
 
 <style scoped>
@@ -1075,18 +1088,6 @@ label span {
   font-size: 13px;
 }
 
-.operation-message {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 80;
-  border: 1px solid #bfdbfe;
-  border-radius: 10px;
-  padding: 12px 16px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  box-shadow: 0 16px 36px rgba(37, 99, 235, 0.14);
-}
 
 @media (max-width: 1180px) {
   .filter-panel,

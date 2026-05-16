@@ -29,7 +29,13 @@
           </tr>
 
           <tr v-else-if="items.length === 0" class="table-row empty-row">
-            <td colspan="7">当前没有匹配的库存数据，请调整筛选条件。</td>
+            <td colspan="7">
+              <EmptyState
+                size="compact"
+                title="没有匹配的库存"
+                description="试着调整筛选条件，或新增采购入库让库存出现。"
+              />
+            </td>
           </tr>
 
           <tr v-else v-for="item in items" :key="item.id" class="table-row">
@@ -48,7 +54,7 @@
             <td>{{ item.quantity }}</td>
             <td>{{ item.alertQuantity }}</td>
             <td class="actions-column">
-              <span :class="['status-tag', statusClass(item)]">{{ statusLabel(item) }}</span>
+              <StatusPill :semantic="toStatusSemantic(stockSemantic(item))" :label="stockLabel(item)" />
               <button type="button" class="action-link" @click="emit('edit', item)">编辑</button>
             </td>
           </tr>
@@ -60,6 +66,9 @@
 
 <script setup lang="ts">
 import { type StockItem } from '@/api/inventory'
+import EmptyState from '@/components/common/EmptyState.vue'
+import StatusPill from '@/components/common/StatusPill.vue'
+import { toStatusSemantic } from '@/utils/statusSemantic'
 
 const props = defineProps<{
   items: StockItem[]
@@ -71,13 +80,13 @@ const emit = defineEmits<{
   (e: 'edit', item: StockItem): void
 }>()
 
-function statusClass(item: StockItem) {
-  if (item.quantity === 0) return 'status-out'
-  if (item.isLowStock) return 'status-warning'
-  return 'status-normal'
+function stockSemantic(item: StockItem) {
+  if (item.quantity === 0) return 'OUT'
+  if (item.isLowStock) return 'WARNING'
+  return 'NORMAL'
 }
 
-function statusLabel(item: StockItem) {
+function stockLabel(item: StockItem) {
   if (item.quantity === 0) return '缺货'
   if (item.isLowStock) return '预警'
   return '正常'
@@ -179,31 +188,6 @@ function statusLabel(item: StockItem) {
   gap: 10px;
 }
 
-.status-tag {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 64px;
-  padding: 5px 9px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.status-normal {
-  background: #ecfdf5;
-  color: #16a34a;
-}
-
-.status-warning {
-  background: #fef3c7;
-  color: #b45309;
-}
-
-.status-out {
-  background: #fee2e2;
-  color: #b91c1c;
-}
 
 .action-link {
   padding: 6px 10px;

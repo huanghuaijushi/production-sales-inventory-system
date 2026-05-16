@@ -14,21 +14,20 @@
       </div>
 
       <nav class="sidebar-nav">
-        <RouterLink
-          v-for="item in visibleMenuItems"
-          :key="item.name"
-          :to="item.path"
-          class="nav-item"
-          :class="{ active: isActive(item.name) }"
-        >
-          <component :is="item.icon" class="nav-icon" />
-          <span class="nav-text">{{ item.title }}</span>
-        </RouterLink>
+        <template v-for="item in visibleMenuItems" :key="item.name">
+          <div v-if="item.sectionLabel" class="nav-separator">{{ item.sectionLabel }}</div>
+          <RouterLink
+            :to="item.path"
+            class="nav-item"
+            :class="{ active: isActive(item.name) }"
+          >
+            <component :is="item.icon" class="nav-icon" />
+            <span class="nav-text">{{ item.sidebarTitle ?? item.title }}</span>
+          </RouterLink>
+        </template>
       </nav>
 
-      <div class="sidebar-footer">
-        <div class="decoration">📦</div>
-      </div>
+      <div class="sidebar-footer"></div>
     </aside>
 
     <div class="main-content">
@@ -42,6 +41,7 @@
         <div class="search-box" ref="searchBoxRef">
           <MagnifyingGlassIcon class="search-icon" />
           <input
+            ref="searchInputRef"
             v-model="globalSearchQuery"
             type="text"
             placeholder="搜索库存产品、库存或 SKU"
@@ -128,7 +128,6 @@ import {
   HomeIcon,
   ArchiveBoxIcon,
   CubeIcon,
-  TagIcon,
   ShoppingCartIcon,
   TruckIcon,
   ClipboardDocumentCheckIcon,
@@ -136,9 +135,7 @@ import {
   ChartBarIcon,
   MagnifyingGlassIcon,
   ChevronDownIcon,
-  UserGroupIcon,
-  ShieldCheckIcon,
-  LockClosedIcon
+  Cog6ToothIcon
 } from '@heroicons/vue/24/outline'
 
 const tenantShort = import.meta.env.VITE_TENANT_SHORT
@@ -149,6 +146,7 @@ const route = useRoute()
 const router = useRouter()
 const userMenuOpen = ref(false)
 const searchBoxRef = ref<HTMLElement | null>(null)
+const searchInputRef = ref<HTMLInputElement | null>(null)
 const searchPanelOpen = ref(false)
 const globalSearchQuery = ref('')
 const globalSearchLoading = ref(false)
@@ -160,9 +158,12 @@ type MenuItem = {
   name: string
   path: string
   title: string
+  sidebarTitle?: string
   icon: unknown
   permissions: string[]
   requireAll?: boolean
+  hiddenFromSidebar?: true
+  sectionLabel?: string
   breadcrumb: {
     main: string
     sub: string
@@ -173,18 +174,18 @@ const menuItems: MenuItem[] = [
   {
     name: 'dashboard',
     path: '/dashboard',
-    title: '控制台首页',
+    title: '首页',
     icon: HomeIcon,
     permissions: ['dashboard:view'],
-    breadcrumb: { main: '控制台首页', sub: '实时概览' }
+    breadcrumb: { main: '首页', sub: '实时概览' }
   },
   {
     name: 'inventory',
     path: '/inventory',
-    title: '库存管理',
+    title: '库存',
     icon: ArchiveBoxIcon,
     permissions: ['stock:view', 'stock:record:view', 'stock:batch:view'],
-    breadcrumb: { main: '库存管理', sub: '库存总览' }
+    breadcrumb: { main: '库存', sub: '库存总览' }
   },
   {
     name: 'products',
@@ -192,20 +193,13 @@ const menuItems: MenuItem[] = [
     title: '库存产品',
     icon: CubeIcon,
     permissions: ['product:view'],
+    hiddenFromSidebar: true,
     breadcrumb: { main: '库存产品', sub: '产品列表' }
-  },
-  {
-    name: 'goods',
-    path: '/goods',
-    title: '商品管理',
-    icon: TagIcon,
-    permissions: ['sales:view'],
-    breadcrumb: { main: '商品管理', sub: '销售商品' }
   },
   {
     name: 'purchase',
     path: '/purchase',
-    title: '采购管理',
+    title: '采购',
     icon: ShoppingCartIcon,
     permissions: ['purchase:view'],
     breadcrumb: { main: '采购管理', sub: '手动采购' }
@@ -213,7 +207,7 @@ const menuItems: MenuItem[] = [
   {
     name: 'suppliers',
     path: '/suppliers',
-    title: '供应商管理',
+    title: '供应商',
     icon: TruckIcon,
     permissions: ['supplier:view'],
     breadcrumb: { main: '供应商管理', sub: '供货规则' }
@@ -221,7 +215,7 @@ const menuItems: MenuItem[] = [
   {
     name: 'production',
     path: '/production',
-    title: '生产计划',
+    title: '生产',
     icon: ClipboardDocumentCheckIcon,
     permissions: ['production:view'],
     breadcrumb: { main: '生产管理', sub: '生产计划' }
@@ -232,47 +226,54 @@ const menuItems: MenuItem[] = [
     title: '生产配置',
     icon: ClipboardDocumentListIcon,
     permissions: ['production:view'],
+    hiddenFromSidebar: true,
     breadcrumb: { main: '生产配置', sub: '成品配方' }
   },
   {
     name: 'sales',
     path: '/sales',
-    title: '销售管理',
+    title: '销售',
     icon: ChartBarIcon,
     permissions: ['sales:view'],
-    breadcrumb: { main: '销售管理', sub: '订单出库' }
+    breadcrumb: { main: '销售管理', sub: '销售单' }
   },
   {
-    name: 'sys-users',
-    path: '/sys-users',
-    title: '用户管理',
-    icon: UserGroupIcon,
-    permissions: ['auth:user:view'],
-    breadcrumb: { main: '系统设置', sub: '用户管理' }
-  },
-  {
-    name: 'roles',
-    path: '/roles',
-    title: '角色管理',
-    icon: ShieldCheckIcon,
-    permissions: ['auth:role:view'],
-    breadcrumb: { main: '系统设置', sub: '角色管理' }
-  },
-  {
-    name: 'permissions',
-    path: '/permissions',
-    title: '权限管理',
-    icon: LockClosedIcon,
-    permissions: ['auth:permission:view'],
-    breadcrumb: { main: '系统设置', sub: '权限管理' }
+    name: 'system',
+    path: '/system',
+    title: '系统设置',
+    icon: Cog6ToothIcon,
+    permissions: ['auth:user:view', 'auth:role:view', 'auth:permission:view'],
+    sectionLabel: '系统',
+    breadcrumb: { main: '系统设置', sub: '用户' }
   }
 ]
 
 const hasSearchResults = computed(() => productResults.value.length > 0 || stockResults.value.length > 0)
 
-const visibleMenuItems = computed(() => menuItems.filter(canAccessMenuItem))
+const visibleMenuItems = computed(() => menuItems.filter(item => !item.hiddenFromSidebar && canAccessMenuItem(item)))
+
+const SALES_TAB_LABELS: Record<string, string> = {
+  orders: '销售单',
+  imports: '订单导入',
+  channels: '渠道设置',
+  goods: '销售商品'
+}
+
+const SYSTEM_TAB_LABELS: Record<string, string> = {
+  users: '用户',
+  roles: '角色',
+  permissions: '权限'
+}
 
 const breadcrumb = computed(() => {
+  if (route.name === 'sales') {
+    const tab = (route.query.tab as string) || 'orders'
+    return { main: '销售管理', sub: SALES_TAB_LABELS[tab] ?? '销售单' }
+  }
+  if (route.name === 'system') {
+    const tab = (route.query.tab as string) || 'users'
+    return { main: '系统设置', sub: SYSTEM_TAB_LABELS[tab] ?? '用户' }
+  }
   const matched = menuItems.find((item) => item.name === route.name)
   return matched?.breadcrumb ?? { main: '控制台首页', sub: '实时概览' }
 })
@@ -396,13 +397,31 @@ function handleDocumentClick(event: MouseEvent) {
   }
 }
 
+function focusSearch() {
+  searchInputRef.value?.focus()
+  searchInputRef.value?.select()
+  openSearchPanel()
+}
+
+function handleDocumentKeydown(event: KeyboardEvent) {
+  const tag = (event.target as HTMLElement).tagName
+  const isEditing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
+
+  if ((event.key === '/' || ((event.metaKey || event.ctrlKey) && event.key === 'k')) && !isEditing) {
+    event.preventDefault()
+    focusSearch()
+  }
+}
+
 onMounted(() => {
   document.addEventListener('click', handleDocumentClick)
+  document.addEventListener('keydown', handleDocumentKeydown)
 })
 
 onBeforeUnmount(() => {
   window.clearTimeout(searchTimer)
   document.removeEventListener('click', handleDocumentClick)
+  document.removeEventListener('keydown', handleDocumentKeydown)
 })
 
 watch(globalSearchQuery, () => {
@@ -440,8 +459,8 @@ watch(globalSearchQuery, () => {
 .nav-item.active { background: #1890ff; color: white; }
 .nav-icon { width: 20px; height: 20px; margin-right: 12px; flex-shrink: 0; }
 .nav-text { font-size: 14px; }
-.sidebar-footer { padding: 24px; display: flex; justify-content: center; }
-.decoration { font-size: 40px; opacity: 0.65; }
+.sidebar-footer { padding: 0; }
+.nav-separator { padding: 20px 24px 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255, 255, 255, 0.35); }
 .main-content { margin-left: 240px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
 .topbar { height: 72px; background: white; border-bottom: 1px solid #E5E7EB; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; }
 .breadcrumb { font-size: 14px; color: #6B7280; }

@@ -2,12 +2,7 @@
   <div class="sales-page">
     <div class="page-header">
       <div>
-        <p class="page-eyebrow">销售管理</p>
-        <h1>销售订单与导入中心</h1>
-        <p>销售单继续负责锁库和发货；外部订单先进入导入中心，匹配商品后再确认生成正式销售单。</p>
-      </div>
-      <div class="header-search" v-if="activeTab === 'orders'">
-        <input v-model="filters.query" type="search" placeholder="搜索订单号、客户或备注" @keyup.enter="loadOrders(true)" />
+        <h1>销售管理</h1>
       </div>
       <div class="header-actions">
         <button v-if="activeTab === 'orders'" type="button" class="primary-button" @click="openOrderModal()">新增销售单</button>
@@ -20,9 +15,8 @@
       <button type="button" :class="{ active: activeTab === 'orders' }" @click="activeTab = 'orders'">销售单</button>
       <button type="button" :class="{ active: activeTab === 'imports' }" @click="activeTab = 'imports'">订单导入</button>
       <button type="button" :class="{ active: activeTab === 'channels' }" @click="activeTab = 'channels'">渠道设置</button>
+      <button type="button" :class="{ active: activeTab === 'goods' }" @click="activeTab = 'goods'">商品</button>
     </nav>
-
-    <p v-if="message" class="operation-message">{{ message }}</p>
 
     <template v-if="activeTab === 'orders'">
       <section class="filter-panel">
@@ -70,7 +64,17 @@
             </thead>
             <tbody>
               <tr v-if="ordersLoading"><td colspan="7" class="empty-cell">正在加载销售单...</td></tr>
-              <tr v-else-if="orders.length === 0"><td colspan="7" class="empty-cell">暂无销售单</td></tr>
+              <tr v-else-if="orders.length === 0">
+                <td colspan="7">
+                  <EmptyState
+                    size="compact"
+                    title="还没有销售单"
+                    description="新增销售单或从外部渠道导入订单。"
+                    action-label="新增销售单"
+                    @action="openOrderModal()"
+                  />
+                </td>
+              </tr>
               <tr v-for="order in orders" v-else :key="order.id">
                 <td>
                   <div class="strong-text">{{ order.orderNo }}</div>
@@ -92,7 +96,7 @@
                   </div>
                 </td>
                 <td class="money-cell">{{ formatMoney(order.totalAmount) }}</td>
-                <td><span class="status-pill" :class="`status-pill--${order.status.toLowerCase()}`">{{ order.statusText }}</span></td>
+                <td><StatusPill :semantic="toStatusSemantic(order.status)" :label="order.statusText" /></td>
                 <td>
                   <div class="table-actions">
                     <button v-if="order.status === 'PENDING'" type="button" class="text-button" @click="openOrderModal(order)">编辑</button>
@@ -164,7 +168,12 @@
               </div>
               <em>{{ importStatusText(batch.status) }}</em>
             </button>
-            <div v-if="importBatches.length === 0" class="empty-cell">暂无导入批次</div>
+            <EmptyState
+              v-if="importBatches.length === 0"
+              size="compact"
+              title="暂无导入批次"
+              description="使用上方“导入文本订单”识别新的订单批次。"
+            />
           </div>
         </div>
       </section>
@@ -240,21 +249,29 @@
                 </td>
                 <td>
                   <div class="table-actions">
-                    <span class="status-pill" :class="`external-status--${order.status.toLowerCase()}`">{{ externalStatusText(order.status) }}</span>
+                    <StatusPill :semantic="toStatusSemantic(order.status)" :label="externalStatusText(order.status)" />
                     <button v-if="editingExternalOrderId !== order.id && order.status !== 'CONVERTED'" type="button" class="text-button" @click="startEditExternalOrder(order)">编辑</button>
                     <button v-if="editingExternalOrderId === order.id" type="button" class="text-button primary-text" :disabled="savingExternalOrder" @click="saveExternalOrder(order)">保存并重匹配</button>
                     <button v-if="editingExternalOrderId === order.id" type="button" class="text-button" @click="cancelEditExternalOrder">取消</button>
                   </div>
                 </td>
               </tr>
-              <tr v-if="(selectedBatch.orders || []).length === 0"><td colspan="4" class="empty-cell">该批次暂无订单</td></tr>
+              <tr v-if="(selectedBatch.orders || []).length === 0">
+                <td colspan="4">
+                  <EmptyState size="compact" title="该批次暂无订单" />
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
       </section>
     </template>
 
-    <template v-else>
+    <template v-else-if="activeTab === 'goods'">
+      <GoodsManagementView :embedded="true" />
+    </template>
+
+    <template v-else-if="activeTab === 'channels'">
       <section class="card-section">
         <div class="list-header"><div><h2>渠道设置</h2><p>管理销售来源渠道，导入中心按渠道应用商品映射规则。</p></div></div>
         <div class="table-wrap">
@@ -265,7 +282,17 @@
                 <td>{{ channel.code }}</td><td>{{ channel.name }}</td><td>{{ sourceTypeText(channel.sourceType) }}</td><td>{{ channel.sortOrder }}</td><td>{{ channel.enabled ? '启用' : '停用' }}</td><td>{{ channel.remark || '-' }}</td>
                 <td><button type="button" class="text-button" @click="openChannelModal(channel)">编辑</button></td>
               </tr>
-              <tr v-if="channels.length === 0"><td colspan="7" class="empty-cell">暂无渠道配置</td></tr>
+              <tr v-if="channels.length === 0">
+                <td colspan="7">
+                  <EmptyState
+                    size="compact"
+                    title="暂无渠道配置"
+                    description="新增销售渠道，定义订单来源和匹配规则。"
+                    action-label="新增渠道"
+                    @action="openChannelModal()"
+                  />
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -344,15 +371,35 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ApiError } from '@/api/http'
 import { inventoryApi, type StockItem } from '@/api/inventory'
 import { salesApi, type ExternalOrderItemRaw, type OrderImportBatch, type SalesChannelConfig, type SalesOrder } from '@/api/sales'
 import { salesGoodsApi, type SalesGoods, type SalesSku } from '@/api/salesGoods'
+import { useToast } from '@/composables/useToast'
+import { useConfirm } from '@/composables/useConfirm'
+import EmptyState from '@/components/common/EmptyState.vue'
+import StatusPill from '@/components/common/StatusPill.vue'
+import GoodsManagementView from '@/views/GoodsManagementView.vue'
+import { toStatusSemantic } from '@/utils/statusSemantic'
 
 interface OrderFormItem { salesSkuId: number; quantity: number; unitPrice: number }
-type TabKey = 'orders' | 'imports' | 'channels'
+type TabKey = 'orders' | 'imports' | 'channels' | 'goods'
+const VALID_TABS: TabKey[] = ['orders', 'imports', 'channels', 'goods']
 
-const activeTab = ref<TabKey>('orders')
+const route = useRoute()
+const router = useRouter()
+const toast = useToast()
+const confirm = useConfirm()
+const activeTab = computed<TabKey>({
+  get: () => {
+    const tab = route.query.tab as string | undefined
+    return tab && (VALID_TABS as string[]).includes(tab) ? (tab as TabKey) : 'orders'
+  },
+  set: (val) => {
+    router.replace({ query: { ...route.query, tab: val } })
+  }
+})
 const orders = ref<SalesOrder[]>([])
 const salesGoodsList = ref<SalesGoods[]>([])
 const stocks = ref<StockItem[]>([])
@@ -371,7 +418,6 @@ const quickMatchModalOpen = ref(false)
 const quickMatchSubmitting = ref(false)
 const quickMatchShowCreate = ref(false)
 const quickMatchCreating = ref(false)
-const message = ref('')
 const filters = reactive({ query: '', status: 'all' })
 const orderPage = reactive({ totalElements: 0, totalPages: 0, size: 10, number: 0 })
 const importPage = reactive({ totalElements: 0, totalPages: 0, size: 10, number: 0 })
@@ -381,7 +427,6 @@ const channelForm = reactive({ id: null as number | null, code: '', name: '', so
 const externalOrderForm = reactive({ customerName: '', customerPhone: '', customerAddress: '', buyerMessage: '', sellerRemark: '', items: [] as Array<{ id: number; externalProductName: string; externalSpecName: string; externalSkuCode: string; externalQuantity: number; externalUnitPrice: number }> })
 const quickMatchForm = reactive({ channelId: 0, externalProductName: '', externalSpecName: '', externalQuantity: 1, salesSkuId: 0, matchType: 'CONTAINS' as 'EXACT' | 'CONTAINS', mappingId: 0 })
 const quickMatchCreateForm = reactive({ name: '', unit: '个', defaultPrice: 0 })
-let messageTimer: number | undefined
 
 const formTotalAmount = computed(() => orderForm.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0), 0))
 const importChannelOptions = computed(() => channels.value.filter(channel => channel.enabled && channel.sourceType === 'TEXT'))
@@ -404,19 +449,37 @@ onMounted(async () => {
   if (defaultTextChannel) textImportForm.channelId = defaultTextChannel.id
 })
 
-async function loadOrders(reset = false) { if (reset) orderPage.number = 0; ordersLoading.value = true; try { const result = await salesApi.getOrders(orderPage.number, orderPage.size, filters.query, filters.status); orders.value = result.content; Object.assign(orderPage, { totalElements: result.totalElements, totalPages: result.totalPages, size: result.size, number: result.number }) } catch (error) { showMessage(getErrorMessage(error, '加载销售单失败')) } finally { ordersLoading.value = false } }
-async function loadSalesGoods() { try { salesGoodsList.value = await salesGoodsApi.getEnabledGoods() } catch (error) { showMessage(getErrorMessage(error, '加载销售商品失败')) } }
-async function loadStocks() { try { stocks.value = (await inventoryApi.getAllStocks(0, 300)).content } catch (error) { showMessage(getErrorMessage(error, '加载库存失败')) } }
-async function loadChannels() { try { channels.value = await salesApi.getChannels(false) } catch (error) { showMessage(getErrorMessage(error, '加载渠道失败')) } }
-async function loadImportBatches(reset = false) { if (reset) importPage.number = 0; try { const result = await salesApi.getImportBatches(importPage.number, importPage.size); importBatches.value = result.content; Object.assign(importPage, { totalElements: result.totalElements, totalPages: result.totalPages, size: result.size, number: result.number }) } catch (error) { showMessage(getErrorMessage(error, '加载导入批次失败')) } }
-async function selectBatch(batchId: number) { try { selectedBatch.value = await salesApi.getImportBatch(batchId) } catch (error) { showMessage(getErrorMessage(error, '加载导入预览失败')) } }
-async function importTextOrder() { if (!textImportForm.channelId && importChannelOptions.value[0]) textImportForm.channelId = importChannelOptions.value[0].id; if (!textImportForm.channelId) { showMessage('没有可用文本渠道，请先到“渠道设置”新增一个来源类型为“文本”的渠道。'); return } if (!textImportForm.rawText.trim()) { showMessage('请先粘贴收货和商品信息。'); return } importSubmitting.value = true; try { selectedBatch.value = await salesApi.importText({ channelId: textImportForm.channelId, rawText: textImportForm.rawText }); showMessage('文本订单已识别，请在下方查看预览结果。'); await loadImportBatches(true) } catch (error) { showMessage(getErrorMessage(error, '文本订单识别失败')) } finally { importSubmitting.value = false } }
-async function rematchSelectedBatch() { if (!selectedBatch.value) return; try { selectedBatch.value = await salesApi.parseImportBatch(selectedBatch.value.id); const stats = importPreviewStats.value; showMessage(`已重新匹配：${stats.matched} 条成功 / ${stats.total} 条总计`); await loadImportBatches(true) } catch (error) { showMessage(getErrorMessage(error, '重新匹配失败')) } }
-async function confirmSelectedBatch() { if (!selectedBatch.value || !window.confirm('确认将可确认订单生成正式销售单？')) return; confirmSubmitting.value = true; try { selectedBatch.value = await salesApi.confirmImportBatch(selectedBatch.value.id); showMessage('已生成正式销售单。'); await Promise.all([loadImportBatches(true), loadOrders(true), loadStocks()]) } catch (error) { showMessage(getErrorMessage(error, '确认生成销售单失败')) } finally { confirmSubmitting.value = false } }
+async function loadOrders(reset = false) { if (reset) orderPage.number = 0; ordersLoading.value = true; try { const result = await salesApi.getOrders(orderPage.number, orderPage.size, filters.query, filters.status); orders.value = result.content; Object.assign(orderPage, { totalElements: result.totalElements, totalPages: result.totalPages, size: result.size, number: result.number }) } catch (error) { toast.error(getErrorMessage(error, '加载销售单失败')) } finally { ordersLoading.value = false } }
+async function loadSalesGoods() { try { salesGoodsList.value = await salesGoodsApi.getEnabledGoods() } catch (error) { toast.error(getErrorMessage(error, '加载销售商品失败')) } }
+async function loadStocks() { try { stocks.value = (await inventoryApi.getAllStocks(0, 300)).content } catch (error) { toast.error(getErrorMessage(error, '加载库存失败')) } }
+async function loadChannels() { try { channels.value = await salesApi.getChannels(false) } catch (error) { toast.error(getErrorMessage(error, '加载渠道失败')) } }
+async function loadImportBatches(reset = false) { if (reset) importPage.number = 0; try { const result = await salesApi.getImportBatches(importPage.number, importPage.size); importBatches.value = result.content; Object.assign(importPage, { totalElements: result.totalElements, totalPages: result.totalPages, size: result.size, number: result.number }) } catch (error) { toast.error(getErrorMessage(error, '加载导入批次失败')) } }
+async function selectBatch(batchId: number) { try { selectedBatch.value = await salesApi.getImportBatch(batchId) } catch (error) { toast.error(getErrorMessage(error, '加载导入预览失败')) } }
+async function importTextOrder() { if (!textImportForm.channelId && importChannelOptions.value[0]) textImportForm.channelId = importChannelOptions.value[0].id; if (!textImportForm.channelId) { toast.warning('没有可用文本渠道，请先到“渠道设置”新增一个来源类型为“文本”的渠道。'); return } if (!textImportForm.rawText.trim()) { toast.warning('请先粘贴收货和商品信息。'); return } importSubmitting.value = true; try { selectedBatch.value = await salesApi.importText({ channelId: textImportForm.channelId, rawText: textImportForm.rawText }); toast.success('文本订单已识别，请在下方查看预览结果。'); await loadImportBatches(true) } catch (error) { toast.error(getErrorMessage(error, '文本订单识别失败')) } finally { importSubmitting.value = false } }
+async function rematchSelectedBatch() { if (!selectedBatch.value) return; try { selectedBatch.value = await salesApi.parseImportBatch(selectedBatch.value.id); const stats = importPreviewStats.value; toast.success(`已重新匹配：${stats.matched} 条成功 / ${stats.total} 条总计`); await loadImportBatches(true) } catch (error) { toast.error(getErrorMessage(error, '重新匹配失败')) } }
+async function confirmSelectedBatch() {
+  if (!selectedBatch.value) return
+  const ok = await confirm({
+    title: '生成正式销售单',
+    message: '确认将可确认订单生成正式销售单？',
+    confirmText: '生成销售单'
+  })
+  if (!ok) return
+  confirmSubmitting.value = true
+  try {
+    selectedBatch.value = await salesApi.confirmImportBatch(selectedBatch.value.id)
+    toast.success('已生成正式销售单。')
+    await Promise.all([loadImportBatches(true), loadOrders(true), loadStocks()])
+  } catch (error) {
+    toast.error(getErrorMessage(error, '确认生成销售单失败'))
+  } finally {
+    confirmSubmitting.value = false
+  }
+}
 
 function startEditExternalOrder(order: { id: number; customerName?: string | undefined; customerPhone?: string | undefined; customerAddress?: string | undefined; buyerMessage?: string | undefined; sellerRemark?: string | undefined; items: ExternalOrderItemRaw[] }) { editingExternalOrderId.value = order.id; externalOrderForm.customerName = order.customerName || ''; externalOrderForm.customerPhone = order.customerPhone || ''; externalOrderForm.customerAddress = order.customerAddress || ''; externalOrderForm.buyerMessage = order.buyerMessage || ''; externalOrderForm.sellerRemark = order.sellerRemark || ''; externalOrderForm.items = order.items.map(item => ({ id: item.id, externalProductName: item.externalProductName, externalSpecName: item.externalSpecName || '', externalSkuCode: item.externalSkuCode || '', externalQuantity: item.externalQuantity, externalUnitPrice: item.externalUnitPrice })) }
 function cancelEditExternalOrder() { editingExternalOrderId.value = null; externalOrderForm.customerName = ''; externalOrderForm.customerPhone = ''; externalOrderForm.customerAddress = ''; externalOrderForm.buyerMessage = ''; externalOrderForm.sellerRemark = ''; externalOrderForm.items = [] }
-async function saveExternalOrder(order: { id: number }) { if (!selectedBatch.value) return; savingExternalOrder.value = true; try { selectedBatch.value = await salesApi.updateExternalOrder(selectedBatch.value.id, order.id, { customerName: externalOrderForm.customerName || undefined, customerPhone: externalOrderForm.customerPhone || undefined, customerAddress: externalOrderForm.customerAddress || undefined, buyerMessage: externalOrderForm.buyerMessage || undefined, sellerRemark: externalOrderForm.sellerRemark || undefined, items: externalOrderForm.items.map(item => ({ id: item.id, externalProductName: item.externalProductName, externalSpecName: item.externalSpecName || undefined, externalSkuCode: item.externalSkuCode || undefined, externalQuantity: item.externalQuantity, externalUnitPrice: item.externalUnitPrice })) }); showMessage('预览订单已保存并重新匹配。'); cancelEditExternalOrder(); await loadImportBatches(true) } catch (error) { showMessage(getErrorMessage(error, '保存预览订单失败')) } finally { savingExternalOrder.value = false } }
+async function saveExternalOrder(order: { id: number }) { if (!selectedBatch.value) return; savingExternalOrder.value = true; try { selectedBatch.value = await salesApi.updateExternalOrder(selectedBatch.value.id, order.id, { customerName: externalOrderForm.customerName || undefined, customerPhone: externalOrderForm.customerPhone || undefined, customerAddress: externalOrderForm.customerAddress || undefined, buyerMessage: externalOrderForm.buyerMessage || undefined, sellerRemark: externalOrderForm.sellerRemark || undefined, items: externalOrderForm.items.map(item => ({ id: item.id, externalProductName: item.externalProductName, externalSpecName: item.externalSpecName || undefined, externalSkuCode: item.externalSkuCode || undefined, externalQuantity: item.externalQuantity, externalUnitPrice: item.externalUnitPrice })) }); toast.success('预览订单已保存并重新匹配。'); cancelEditExternalOrder(); await loadImportBatches(true) } catch (error) { toast.error(getErrorMessage(error, '保存预览订单失败')) } finally { savingExternalOrder.value = false } }
 
 function openOrderModal(order?: SalesOrder) { resetForm(); if (order) { orderForm.id = order.id; orderForm.channel = order.channel; orderForm.customerName = order.customerName || ''; orderForm.customerPhone = order.customerPhone || ''; orderForm.customerAddress = order.customerAddress || ''; orderForm.remark = order.remark || ''; orderForm.items = order.items.map(item => ({ salesSkuId: item.salesSkuId, quantity: item.quantity, unitPrice: item.unitPrice })) } else addItem(); orderModalOpen.value = true }
 function closeOrderModal() { orderModalOpen.value = false }
@@ -424,13 +487,42 @@ function resetForm() { orderForm.id = null; orderForm.channel = 'OFFLINE'; order
 function addItem() { orderForm.items.push({ salesSkuId: 0, quantity: 1, unitPrice: 0 }) }
 function removeItem(index: number) { orderForm.items.splice(index, 1) }
 function syncSkuPrice(item: OrderFormItem) { const sku = allSkus.value.find(candidate => candidate.id === item.salesSkuId); item.unitPrice = sku?.perSkuPrice || 0 }
-async function submitOrder() { if (orderForm.items.length === 0 || orderForm.items.some(item => item.salesSkuId <= 0 || item.quantity <= 0 || item.unitPrice < 0)) { showMessage('请填写完整的销售明细。'); return } submitting.value = true; try { const payload = { channel: orderForm.channel, customerName: orderForm.customerName || undefined, customerPhone: orderForm.customerPhone || undefined, customerAddress: orderForm.customerAddress || undefined, remark: orderForm.remark || undefined, items: orderForm.items.map(item => ({ salesSkuId: item.salesSkuId, quantity: item.quantity, unitPrice: item.unitPrice })) }; if (orderForm.id) { await salesApi.updateOrder(orderForm.id, payload); showMessage('销售单已更新并重新锁库。') } else { await salesApi.createOrder(payload); showMessage('销售单已创建并锁定库存。') } closeOrderModal(); await Promise.all([loadOrders(), loadStocks()]) } catch (error) { showMessage(getErrorMessage(error, '保存销售单失败')) } finally { submitting.value = false } }
-async function shipOrder(order: SalesOrder) { if (!window.confirm(`确认发货出库销售单 ${order.orderNo}？系统会自动扣减成品批次库存。`)) return; try { await salesApi.shipOrder(order.id); showMessage('销售单已发货出库。'); await Promise.all([loadOrders(), loadStocks()]) } catch (error) { showMessage(getErrorMessage(error, '发货出库失败')) } }
-async function completeOrder(order: SalesOrder) { try { await salesApi.completeOrder(order.id); showMessage('销售单已完成。'); await loadOrders() } catch (error) { showMessage(getErrorMessage(error, '完成销售单失败')) } }
-async function cancelOrder(order: SalesOrder) { if (!window.confirm(`确认取消销售单 ${order.orderNo}？待发货订单会释放锁定库存。`)) return; try { await salesApi.cancelOrder(order.id); showMessage('销售单已取消。'); await Promise.all([loadOrders(), loadStocks()]) } catch (error) { showMessage(getErrorMessage(error, '取消销售单失败')) } }
+async function submitOrder() { if (orderForm.items.length === 0 || orderForm.items.some(item => item.salesSkuId <= 0 || item.quantity <= 0 || item.unitPrice < 0)) { toast.warning('请填写完整的销售明细。'); return } submitting.value = true; try { const payload = { channel: orderForm.channel, customerName: orderForm.customerName || undefined, customerPhone: orderForm.customerPhone || undefined, customerAddress: orderForm.customerAddress || undefined, remark: orderForm.remark || undefined, items: orderForm.items.map(item => ({ salesSkuId: item.salesSkuId, quantity: item.quantity, unitPrice: item.unitPrice })) }; if (orderForm.id) { await salesApi.updateOrder(orderForm.id, payload); toast.success('销售单已更新并重新锁库。') } else { await salesApi.createOrder(payload); toast.success('销售单已创建并锁定库存。') } closeOrderModal(); await Promise.all([loadOrders(), loadStocks()]) } catch (error) { toast.error(getErrorMessage(error, '保存销售单失败')) } finally { submitting.value = false } }
+async function shipOrder(order: SalesOrder) {
+  const ok = await confirm({
+    title: '发货出库',
+    message: `确认发货出库销售单 ${order.orderNo}？系统会自动扣减成品批次库存。`,
+    confirmText: '发货出库'
+  })
+  if (!ok) return
+  try {
+    await salesApi.shipOrder(order.id)
+    toast.success('销售单已发货出库。')
+    await Promise.all([loadOrders(), loadStocks()])
+  } catch (error) {
+    toast.error(getErrorMessage(error, '发货出库失败'))
+  }
+}
+async function completeOrder(order: SalesOrder) { try { await salesApi.completeOrder(order.id); toast.success('销售单已完成。'); await loadOrders() } catch (error) { toast.error(getErrorMessage(error, '完成销售单失败')) } }
+async function cancelOrder(order: SalesOrder) {
+  const ok = await confirm({
+    title: '取消销售单',
+    message: `确认取消销售单 ${order.orderNo}？待发货订单会释放锁定库存。`,
+    confirmText: '取消销售单',
+    tone: 'danger'
+  })
+  if (!ok) return
+  try {
+    await salesApi.cancelOrder(order.id)
+    toast.success('销售单已取消。')
+    await Promise.all([loadOrders(), loadStocks()])
+  } catch (error) {
+    toast.error(getErrorMessage(error, '取消销售单失败'))
+  }
+}
 
 function openChannelModal(channel?: SalesChannelConfig) { Object.assign(channelForm, { id: null, code: '', name: '', sourceType: 'TEXT', enabled: true, sortOrder: 0, configJson: '', remark: '' }); if (channel) Object.assign(channelForm, { id: channel.id, code: channel.code, name: channel.name, sourceType: channel.sourceType, enabled: channel.enabled, sortOrder: channel.sortOrder, configJson: channel.configJson || '', remark: channel.remark || '' }); channelModalOpen.value = true }
-async function submitChannel() { if (!channelForm.code.trim() || !channelForm.name.trim()) { showMessage('请填写渠道编码和名称。'); return } try { const payload = { code: channelForm.code, name: channelForm.name, sourceType: channelForm.sourceType, enabled: channelForm.enabled, sortOrder: channelForm.sortOrder, configJson: channelForm.configJson || undefined, remark: channelForm.remark || undefined }; if (channelForm.id) await salesApi.updateChannel(channelForm.id, payload); else await salesApi.createChannel(payload); channelModalOpen.value = false; showMessage('渠道已保存。'); await loadChannels() } catch (error) { showMessage(getErrorMessage(error, '保存渠道失败')) } }
+async function submitChannel() { if (!channelForm.code.trim() || !channelForm.name.trim()) { toast.warning('请填写渠道编码和名称。'); return } try { const payload = { code: channelForm.code, name: channelForm.name, sourceType: channelForm.sourceType, enabled: channelForm.enabled, sortOrder: channelForm.sortOrder, configJson: channelForm.configJson || undefined, remark: channelForm.remark || undefined }; if (channelForm.id) await salesApi.updateChannel(channelForm.id, payload); else await salesApi.createChannel(payload); channelModalOpen.value = false; toast.success('渠道已保存。'); await loadChannels() } catch (error) { toast.error(getErrorMessage(error, '保存渠道失败')) } }
 
 function openQuickMatch(order: { channelId: number; channelName?: string }, item: ExternalOrderItemRaw) {
   const isEdit = item.matchStatus === 'MATCHED'
@@ -449,7 +541,7 @@ function openQuickMatch(order: { channelId: number; channelName?: string }, item
 }
 function closeQuickMatch() { quickMatchModalOpen.value = false; quickMatchShowCreate.value = false }
 async function submitQuickMatch() {
-  if (!quickMatchForm.salesSkuId || quickMatchForm.salesSkuId <= 0) { showMessage('请选择销售SKU。'); return }
+  if (!quickMatchForm.salesSkuId || quickMatchForm.salesSkuId <= 0) { toast.warning('请选择销售SKU。'); return }
   quickMatchSubmitting.value = true
   try {
     const payload = {
@@ -465,18 +557,18 @@ async function submitQuickMatch() {
     } else {
       await salesApi.createProductMapping(payload)
     }
-    showMessage('匹配规则已更新，正在重新匹配...')
+    toast.success('匹配规则已更新，正在重新匹配...')
     quickMatchModalOpen.value = false
     await rematchSelectedBatch()
   } catch (error) {
-    showMessage(getErrorMessage(error, '更新匹配规则失败'))
+    toast.error(getErrorMessage(error, '更新匹配规则失败'))
   } finally {
     quickMatchSubmitting.value = false
   }
 }
 
 async function submitQuickCreateGoods() {
-  if (!quickMatchCreateForm.name.trim()) { showMessage('请填写商品名称。'); return }
+  if (!quickMatchCreateForm.name.trim()) { toast.warning('请填写商品名称。'); return }
   quickMatchCreating.value = true
   try {
     const code = 'KJ' + Date.now().toString(36).toUpperCase()
@@ -499,12 +591,12 @@ async function submitQuickCreateGoods() {
       salesGoodsId: created.id,
       components: []
     })
-    showMessage('商品已创建。')
+    toast.success('商品已创建。')
     await loadSalesGoods()
     quickMatchForm.salesSkuId = sku.id
     quickMatchShowCreate.value = false
   } catch (error) {
-    showMessage(getErrorMessage(error, '创建商品失败'))
+    toast.error(getErrorMessage(error, '创建商品失败'))
   } finally {
     quickMatchCreating.value = false
   }
@@ -517,10 +609,9 @@ function formatDateTime(value?: string) { return value ? new Date(value).toLocal
 function sourceTypeText(value?: string) { return ({ EXCEL: 'Excel', TEXT: '文本', MANUAL: '手工', CONTRACT: '合同', API: 'API' } as Record<string, string>)[value || ''] || '-' }
 function importStatusText(value: string) { return ({ DRAFT: '草稿', PARSED: '已解析', CONFIRMED: '已确认', CANCELLED: '已取消' } as Record<string, string>)[value] || value }
 function externalStatusText(value: string) { return ({ WAIT_MATCH: '待匹配', READY: '可确认', ERROR: '异常', CONVERTED: '已转单', SKIPPED: '已跳过' } as Record<string, string>)[value] || value }
-function showMessage(text: string) { message.value = text; if (messageTimer) window.clearTimeout(messageTimer); messageTimer = window.setTimeout(() => { message.value = '' }, 3500) }
 function getErrorMessage(error: unknown, fallback: string) { return error instanceof ApiError ? error.message : fallback }
 </script>
 
 <style scoped>
-.sales-page{display:flex;flex-direction:column;gap:14px;min-height:calc(100vh - 120px);color:#0f172a}.page-header{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,420px) auto;align-items:center;gap:16px}.page-eyebrow{margin:0 0 5px;color:#64748b;font-size:13px;font-weight:800}.page-header h1{margin:0;color:#0f172a;font-size:22px}.page-header p:last-child{margin:7px 0 0;color:#64748b;font-size:13px;line-height:1.5}.header-search input{width:100%;height:40px;padding:0 14px;border:1px solid #dbe3ef;border-radius:999px;background:#fff;color:#0f172a;font-size:13px;outline:none}.header-actions,.filter-actions,.table-actions,.pagination-actions,.footer-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.tab-bar{display:flex;gap:8px;padding:6px;border:1px solid #e5edf7;border-radius:14px;background:#fff;box-shadow:0 6px 18px rgba(15,23,42,.04)}.tab-bar button{height:38px;padding:0 16px;border:none;border-radius:10px;background:transparent;color:#64748b;cursor:pointer;font-weight:900}.tab-bar button.active{background:#2563eb;color:#fff;box-shadow:0 8px 18px rgba(37,99,235,.18)}.filter-panel,.card-section{border:1px solid #e5edf7;border-radius:14px;background:#fff;box-shadow:0 6px 18px rgba(15,23,42,.04)}.filter-panel{padding:14px}.toolbar{display:grid;grid-template-columns:minmax(280px,1fr) minmax(150px,190px) auto;align-items:end;gap:12px}.toolbar.two-cols{grid-template-columns:minmax(240px,340px) auto}.toolbar label,.form-grid label,.full-field,.import-form label{display:grid;gap:6px;color:#334155;font-size:13px;font-weight:800}.toolbar input,.toolbar select,.modal-body input,.modal-body select,.modal-body textarea,.purchase-item-row input,.purchase-item-row select,.import-form textarea,.import-form select{width:100%;border:1px solid #dbe3ef;border-radius:10px;background:#fff;color:#0f172a;font-size:14px;outline:none}.toolbar input,.toolbar select,.modal-body input,.modal-body select,.import-form select{height:40px;padding:0 12px}.modal-body textarea,.import-form textarea{min-height:76px;padding:10px 11px;resize:vertical}.operation-message{margin:0;padding:10px 12px;border:1px solid #bfdbfe;border-radius:10px;background:#eff6ff;color:#1d4ed8;font-size:13px;font-weight:800}.list-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px 12px}.list-header h2{margin:0;color:#0f172a;font-size:17px}.list-header p{margin:6px 0 0;color:#64748b;font-size:13px}.table-wrap{margin:0 14px 14px;border:1px solid #edf2f7;border-radius:12px;overflow:auto}.data-table{width:100%;min-width:980px;border-collapse:collapse}.data-table thead{background:#f8fafc}.data-table th,.data-table td{padding:12px 14px;border-bottom:1px solid #edf2f7;color:#334155;font-size:13px;text-align:left;vertical-align:middle}.data-table th{color:#475569;font-weight:800}.data-table tbody tr:hover{background:#f8fbff}.strong-text{color:#0f172a;font-weight:800}.muted-text{margin-top:4px;color:#64748b;font-size:12px}.address-text{max-width:260px;white-space:normal}.item-summary{display:grid;gap:3px;line-height:1.45}.money-cell{color:#0f172a;font-variant-numeric:tabular-nums;font-weight:800;white-space:nowrap}.status-pill{display:inline-flex;align-items:center;justify-content:center;min-width:62px;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:800;white-space:nowrap}.status-pill--pending{color:#d97706;background:#fff7ed}.status-pill--shipped{color:#2563eb;background:#eff6ff}.status-pill--completed,.external-status--ready{color:#047857;background:#ecfdf5}.status-pill--cancelled,.external-status--skipped{color:#64748b;background:#f1f5f9}.external-status--wait_match{color:#d97706;background:#fff7ed}.external-status--error{color:#dc2626;background:#fef2f2}.external-status--converted{color:#2563eb;background:#eff6ff}.text-button{border:none;border-radius:999px;background:transparent;color:#475569;cursor:pointer;font-size:12px;font-weight:800;padding:6px 9px}.text-button:hover{background:#f1f5f9;color:#0f172a}.primary-text{color:#2563eb}.danger-text{color:#dc2626}.empty-cell{padding:32px 16px;color:#94a3b8;text-align:center}.pagination-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px;padding:12px 14px;border:1px solid #edf2f7;border-radius:12px;background:#fff;color:#64748b;font-size:13px}.pagination-actions button{height:34px;padding:0 12px;border:1px solid #dbe3ef;border-radius:8px;background:#fff;color:#334155;cursor:pointer;font-weight:800}.pagination-actions button:disabled{opacity:.45;cursor:not-allowed}.primary-button,.secondary-button{display:inline-flex;align-items:center;justify-content:center;min-height:40px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:800;padding:0 15px}.primary-button{border:1px solid #2563eb;background:#2563eb;color:#fff;box-shadow:0 8px 18px rgba(37,99,235,.18)}.primary-button:hover:not(:disabled){background:#1d4ed8;border-color:#1d4ed8}.secondary-button{border:1px solid #dbe3ef;background:#fff;color:#334155}.secondary-button:hover:not(:disabled){border-color:#bfdbfe;background:#eff6ff;color:#2563eb}.primary-button:disabled,.secondary-button:disabled{opacity:.55;cursor:not-allowed;box-shadow:none}.compact-button{min-height:34px;padding:0 12px;font-size:13px}.import-layout{display:grid;grid-template-columns:minmax(380px,1fr) minmax(340px,430px);gap:14px}.import-form{display:grid;gap:12px;padding:0 18px 18px}.batch-list{display:grid;gap:10px;padding:0 14px 14px}.batch-card{display:grid;gap:8px;padding:12px;border:1px solid #edf2f7;border-radius:12px;background:#fff;text-align:left;cursor:pointer}.batch-card.active{border-color:#93c5fd;background:#eff6ff}.batch-card strong{display:block;color:#0f172a}.batch-card span{color:#64748b;font-size:12px}.batch-card em{justify-self:start;padding:4px 8px;border-radius:999px;background:#f1f5f9;color:#475569;font-style:normal;font-size:12px;font-weight:800}.batch-stats{display:flex;gap:8px;flex-wrap:wrap}.raw-items{display:grid;gap:8px}.raw-item{display:grid;grid-template-columns:minmax(220px,1fr) minmax(180px,1fr) auto;gap:8px;align-items:center;padding:9px;border:1px solid #dcfce7;border-radius:10px;background:#f0fdf4}.raw-item.danger{border-color:#fecaca;background:#fef2f2}.raw-item strong,.raw-item span{display:block}.raw-item span{margin-top:3px;color:#64748b;font-size:12px}.modal-backdrop{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.45)}.modal-content{width:min(100%,860px);max-height:90vh;overflow:hidden;border-radius:14px;background:#fff;box-shadow:0 24px 60px rgba(15,23,42,.24)}.small-modal{width:min(100%,720px)}.purchase-modal{display:flex;flex-direction:column}.modal-header,.modal-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid #edf2f7}.modal-header h2{margin:0;color:#0f172a;font-size:18px}.icon-button{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:none;border-radius:8px;background:#f8fafc;color:#64748b;cursor:pointer;font-size:22px;line-height:1}.modal-body{display:grid;gap:14px;padding:18px;overflow-y:auto}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.items-header{display:flex;align-items:center;justify-content:space-between;gap:12px}.items-header h3{margin:0;color:#0f172a;font-size:15px}.purchase-items{display:grid;gap:10px}.purchase-item-row{display:grid;grid-template-columns:minmax(260px,1fr) 88px 108px 110px auto;align-items:center;gap:10px;padding:10px;border:1px solid #edf2f7;border-radius:12px;background:#f8fafc}.purchase-item-row input,.purchase-item-row select{height:38px;padding:0 10px}.purchase-item-row strong{text-align:right;white-space:nowrap}.modal-footer{border-top:1px solid #edf2f7;border-bottom:none}.modal-footer>span{font-size:15px;font-weight:900}@media(max-width:1180px){.page-header,.import-layout{grid-template-columns:1fr}.toolbar{grid-template-columns:1fr 180px}.filter-actions{grid-column:1/-1}}@media(max-width:768px){.toolbar,.form-grid,.purchase-item-row,.raw-item{grid-template-columns:1fr}.pagination-bar,.modal-header,.modal-footer{align-items:stretch;flex-direction:column}.footer-actions button{flex:1}}.quick-match-info{padding:10px 12px;border:1px solid #e5edf7;border-radius:10px;background:#f8fafc;color:#334155;font-size:14px}.quick-match-info strong{color:#0f172a;font-weight:800}.quick-match-label{display:grid;gap:6px;color:#334155;font-size:13px;font-weight:800}.quick-match-label select{width:100%;height:40px;padding:0 12px;border:1px solid #dbe3ef;border-radius:10px;background:#fff;color:#0f172a;font-size:14px;outline:none}.quick-match-preview{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid #e5edf7;border-radius:10px;background:#f8fafc;color:#334155;font-size:14px;margin-bottom:12px}.inline-number{width:60px;height:32px;padding:0 6px;border:1px solid #dbe3ef;border-radius:6px;text-align:center;font-size:14px;color:#0f172a}.quick-match-row{display:flex;align-items:flex-end;gap:8px}.quick-match-row .quick-match-label{flex:1}.quick-match-row .text-button{white-space:nowrap;margin-bottom:4px}.quick-match-create{margin-top:12px;padding:12px;border:1px dashed #dbe3ef;border-radius:10px;background:#f8fafc}.quick-match-create .form-grid{margin-bottom:8px}.compact-button{width:100%;justify-content:center;margin-top:4px}
+.sales-page{display:flex;flex-direction:column;gap:14px;min-height:calc(100vh - 120px);color:#0f172a}.page-header{display:flex;align-items:center;justify-content:space-between;gap:16px}.page-header h1{margin:0;color:#0f172a;font-size:22px}.header-actions,.filter-actions,.table-actions,.pagination-actions,.footer-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.tab-bar{display:flex;gap:8px;padding:6px;border:1px solid #e5edf7;border-radius:14px;background:#fff;box-shadow:0 6px 18px rgba(15,23,42,.04)}.tab-bar button{height:38px;padding:0 16px;border:none;border-radius:10px;background:transparent;color:#64748b;cursor:pointer;font-weight:900}.tab-bar button.active{background:#2563eb;color:#fff;box-shadow:0 8px 18px rgba(37,99,235,.18)}.filter-panel,.card-section{border:1px solid #e5edf7;border-radius:14px;background:#fff;box-shadow:0 6px 18px rgba(15,23,42,.04)}.filter-panel{padding:14px}.toolbar{display:grid;grid-template-columns:minmax(280px,1fr) minmax(150px,190px) auto;align-items:end;gap:12px}.toolbar.two-cols{grid-template-columns:minmax(240px,340px) auto}.toolbar label,.form-grid label,.full-field,.import-form label{display:grid;gap:6px;color:#334155;font-size:13px;font-weight:800}.toolbar input,.toolbar select,.modal-body input,.modal-body select,.modal-body textarea,.purchase-item-row input,.purchase-item-row select,.import-form textarea,.import-form select{width:100%;border:1px solid #dbe3ef;border-radius:10px;background:#fff;color:#0f172a;font-size:14px;outline:none}.toolbar input,.toolbar select,.modal-body input,.modal-body select,.import-form select{height:40px;padding:0 12px}.modal-body textarea,.import-form textarea{min-height:76px;padding:10px 11px;resize:vertical}.list-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px 12px}.list-header h2{margin:0;color:#0f172a;font-size:17px}.list-header p{margin:6px 0 0;color:#64748b;font-size:13px}.table-wrap{margin:0 14px 14px;border:1px solid #edf2f7;border-radius:12px;overflow:auto}.data-table{width:100%;min-width:980px;border-collapse:collapse}.data-table thead{background:#f8fafc}.data-table th,.data-table td{padding:12px 14px;border-bottom:1px solid #edf2f7;color:#334155;font-size:13px;text-align:left;vertical-align:middle}.data-table th{color:#475569;font-weight:800}.data-table tbody tr:hover{background:#f8fbff}.strong-text{color:#0f172a;font-weight:800}.muted-text{margin-top:4px;color:#64748b;font-size:12px}.address-text{max-width:260px;white-space:normal}.item-summary{display:grid;gap:3px;line-height:1.45}.money-cell{color:#0f172a;font-variant-numeric:tabular-nums;font-weight:800;white-space:nowrap}.status-pill{display:inline-flex;align-items:center;justify-content:center;min-width:62px;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:800;white-space:nowrap}.status-pill--pending{color:#d97706;background:#fff7ed}.status-pill--shipped{color:#2563eb;background:#eff6ff}.status-pill--completed,.external-status--ready{color:#047857;background:#ecfdf5}.status-pill--cancelled,.external-status--skipped{color:#64748b;background:#f1f5f9}.external-status--wait_match{color:#d97706;background:#fff7ed}.external-status--error{color:#dc2626;background:#fef2f2}.external-status--converted{color:#2563eb;background:#eff6ff}.text-button{border:none;border-radius:999px;background:transparent;color:#475569;cursor:pointer;font-size:12px;font-weight:800;padding:6px 9px}.text-button:hover{background:#f1f5f9;color:#0f172a}.primary-text{color:#2563eb}.danger-text{color:#dc2626}.empty-cell{padding:32px 16px;color:#94a3b8;text-align:center}.pagination-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px;padding:12px 14px;border:1px solid #edf2f7;border-radius:12px;background:#fff;color:#64748b;font-size:13px}.pagination-actions button{height:34px;padding:0 12px;border:1px solid #dbe3ef;border-radius:8px;background:#fff;color:#334155;cursor:pointer;font-weight:800}.pagination-actions button:disabled{opacity:.45;cursor:not-allowed}.primary-button,.secondary-button{display:inline-flex;align-items:center;justify-content:center;min-height:40px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:800;padding:0 15px}.primary-button{border:1px solid #2563eb;background:#2563eb;color:#fff;box-shadow:0 8px 18px rgba(37,99,235,.18)}.primary-button:hover:not(:disabled){background:#1d4ed8;border-color:#1d4ed8}.secondary-button{border:1px solid #dbe3ef;background:#fff;color:#334155}.secondary-button:hover:not(:disabled){border-color:#bfdbfe;background:#eff6ff;color:#2563eb}.primary-button:disabled,.secondary-button:disabled{opacity:.55;cursor:not-allowed;box-shadow:none}.compact-button{min-height:34px;padding:0 12px;font-size:13px}.import-layout{display:grid;grid-template-columns:minmax(380px,1fr) minmax(340px,430px);gap:14px}.import-form{display:grid;gap:12px;padding:0 18px 18px}.batch-list{display:grid;gap:10px;padding:0 14px 14px}.batch-card{display:grid;gap:8px;padding:12px;border:1px solid #edf2f7;border-radius:12px;background:#fff;text-align:left;cursor:pointer}.batch-card.active{border-color:#93c5fd;background:#eff6ff}.batch-card strong{display:block;color:#0f172a}.batch-card span{color:#64748b;font-size:12px}.batch-card em{justify-self:start;padding:4px 8px;border-radius:999px;background:#f1f5f9;color:#475569;font-style:normal;font-size:12px;font-weight:800}.batch-stats{display:flex;gap:8px;flex-wrap:wrap}.raw-items{display:grid;gap:8px}.raw-item{display:grid;grid-template-columns:minmax(220px,1fr) minmax(180px,1fr) auto;gap:8px;align-items:center;padding:9px;border:1px solid #dcfce7;border-radius:10px;background:#f0fdf4}.raw-item.danger{border-color:#fecaca;background:#fef2f2}.raw-item strong,.raw-item span{display:block}.raw-item span{margin-top:3px;color:#64748b;font-size:12px}.modal-backdrop{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.45)}.modal-content{width:min(100%,860px);max-height:90vh;overflow:hidden;border-radius:14px;background:#fff;box-shadow:0 24px 60px rgba(15,23,42,.24)}.small-modal{width:min(100%,720px)}.purchase-modal{display:flex;flex-direction:column}.modal-header,.modal-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid #edf2f7}.modal-header h2{margin:0;color:#0f172a;font-size:18px}.icon-button{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:none;border-radius:8px;background:#f8fafc;color:#64748b;cursor:pointer;font-size:22px;line-height:1}.modal-body{display:grid;gap:14px;padding:18px;overflow-y:auto}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.items-header{display:flex;align-items:center;justify-content:space-between;gap:12px}.items-header h3{margin:0;color:#0f172a;font-size:15px}.purchase-items{display:grid;gap:10px}.purchase-item-row{display:grid;grid-template-columns:minmax(260px,1fr) 88px 108px 110px auto;align-items:center;gap:10px;padding:10px;border:1px solid #edf2f7;border-radius:12px;background:#f8fafc}.purchase-item-row input,.purchase-item-row select{height:38px;padding:0 10px}.purchase-item-row strong{text-align:right;white-space:nowrap}.modal-footer{border-top:1px solid #edf2f7;border-bottom:none}.modal-footer>span{font-size:15px;font-weight:900}@media(max-width:1180px){.page-header,.import-layout{grid-template-columns:1fr}.toolbar{grid-template-columns:1fr 180px}.filter-actions{grid-column:1/-1}}@media(max-width:768px){.toolbar,.form-grid,.purchase-item-row,.raw-item{grid-template-columns:1fr}.pagination-bar,.modal-header,.modal-footer{align-items:stretch;flex-direction:column}.footer-actions button{flex:1}}.quick-match-info{padding:10px 12px;border:1px solid #e5edf7;border-radius:10px;background:#f8fafc;color:#334155;font-size:14px}.quick-match-info strong{color:#0f172a;font-weight:800}.quick-match-label{display:grid;gap:6px;color:#334155;font-size:13px;font-weight:800}.quick-match-label select{width:100%;height:40px;padding:0 12px;border:1px solid #dbe3ef;border-radius:10px;background:#fff;color:#0f172a;font-size:14px;outline:none}.quick-match-preview{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid #e5edf7;border-radius:10px;background:#f8fafc;color:#334155;font-size:14px;margin-bottom:12px}.inline-number{width:60px;height:32px;padding:0 6px;border:1px solid #dbe3ef;border-radius:6px;text-align:center;font-size:14px;color:#0f172a}.quick-match-row{display:flex;align-items:flex-end;gap:8px}.quick-match-row .quick-match-label{flex:1}.quick-match-row .text-button{white-space:nowrap;margin-bottom:4px}.quick-match-create{margin-top:12px;padding:12px;border:1px dashed #dbe3ef;border-radius:10px;background:#f8fafc}.quick-match-create .form-grid{margin-bottom:8px}.compact-button{width:100%;justify-content:center;margin-top:4px}
 </style>

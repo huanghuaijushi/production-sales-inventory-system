@@ -2,10 +2,9 @@
   <main class="inventory-page">
     <section class="page-header">
       <div>
-        <p class="page-eyebrow">库存管理</p>
         <h1>库存总览</h1>
-        <p>按商品名称、SKU、分类和状态筛选库存数据，快速查看当前库存健康状况。</p>
       </div>
+      <RouterLink to="/products" class="page-header-link">库存产品目录</RouterLink>
     </section>
 
     <InventoryFilterBar
@@ -35,8 +34,7 @@
     <section class="stock-record-card">
       <header class="stock-record-header">
         <div>
-          <p class="page-eyebrow">库存流水</p>
-          <h2>最近出入库记录</h2>
+          <h2>最近出入库流水</h2>
         </div>
         <div class="record-actions">
           <input
@@ -73,7 +71,13 @@
               <td colspan="10">正在加载库存流水...</td>
             </tr>
             <tr v-else-if="stockRecords.length === 0">
-              <td colspan="10">暂无出入库记录。</td>
+              <td colspan="10">
+                <EmptyState
+                  size="compact"
+                  title="暂无出入库记录"
+                  description="发生采购入库、生产领料、销售出库或盘点后，流水会出现在这里。"
+                />
+              </td>
             </tr>
             <tr v-for="record in stockRecords" v-else :key="record.id">
               <td>{{ record.recordNo }}</td>
@@ -129,7 +133,8 @@
 
 <script setup lang="ts">
 import { reactive, ref, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useModal } from '@/composables/useModal'
+import { RouterLink, useRoute } from 'vue-router'
 import * as XLSX from 'xlsx'
 import InventoryFilterBar from '@/components/inventory/InventoryFilterBar.vue'
 import InventoryTableCard from '@/components/inventory/InventoryTableCard.vue'
@@ -139,6 +144,7 @@ import StockEditModal from '@/components/inventory/StockEditModal.vue'
 import StockLossModal from '@/components/inventory/StockLossModal.vue'
 import StockCheckModal from '@/components/inventory/StockCheckModal.vue'
 import { inventoryApi, type StockItem, type StockRecord, type PageResponse, type StockRecordSubType } from '@/api/inventory'
+import EmptyState from '@/components/common/EmptyState.vue'
 
 const route = useRoute()
 const page = ref(0)
@@ -146,12 +152,13 @@ const pageSize = ref(8)
 const loading = ref(false)
 const recordsLoading = ref(false)
 const exporting = ref(false)
-const modalOpen = ref(false)
+const modal = useModal<'operation' | 'stockEdit' | 'loss' | 'check'>()
+const modalOpen = modal.isOpen('operation')
+const stockEditModalOpen = modal.isOpen('stockEdit')
+const lossModalOpen = modal.isOpen('loss')
+const checkModalOpen = modal.isOpen('check')
 const isInbound = ref(true)
 const initialOperationSubType = ref<StockRecordSubType | undefined>()
-const stockEditModalOpen = ref(false)
-const lossModalOpen = ref(false)
-const checkModalOpen = ref(false)
 const selectedStockItem = ref<StockItem | null>(null)
 const totalElements = ref(0)
 const totalPages = ref(0)
@@ -209,17 +216,17 @@ function setPage(nextPage: number) {
 function openInboundModal(subType?: StockRecordSubType) {
   isInbound.value = true
   initialOperationSubType.value = subType
-  modalOpen.value = true
+  modal.open('operation')
 }
 
 function openOutboundModal(subType?: StockRecordSubType) {
   isInbound.value = false
   initialOperationSubType.value = subType
-  modalOpen.value = true
+  modal.open('operation')
 }
 
 function closeModal() {
-  modalOpen.value = false
+  modal.close()
   initialOperationSubType.value = undefined
 }
 
@@ -231,20 +238,20 @@ function onOperationSuccess() {
 
 function openStockEditModal(item: StockItem) {
   selectedStockItem.value = item
-  stockEditModalOpen.value = true
+  modal.open('stockEdit')
 }
 
 function closeStockEditModal() {
-  stockEditModalOpen.value = false
+  modal.close()
   selectedStockItem.value = null
 }
 
 function openLossModal() {
-  lossModalOpen.value = true
+  modal.open('loss')
 }
 
 function closeLossModal() {
-  lossModalOpen.value = false
+  modal.close()
 }
 
 function onLossSuccess() {
@@ -254,11 +261,11 @@ function onLossSuccess() {
 }
 
 function openCheckModal() {
-  checkModalOpen.value = true
+  modal.open('check')
 }
 
 function closeCheckModal() {
-  checkModalOpen.value = false
+  modal.close()
 }
 
 function onCheckSuccess() {
@@ -470,6 +477,23 @@ function formatDateTime(value: string) {
   color: #64748B;
   font-size: 13px;
   line-height: 1.6;
+}
+
+.page-header-link {
+  flex-shrink: 0;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 6px 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #eff6ff;
+  transition: background 0.15s ease;
+}
+
+.page-header-link:hover {
+  background: #dbeafe;
 }
 
 .page-actions {

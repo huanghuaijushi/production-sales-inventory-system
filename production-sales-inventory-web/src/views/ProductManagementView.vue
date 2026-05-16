@@ -3,7 +3,6 @@
     <div class="page-header">
       <div>
         <h1>库存产品</h1>
-        <p>维护仓库里真实入库、出库和计成本的库存产品资料。</p>
       </div>
     </div>
 
@@ -166,9 +165,11 @@
       </div>
     </div>
 
-        <div class="pagination pagination--empty" v-else>
-          暂无产品数据
-        </div>
+        <EmptyState
+          v-else
+          title="还没有库存产品"
+          description="维护原材料和成品的资料，库存才能开始流转。"
+        />
       </section>
     </div>
 
@@ -507,6 +508,7 @@ import { useRoute } from 'vue-router'
 import { PlusIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { productApi, type Product, type ProductRequest, type PageResponse } from '@/api/product'
 import { productCategoryApi, type ProductCategory } from '@/api/productCategory'
+import EmptyState from '@/components/common/EmptyState.vue'
 
 const route = useRoute()
 const products = ref<Product[]>([])

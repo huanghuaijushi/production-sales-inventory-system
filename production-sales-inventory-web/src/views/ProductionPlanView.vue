@@ -2,13 +2,10 @@
   <div class="page">
     <header class="page-header">
       <div>
-        <p class="page-eyebrow">生产计划</p>
         <h1>生产工单与批次进度</h1>
-        <p>从计划、领料、工序损耗到成品入库串成一条线，库存流水由工单自动生成。</p>
       </div>
+      <RouterLink to="/production-config" class="page-header-link">配方管理</RouterLink>
     </header>
-
-    <p v-if="message" class="operation-message">{{ message }}</p>
 
     <div class="production-layout">
       <aside class="left-column">
@@ -63,7 +60,12 @@
             <button type="button" class="secondary-button" :disabled="loading" @click="loadOrders">刷新</button>
           </div>
           <div v-if="loading" class="empty-box">正在加载生产工单...</div>
-          <div v-else-if="sortedOrders.length === 0" class="empty-box">暂无生产工单。</div>
+          <EmptyState
+            v-else-if="sortedOrders.length === 0"
+            size="compact"
+            title="还没有生产工单"
+            description="在右侧「新建工单」面板创建第一张工单。"
+          />
           <button
             v-for="order in sortedOrders"
             v-else
@@ -77,9 +79,7 @@
               <strong>{{ order.productName }}</strong>
               <span>{{ order.orderNo }}</span>
             </div>
-            <span class="status-badge" :class="`status-badge--${order.status.toLowerCase()}`">
-              {{ statusLabel(order.status) }}
-            </span>
+            <StatusPill :semantic="toStatusSemantic(order.status)" :label="statusLabel(order.status)" />
             <div class="order-meta">
               <span>批次 {{ order.batchNo }}</span>
               <span>{{ order.inboundQuantity }}/{{ order.plannedQuantity }}{{ order.productUnit }}</span>
@@ -313,7 +313,12 @@
                   <p>共 {{ detail.stepRecords.length }} 条记录。</p>
                 </div>
               </div>
-              <div v-if="detail.stepRecords.length === 0" class="empty-box">暂无工序记录。</div>
+              <EmptyState
+                v-if="detail.stepRecords.length === 0"
+                size="compact"
+                title="暂无工序记录"
+                description="开始生产后逐步记录每道工序的产出与损耗。"
+              />
               <div v-for="record in detail.stepRecords" v-else :key="record.id" class="history-row">
                 <div>
                   <strong>{{ record.stepName || stepLabel(record.stepType) }}</strong>
@@ -334,7 +339,12 @@
                   <p>共 {{ detail.materialIssues.length }} 条记录。</p>
                 </div>
               </div>
-              <div v-if="detail.materialIssues.length === 0" class="empty-box">暂无领料记录。</div>
+              <EmptyState
+                v-if="detail.materialIssues.length === 0"
+                size="compact"
+                title="暂无领料记录"
+                description="按计划领取原材料后会在这里看到批次扣减明细。"
+              />
               <div v-for="issue in detail.materialIssues" v-else :key="issue.id" class="history-row">
                 <div>
                   <strong>{{ issue.materialProductName }}</strong>
@@ -368,6 +378,14 @@ import {
   type ProductionOrderSummary,
   type ProductionStepType
 } from '@/api/production'
+import { useToast } from '@/composables/useToast'
+import { useConfirm } from '@/composables/useConfirm'
+import EmptyState from '@/components/common/EmptyState.vue'
+import StatusPill from '@/components/common/StatusPill.vue'
+import { toStatusSemantic } from '@/utils/statusSemantic'
+
+const toast = useToast()
+const confirm = useConfirm()
 
 const orders = ref<ProductionOrderSummary[]>([])
 const detail = ref<ProductionOrderDetail | null>(null)
@@ -377,9 +395,7 @@ const batchesByProductId = ref<Record<number, StockBatch[]>>({})
 const loading = ref(false)
 const batchesLoading = ref(false)
 const creating = ref(false)
-const message = ref('')
 const routeTimelineRef = ref<HTMLElement | null>(null)
-let messageTimer: number | undefined
 
 const createForm = reactive({
   productId: 0,
@@ -498,7 +514,7 @@ async function loadProducts() {
     const result = await productApi.getAllProducts(0, 300)
     products.value = result.content
   } catch (error) {
-    showMessage(getErrorMessage(error, '加载成品失败'))
+    toast.error(getErrorMessage(error, '加载成品失败'))
   }
 }
 
@@ -511,7 +527,7 @@ async function loadOrders() {
       await selectOrder(firstOrder.id)
     }
   } catch (error) {
-    showMessage(getErrorMessage(error, '加载生产工单失败'))
+    toast.error(getErrorMessage(error, '加载生产工单失败'))
   } finally {
     loading.value = false
   }
@@ -521,7 +537,7 @@ async function loadBomItems() {
   try {
     bomItems.value = await productionApi.getBomItems()
   } catch (error) {
-    showMessage(getErrorMessage(error, '加载成品配方失败'))
+    toast.error(getErrorMessage(error, '加载成品配方失败'))
   }
 }
 
@@ -531,17 +547,17 @@ async function selectOrder(orderId: number) {
     initializeForms()
     await loadMaterialBatches()
   } catch (error) {
-    showMessage(getErrorMessage(error, '加载工单详情失败'))
+    toast.error(getErrorMessage(error, '加载工单详情失败'))
   }
 }
 
 async function createOrder() {
   if (createForm.productId <= 0 || createForm.plannedQuantity <= 0) {
-    showMessage('请选择成品并填写计划数量。')
+    toast.warning('请选择成品并填写计划数量。')
     return
   }
   if (!selectedProductHasBom.value) {
-    showMessage('该成品还没有配置成品配方，请先到“生产配置”维护配方。')
+    toast.warning('该成品还没有配置成品配方，请先到“生产配置”维护配方。')
     return
   }
 
@@ -558,9 +574,9 @@ async function createOrder() {
     resetCreateForm()
     initializeForms()
     await Promise.all([loadOrders(), loadMaterialBatches()])
-    showMessage('生产工单已创建。')
+    toast.success('生产工单已创建。')
   } catch (error) {
-    showMessage(getErrorMessage(error, '创建生产工单失败'))
+    toast.error(getErrorMessage(error, '创建生产工单失败'))
   } finally {
     creating.value = false
   }
@@ -572,22 +588,27 @@ async function startOrder() {
     detail.value = await productionApi.startOrder(detail.value.order.id)
     initializeForms()
     await loadOrders()
-    showMessage('生产已开始。')
+    toast.success('生产已开始。')
   } catch (error) {
-    showMessage(getErrorMessage(error, '开始生产失败'))
+    toast.error(getErrorMessage(error, '开始生产失败'))
   }
 }
 
 async function cancelOrder() {
   if (!detail.value) return
-  const confirmed = window.confirm(`确定取消工单「${detail.value.order.orderNo}」吗？`)
+  const confirmed = await confirm({
+    title: '取消工单',
+    message: `确定取消工单「${detail.value.order.orderNo}」吗？`,
+    confirmText: '取消工单',
+    tone: 'danger'
+  })
   if (!confirmed) return
   try {
     detail.value = await productionApi.cancelOrder(detail.value.order.id)
     await loadOrders()
-    showMessage('工单已取消。')
+    toast.success('工单已取消。')
   } catch (error) {
-    showMessage(getErrorMessage(error, '取消工单失败'))
+    toast.error(getErrorMessage(error, '取消工单失败'))
   }
 }
 
@@ -595,7 +616,7 @@ async function issueMaterial(plan: ProductionMaterialPlan) {
   if (!detail.value) return
   const form = issueForms[plan.id]
   if (!form || form.batchId <= 0 || form.quantity <= 0) {
-    showMessage('请选择批次并填写领料数量。')
+    toast.warning('请选择批次并填写领料数量。')
     return
   }
 
@@ -608,24 +629,24 @@ async function issueMaterial(plan: ProductionMaterialPlan) {
     })
     initializeForms()
     await Promise.all([loadOrders(), loadMaterialBatches()])
-    showMessage('领料已完成，库存批次已扣减。')
+    toast.success('领料已完成，库存批次已扣减。')
   } catch (error) {
-    showMessage(getErrorMessage(error, '领料失败'))
+    toast.error(getErrorMessage(error, '领料失败'))
   }
 }
 
 async function recordStep() {
   if (!detail.value) return
   if (!currentStepDisplay.value) {
-    showMessage('所有工序已完成，请进行成品入库。')
+    toast.info('所有工序已完成，请进行成品入库。')
     return
   }
   if (stepForm.lossQuantity < 0) {
-    showMessage('损耗数量不能小于 0。')
+    toast.warning('损耗数量不能小于 0。')
     return
   }
   if (stepForm.lossQuantity > currentStepInputQuantity.value) {
-    showMessage(`损耗数量不能超过本步可处理数量：${currentStepInputQuantity.value}。`)
+    toast.warning(`损耗数量不能超过本步可处理数量：${currentStepInputQuantity.value}。`)
     return
   }
 
@@ -636,16 +657,16 @@ async function recordStep() {
     })
     initializeForms()
     await loadOrders()
-    showMessage('工序记录已保存。')
+    toast.success('工序记录已保存。')
   } catch (error) {
-    showMessage(getErrorMessage(error, '保存工序记录失败'))
+    toast.error(getErrorMessage(error, '保存工序记录失败'))
   }
 }
 
 async function inboundProduction() {
   if (!detail.value) return
   if (inboundForm.quantity <= 0) {
-    showMessage('请填写正确的入库数量。')
+    toast.warning('请填写正确的入库数量。')
     return
   }
 
@@ -658,9 +679,9 @@ async function inboundProduction() {
     })
     initializeForms()
     await loadOrders()
-    showMessage('成品已入库，成品批次已生成。')
+    toast.success('成品已入库，成品批次已生成。')
   } catch (error) {
-    showMessage(getErrorMessage(error, '成品入库失败'))
+    toast.error(getErrorMessage(error, '成品入库失败'))
   }
 }
 
@@ -698,7 +719,7 @@ async function loadMaterialBatches() {
       ...Object.fromEntries(entries)
     }
   } catch (error) {
-    showMessage(getErrorMessage(error, '加载原料批次失败'))
+    toast.error(getErrorMessage(error, '加载原料批次失败'))
   } finally {
     batchesLoading.value = false
   }
@@ -714,7 +735,7 @@ async function loadMaterialBatches() {
 
 async function refreshMaterialBatches() {
   await loadMaterialBatches()
-  showMessage('原料批次已刷新。')
+  toast.success('原料批次已刷新。')
 }
 
 function remainingQuantity(plan: ProductionMaterialPlan) {
@@ -822,13 +843,6 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback
 }
 
-function showMessage(value: string) {
-  message.value = value
-  window.clearTimeout(messageTimer)
-  messageTimer = window.setTimeout(() => {
-    message.value = ''
-  }, 3000)
-}
 </script>
 
 <style scoped>
@@ -841,7 +855,28 @@ function showMessage(value: string) {
 }
 
 .page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   margin-bottom: 16px;
+}
+
+.page-header-link {
+  flex-shrink: 0;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 6px 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #eff6ff;
+  transition: background 0.15s ease;
+}
+
+.page-header-link:hover {
+  background: #dbeafe;
 }
 
 .page-eyebrow {
@@ -1044,30 +1079,6 @@ textarea:focus {
   gap: 8px;
 }
 
-.status-badge {
-  border-radius: 999px;
-  padding: 4px 8px;
-  background: #f1f5f9;
-  color: #334155 !important;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.status-badge--in_progress,
-.status-badge--wait_inbound {
-  background: #dbeafe;
-  color: #1d4ed8 !important;
-}
-
-.status-badge--completed {
-  background: #dcfce7;
-  color: #15803d !important;
-}
-
-.status-badge--cancelled {
-  background: #fee2e2;
-  color: #dc2626 !important;
-}
 
 .summary-actions {
   display: flex;
@@ -1374,18 +1385,6 @@ textarea:focus {
   padding: 80px 20px;
 }
 
-.operation-message {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 80;
-  border: 1px solid #bfdbfe;
-  border-radius: 10px;
-  padding: 12px 16px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  box-shadow: 0 16px 36px rgba(37, 99, 235, 0.14);
-}
 
 @media (max-width: 1280px) {
   .production-layout,

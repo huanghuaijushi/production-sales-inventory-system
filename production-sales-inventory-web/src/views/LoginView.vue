@@ -9,17 +9,6 @@
         <p>
           覆盖采购、销售、生产、库存和往来资料，帮助团队实时掌握经营状态和业务变化。
         </p>
-
-        <ul class="login-feature-list" aria-label="系统能力">
-          <li v-for="item in features" :key="item">
-            <span class="login-feature-list__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <path d="M5 12.5 9.2 16.8 19 7" />
-              </svg>
-            </span>
-            <span>{{ item }}</span>
-          </li>
-        </ul>
       </div>
     </section>
 
@@ -33,9 +22,8 @@
         </div>
 
         <header class="login-header">
-          <p class="login-header__eyebrow">Admin Console</p>
           <h2>欢迎登录</h2>
-          <p>请输入管理员账号和密码访问控制台。</p>
+          <p>请输入账号和密码访问系统。</p>
         </header>
 
         <form class="login-form" novalidate @submit.prevent="handleLogin">
@@ -80,9 +68,7 @@
               <span>记住登录状态</span>
             </label>
 
-            <button class="text-button" type="button" @click="showPasswordTip">
-              忘记密码？
-            </button>
+            <span class="forgot-hint">忘记密码请联系系统管理员重置。</span>
           </div>
 
           <p v-if="message" class="login-message" :class="`login-message--${messageType}`" role="status">
@@ -99,18 +85,10 @@
             </span>
           </button>
 
-          <p class="auth-switch">
-            还没有管理员账号？
-            <RouterLink to="/register">创建账号</RouterLink>
-          </p>
         </form>
 
         <footer class="login-footer">
           <span>&copy; 2026 {{ tenantFull }}</span>
-          <nav aria-label="登录页辅助链接">
-            <a href="#" @click.prevent>服务协议</a>
-            <a href="#" @click.prevent>隐私政策</a>
-          </nav>
         </footer>
       </div>
     </section>
@@ -130,8 +108,6 @@ const tenantFull = import.meta.env.VITE_TENANT_FULL
 const tenantBadge = import.meta.env.VITE_TENANT_BADGE
 const tenantLogo = import.meta.env.VITE_TENANT_LOGO
 
-const features = ['产销存数据联动', '库存预警提醒', '供应商客户协同', '安全加密防护']
-
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
@@ -144,11 +120,6 @@ const loginForm = reactive<LoginRequest>({
 const rememberLogin = ref(authStore.remembered)
 const message = ref('')
 const messageType = ref<'error' | 'info'>('error')
-
-if (route.query.registered === '1') {
-  messageType.value = 'info'
-  message.value = '注册成功，请使用新账号登录。'
-}
 
 async function handleLogin() {
   clearMessage()
@@ -190,11 +161,6 @@ function validateForm() {
 
 function clearMessage() {
   message.value = ''
-}
-
-function showPasswordTip() {
-  messageType.value = 'info'
-  message.value = '请联系系统管理员重置密码。'
 }
 
 function resolveRedirectPath() {

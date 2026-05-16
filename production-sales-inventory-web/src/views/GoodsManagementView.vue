@@ -1,10 +1,8 @@
 <template>
-  <div class="goods-page">
-    <div class="page-header">
+  <div :class="['goods-page', { 'goods-page--embedded': embedded }]">
+    <div v-if="!embedded" class="page-header">
       <div>
-        <p class="page-eyebrow">商品管理</p>
         <h1>销售商品与匹配规则</h1>
-        <p>销售商品负责对外售卖、渠道价格和库存组成；库存产品只负责仓库数量和成本。</p>
       </div>
       <div class="header-actions">
         <button v-if="activeTab === 'goods'" type="button" class="primary-button" @click="openGoodsModal()">新增销售商品</button>
@@ -17,8 +15,6 @@
       <button type="button" :class="{ active: activeTab === 'mappings' }" @click="activeTab = 'mappings'">商品匹配</button>
     </nav>
 
-    <p v-if="message" class="operation-message">{{ message }}</p>
-
     <template v-if="activeTab === 'goods'">
       <section class="filter-panel">
         <div class="toolbar">
@@ -29,6 +25,7 @@
           <div class="filter-actions">
             <button type="button" class="primary-button" @click="loadGoods(true)">查询</button>
             <button type="button" class="secondary-button" @click="goodsQuery = ''; loadGoods(true)">重置</button>
+            <button v-if="embedded" type="button" class="primary-button" @click="openGoodsModal()">新增销售商品</button>
           </div>
         </div>
       </section>
@@ -66,7 +63,17 @@
                 <td>{{ goods.enabled ? '启用' : '停用' }}</td>
                 <td><button type="button" class="text-button" @click="openGoodsModal(goods)">编辑</button></td>
               </tr>
-              <tr v-if="goodsList.length === 0"><td colspan="6" class="empty-cell">暂无销售商品</td></tr>
+              <tr v-if="goodsList.length === 0">
+                <td colspan="6">
+                  <EmptyState
+                    size="compact"
+                    title="还没有销售商品"
+                    description="销售商品负责对外售卖、渠道价格和库存组成。"
+                    action-label="新增销售商品"
+                    @action="openGoodsModal()"
+                  />
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -83,7 +90,9 @@
               <option v-for="channel in channels" :key="channel.id" :value="channel.id">{{ channel.name }}</option>
             </select>
           </label>
-
+          <div v-if="embedded" class="filter-actions">
+            <button type="button" class="primary-button" @click="openMappingModal()">新增商品匹配</button>
+          </div>
         </div>
       </section>
 
@@ -106,7 +115,17 @@
                 <td>{{ mapping.enabled ? '启用' : '停用' }}</td>
                 <td><button type="button" class="text-button" @click="openMappingModal(mapping)">编辑</button></td>
               </tr>
-              <tr v-if="mappings.length === 0"><td colspan="6" class="empty-cell">暂无商品匹配</td></tr>
+              <tr v-if="mappings.length === 0">
+                <td colspan="6">
+                  <EmptyState
+                    size="compact"
+                    title="还没有商品匹配"
+                    description="为外部订单上的商品名建立到销售 SKU 的映射规则。"
+                    action-label="新增商品匹配"
+                    @action="openMappingModal()"
+                  />
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -202,6 +221,12 @@ import { ApiError } from '@/api/http'
 import { productApi, type Product } from '@/api/product'
 import { salesApi, type ChannelProductMapping, type SalesChannelConfig } from '@/api/sales'
 import { salesGoodsApi, type SalesGoods, type SalesSku } from '@/api/salesGoods'
+import { useToast } from '@/composables/useToast'
+import EmptyState from '@/components/common/EmptyState.vue'
+
+withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
+
+const toast = useToast()
 
 type TabKey = 'goods' | 'mappings'
 
@@ -216,7 +241,6 @@ const mappingFilterChannelId = ref(0)
 const goodsModalOpen = ref(false)
 const mappingModalOpen = ref(false)
 const submitting = ref(false)
-const message = ref('')
 const goodsPage = reactive({ totalElements: 0, totalPages: 0, size: 20, number: 0 })
 const goodsForm = reactive({
   id: null as number | null,
@@ -243,7 +267,6 @@ const mappingForm = reactive({
   priority: 100,
   remark: ''
 })
-let messageTimer: number | undefined
 
 const allSkus = computed(() => enabledGoods.value.flatMap(goods => goods.skus || []))
 
@@ -251,11 +274,11 @@ onMounted(async () => {
   await Promise.all([loadProducts(), loadChannels(), loadGoods(true), loadEnabledGoods(), loadMappings()])
 })
 
-async function loadProducts() { try { products.value = (await productApi.getAllProducts(0, 500)).content } catch (error) { showMessage(getErrorMessage(error, '加载库存产品失败')) } }
-async function loadChannels() { try { channels.value = await salesApi.getChannels(false) } catch (error) { showMessage(getErrorMessage(error, '加载渠道失败')) } }
-async function loadEnabledGoods() { try { enabledGoods.value = await salesGoodsApi.getEnabledGoods() } catch (error) { showMessage(getErrorMessage(error, '加载销售商品失败')) } }
-async function loadGoods(reset = false) { if (reset) goodsPage.number = 0; try { const result = await salesGoodsApi.getGoods(goodsPage.number, goodsPage.size, goodsQuery.value); goodsList.value = result.content; Object.assign(goodsPage, { totalElements: result.totalElements, totalPages: result.totalPages, size: result.size, number: result.number }) } catch (error) { showMessage(getErrorMessage(error, '加载销售商品失败')) } }
-async function loadMappings() { try { mappings.value = await salesApi.getProductMappings(mappingFilterChannelId.value || undefined) } catch (error) { showMessage(getErrorMessage(error, '加载商品匹配失败')) } }
+async function loadProducts() { try { products.value = (await productApi.getAllProducts(0, 500)).content } catch (error) { toast.error(getErrorMessage(error, '加载库存产品失败')) } }
+async function loadChannels() { try { channels.value = await salesApi.getChannels(false) } catch (error) { toast.error(getErrorMessage(error, '加载渠道失败')) } }
+async function loadEnabledGoods() { try { enabledGoods.value = await salesGoodsApi.getEnabledGoods() } catch (error) { toast.error(getErrorMessage(error, '加载销售商品失败')) } }
+async function loadGoods(reset = false) { if (reset) goodsPage.number = 0; try { const result = await salesGoodsApi.getGoods(goodsPage.number, goodsPage.size, goodsQuery.value); goodsList.value = result.content; Object.assign(goodsPage, { totalElements: result.totalElements, totalPages: result.totalPages, size: result.size, number: result.number }) } catch (error) { toast.error(getErrorMessage(error, '加载销售商品失败')) } }
+async function loadMappings() { try { mappings.value = await salesApi.getProductMappings(mappingFilterChannelId.value || undefined) } catch (error) { toast.error(getErrorMessage(error, '加载商品匹配失败')) } }
 
 function openGoodsModal(goods?: SalesGoods) {
   Object.assign(goodsForm, { id: null, code: '', name: '', category: '', specification: '', unit: '件', defaultPrice: 0, enabled: true, remark: '', components: [], channelPrices: [] })
@@ -284,7 +307,7 @@ function addChannelPrice() { goodsForm.channelPrices.push({ channelId: channels.
 function removeChannelPrice(index: number) { goodsForm.channelPrices.splice(index, 1) }
 async function submitGoods() {
   if (!goodsForm.code.trim() || !goodsForm.name.trim() || !goodsForm.unit.trim() || goodsForm.components.some(component => component.productId <= 0 || component.quantityPerUnit <= 0)) {
-    showMessage('请填写商品基础信息和库存组成。')
+    toast.warning('请填写商品基础信息和库存组成。')
     return
   }
   submitting.value = true
@@ -304,10 +327,10 @@ async function submitGoods() {
     if (goodsForm.id) await salesGoodsApi.updateGoods(goodsForm.id, payload)
     else await salesGoodsApi.createGoods(payload)
     goodsModalOpen.value = false
-    showMessage('销售商品已保存。')
+    toast.success('销售商品已保存。')
     await Promise.all([loadGoods(), loadEnabledGoods()])
   } catch (error) {
-    showMessage(getErrorMessage(error, '保存销售商品失败'))
+    toast.error(getErrorMessage(error, '保存销售商品失败'))
   } finally {
     submitting.value = false
   }
@@ -320,7 +343,7 @@ function openMappingModal(mapping?: ChannelProductMapping) {
 }
 async function submitMapping() {
   if (!mappingForm.channelId || !mappingForm.salesSkuId || !mappingForm.externalProductName.trim()) {
-    showMessage('请填写渠道、外部商品和销售SKU。')
+    toast.warning('请填写渠道、外部商品和销售SKU。')
     return
   }
   try {
@@ -328,18 +351,17 @@ async function submitMapping() {
     if (mappingForm.id) await salesApi.updateProductMapping(mappingForm.id, payload)
     else await salesApi.createProductMapping(payload)
     mappingModalOpen.value = false
-    showMessage('商品匹配已保存。')
+    toast.success('商品匹配已保存。')
     await loadMappings()
   } catch (error) {
-    showMessage(getErrorMessage(error, '保存商品匹配失败'))
+    toast.error(getErrorMessage(error, '保存商品匹配失败'))
   }
 }
 
 function formatMoney(value: number) { return `¥${Number(value || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` }
-function showMessage(text: string) { message.value = text; if (messageTimer) window.clearTimeout(messageTimer); messageTimer = window.setTimeout(() => { message.value = '' }, 3500) }
 function getErrorMessage(error: unknown, fallback: string) { return error instanceof ApiError ? error.message : fallback }
 </script>
 
 <style scoped>
-.goods-page{display:flex;flex-direction:column;gap:14px;min-height:calc(100vh - 120px);color:#0f172a}.page-header{display:flex;align-items:center;justify-content:space-between;gap:16px}.page-eyebrow{margin:0 0 5px;color:#64748b;font-size:13px;font-weight:800}.page-header h1{margin:0;color:#0f172a;font-size:22px}.page-header p:last-child{margin:7px 0 0;color:#64748b;font-size:13px;line-height:1.5}.header-actions,.filter-actions,.footer-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.tab-bar{display:flex;gap:8px;padding:6px;border:1px solid #e5edf7;border-radius:14px;background:#fff;box-shadow:0 6px 18px rgba(15,23,42,.04)}.tab-bar button{height:38px;padding:0 16px;border:none;border-radius:10px;background:transparent;color:#64748b;cursor:pointer;font-weight:900}.tab-bar button.active{background:#2563eb;color:#fff;box-shadow:0 8px 18px rgba(37,99,235,.18)}.filter-panel,.card-section{border:1px solid #e5edf7;border-radius:14px;background:#fff;box-shadow:0 6px 18px rgba(15,23,42,.04)}.filter-panel{padding:14px}.toolbar{display:grid;grid-template-columns:minmax(280px,420px) auto;align-items:end;gap:12px}.toolbar label,.form-grid label,.full-field{display:grid;gap:6px;color:#334155;font-size:13px;font-weight:800}.toolbar input,.toolbar select,.modal-body input,.modal-body select,.modal-body textarea,.line-item-row input,.line-item-row select{width:100%;border:1px solid #dbe3ef;border-radius:10px;background:#fff;color:#0f172a;font-size:14px;outline:none}.toolbar input,.toolbar select,.modal-body input,.modal-body select,.line-item-row input,.line-item-row select{height:40px;padding:0 12px}.modal-body textarea{min-height:76px;padding:10px 11px;resize:vertical}.operation-message{margin:0;padding:10px 12px;border:1px solid #bfdbfe;border-radius:10px;background:#eff6ff;color:#1d4ed8;font-size:13px;font-weight:800}.list-header{padding:16px 18px 12px}.list-header h2{margin:0;color:#0f172a;font-size:17px}.list-header p{margin:6px 0 0;color:#64748b;font-size:13px}.table-wrap{margin:0 14px 14px;border:1px solid #edf2f7;border-radius:12px;overflow:auto}.data-table{width:100%;min-width:980px;border-collapse:collapse}.data-table thead{background:#f8fafc}.data-table th,.data-table td{padding:12px 14px;border-bottom:1px solid #edf2f7;color:#334155;font-size:13px;text-align:left;vertical-align:middle}.data-table th{color:#475569;font-weight:800}.strong-text{color:#0f172a;font-weight:800}.muted-text{margin-top:4px;color:#64748b;font-size:12px}.money-cell{color:#0f172a;font-variant-numeric:tabular-nums;font-weight:800}.compact-lines{display:grid;gap:4px}.empty-cell{padding:32px 16px;color:#94a3b8;text-align:center}.primary-button,.secondary-button{display:inline-flex;align-items:center;justify-content:center;min-height:40px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:800;padding:0 15px}.primary-button{border:1px solid #2563eb;background:#2563eb;color:#fff;box-shadow:0 8px 18px rgba(37,99,235,.18)}.secondary-button{border:1px solid #dbe3ef;background:#fff;color:#334155}.compact-button{min-height:34px;padding:0 12px;font-size:13px}.text-button{border:none;border-radius:999px;background:transparent;color:#475569;cursor:pointer;font-size:12px;font-weight:800;padding:6px 9px}.danger-text{color:#dc2626}.modal-backdrop{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.45)}.modal-content{width:min(100%,900px);max-height:90vh;overflow:hidden;border-radius:14px;background:#fff;box-shadow:0 24px 60px rgba(15,23,42,.24);display:flex;flex-direction:column}.small-modal{width:min(100%,720px)}.modal-header,.modal-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid #edf2f7}.modal-footer{border-top:1px solid #edf2f7;border-bottom:none}.modal-header h2{margin:0;color:#0f172a;font-size:18px}.icon-button{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:none;border-radius:8px;background:#f8fafc;color:#64748b;cursor:pointer;font-size:22px;line-height:1}.modal-body{display:grid;gap:14px;padding:18px;overflow-y:auto}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.items-header{display:flex;align-items:center;justify-content:space-between;gap:12px}.items-header h3{margin:0;color:#0f172a;font-size:15px}.line-items{display:grid;gap:10px}.line-item-row{display:grid;grid-template-columns:minmax(260px,1fr) 130px 120px auto;align-items:center;gap:10px;padding:10px;border:1px solid #edf2f7;border-radius:12px;background:#f8fafc}.price-row{grid-template-columns:minmax(220px,1fr) 130px 120px auto}@media(max-width:768px){.page-header,.modal-header,.modal-footer{align-items:stretch;flex-direction:column}.toolbar,.form-grid,.line-item-row,.price-row{grid-template-columns:1fr}}
+.goods-page{display:flex;flex-direction:column;gap:14px;min-height:calc(100vh - 120px);color:#0f172a}.goods-page--embedded{min-height:0}.page-header{display:flex;align-items:center;justify-content:space-between;gap:16px}.page-eyebrow{margin:0 0 5px;color:#64748b;font-size:13px;font-weight:800}.page-header h1{margin:0;color:#0f172a;font-size:22px}.page-header p:last-child{margin:7px 0 0;color:#64748b;font-size:13px;line-height:1.5}.header-actions,.filter-actions,.footer-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.tab-bar{display:flex;gap:8px;padding:6px;border:1px solid #e5edf7;border-radius:14px;background:#fff;box-shadow:0 6px 18px rgba(15,23,42,.04)}.tab-bar button{height:38px;padding:0 16px;border:none;border-radius:10px;background:transparent;color:#64748b;cursor:pointer;font-weight:900}.tab-bar button.active{background:#2563eb;color:#fff;box-shadow:0 8px 18px rgba(37,99,235,.18)}.filter-panel,.card-section{border:1px solid #e5edf7;border-radius:14px;background:#fff;box-shadow:0 6px 18px rgba(15,23,42,.04)}.filter-panel{padding:14px}.toolbar{display:grid;grid-template-columns:minmax(280px,420px) auto;align-items:end;gap:12px}.toolbar label,.form-grid label,.full-field{display:grid;gap:6px;color:#334155;font-size:13px;font-weight:800}.toolbar input,.toolbar select,.modal-body input,.modal-body select,.modal-body textarea,.line-item-row input,.line-item-row select{width:100%;border:1px solid #dbe3ef;border-radius:10px;background:#fff;color:#0f172a;font-size:14px;outline:none}.toolbar input,.toolbar select,.modal-body input,.modal-body select,.line-item-row input,.line-item-row select{height:40px;padding:0 12px}.modal-body textarea{min-height:76px;padding:10px 11px;resize:vertical}.list-header{padding:16px 18px 12px}.list-header h2{margin:0;color:#0f172a;font-size:17px}.list-header p{margin:6px 0 0;color:#64748b;font-size:13px}.table-wrap{margin:0 14px 14px;border:1px solid #edf2f7;border-radius:12px;overflow:auto}.data-table{width:100%;min-width:980px;border-collapse:collapse}.data-table thead{background:#f8fafc}.data-table th,.data-table td{padding:12px 14px;border-bottom:1px solid #edf2f7;color:#334155;font-size:13px;text-align:left;vertical-align:middle}.data-table th{color:#475569;font-weight:800}.strong-text{color:#0f172a;font-weight:800}.muted-text{margin-top:4px;color:#64748b;font-size:12px}.money-cell{color:#0f172a;font-variant-numeric:tabular-nums;font-weight:800}.compact-lines{display:grid;gap:4px}.empty-cell{padding:32px 16px;color:#94a3b8;text-align:center}.primary-button,.secondary-button{display:inline-flex;align-items:center;justify-content:center;min-height:40px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:800;padding:0 15px}.primary-button{border:1px solid #2563eb;background:#2563eb;color:#fff;box-shadow:0 8px 18px rgba(37,99,235,.18)}.secondary-button{border:1px solid #dbe3ef;background:#fff;color:#334155}.compact-button{min-height:34px;padding:0 12px;font-size:13px}.text-button{border:none;border-radius:999px;background:transparent;color:#475569;cursor:pointer;font-size:12px;font-weight:800;padding:6px 9px}.danger-text{color:#dc2626}.modal-backdrop{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(15,23,42,.45)}.modal-content{width:min(100%,900px);max-height:90vh;overflow:hidden;border-radius:14px;background:#fff;box-shadow:0 24px 60px rgba(15,23,42,.24);display:flex;flex-direction:column}.small-modal{width:min(100%,720px)}.modal-header,.modal-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid #edf2f7}.modal-footer{border-top:1px solid #edf2f7;border-bottom:none}.modal-header h2{margin:0;color:#0f172a;font-size:18px}.icon-button{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:none;border-radius:8px;background:#f8fafc;color:#64748b;cursor:pointer;font-size:22px;line-height:1}.modal-body{display:grid;gap:14px;padding:18px;overflow-y:auto}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.items-header{display:flex;align-items:center;justify-content:space-between;gap:12px}.items-header h3{margin:0;color:#0f172a;font-size:15px}.line-items{display:grid;gap:10px}.line-item-row{display:grid;grid-template-columns:minmax(260px,1fr) 130px 120px auto;align-items:center;gap:10px;padding:10px;border:1px solid #edf2f7;border-radius:12px;background:#f8fafc}.price-row{grid-template-columns:minmax(220px,1fr) 130px 120px auto}@media(max-width:768px){.page-header,.modal-header,.modal-footer{align-items:stretch;flex-direction:column}.toolbar,.form-grid,.line-item-row,.price-row{grid-template-columns:1fr}}
 </style>

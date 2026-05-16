@@ -1,10 +1,8 @@
 <template>
-  <div class="page">
-    <div class="page-header">
+  <div :class="['page', { 'page--embedded': embedded }]">
+    <div v-if="!embedded" class="page-header">
       <div>
-        <p class="page-eyebrow">系统设置</p>
         <h1>角色管理</h1>
-        <p>为不同岗位配置角色和权限，并同步给系统用户分配。</p>
       </div>
       <button type="button" class="primary-button" @click="openCreateRole">新增角色</button>
     </div>
@@ -14,6 +12,7 @@
         <input v-model="query" type="search" placeholder="搜索角色名称或编码" @keyup.enter="loadRoles" />
         <button type="button" @click="loadRoles">查询</button>
       </div>
+      <button v-if="embedded" type="button" class="primary-button" @click="openCreateRole">新增角色</button>
     </section>
 
     <section class="grid">
@@ -121,6 +120,8 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { sysUserApi } from '@/api/sysUser'
 import type { PermissionGroupResponse, PermissionOption, RoleDetailResponse, RoleOption } from '@/types/auth'
+
+withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
 
 const query = ref('')
 const roles = ref<RoleOption[]>([])

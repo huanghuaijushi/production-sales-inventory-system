@@ -1,55 +1,52 @@
 <template>
   <div class="dashboard-page">
     <div class="dashboard-shell">
-      <section class="top-panels">
-        <section class="metric-grid metric-grid--top">
-          <article v-for="item in topMetrics" :key="item.title" class="metric-card card-surface">
-            <div class="metric-title-row">
-              <div class="metric-title">{{ item.title }}</div>
-              <div class="metric-mini-icon" :style="{ color: item.accentColor }">{{ item.icon }}</div>
-            </div>
-            <div class="metric-value-row">
-              <div class="metric-value">{{ item.value }}</div>
-              <div class="metric-change-chip" :class="item.trendClass">{{ item.change }}</div>
-            </div>
-            <div class="metric-subtitle">{{ item.subtitle }}</div>
-            <div class="metric-progress">
-              <i :style="{ width: item.progress, background: item.progressColor }"></i>
-            </div>
-          </article>
-        </section>
-
-        <article class="card-surface panel-card panel-card--quick">
-          <div class="panel-header">
-            <div>
-              <h2>快捷操作</h2>
-            </div>
-          </div>
-
-          <div class="quick-grid">
-            <button v-for="action in quickActions" :key="action.label" type="button" class="quick-action" @click="handleQuickAction(action.action)">
-              <span class="quick-action__icon" :class="action.iconClass">
-                <component :is="action.icon" />
-              </span>
-              <span class="quick-action__label">{{ action.label }}</span>
-            </button>
-          </div>
-        </article>
+      <section class="attention-strip">
+        <button
+          v-for="card in attentionCards"
+          :key="card.key"
+          type="button"
+          class="attention-card"
+          :class="{ 'attention-card--urgent': card.urgent }"
+          @click="card.route && router.push(card.route)"
+        >
+          <span class="attention-card__label">{{ card.label }}</span>
+          <span class="attention-card__value">{{ card.value }}</span>
+          <span class="attention-card__hint">{{ card.hint }}</span>
+        </button>
       </section>
 
-      <section class="split-grid split-grid--charts">
-        <article class="card-surface section-card section-card--chart">
-          <div class="section-card__header section-card__header--tight">
-            <div>
-              <h2>原料监控</h2>
-              <p>原料收发存趋势</p>
-            </div>
-            <div class="segmented-control">
-              <button :class="{ 'is-active': rawMonitorMode === 'amount' }" type="button" @click="rawMonitorMode = 'amount'">金额</button>
-              <button :class="{ 'is-active': rawMonitorMode === 'quantity' }" type="button" @click="rawMonitorMode = 'quantity'">业务数量</button>
-            </div>
-          </div>
+      <article class="card-surface panel-card">
+        <div class="panel-header">
+          <h2>快捷操作</h2>
+        </div>
+        <div class="quick-grid">
+          <button v-for="action in quickActions" :key="action.label" type="button" class="quick-action" @click="handleQuickAction(action.action)">
+            <span class="quick-action__icon" :class="action.iconClass">
+              <component :is="action.icon" />
+            </span>
+            <span class="quick-action__label">{{ action.label }}</span>
+          </button>
+        </div>
+      </article>
 
+      <article class="card-surface section-card section-card--chart">
+        <div class="section-card__header section-card__header--tight">
+          <div class="monitor-tab-bar">
+            <button :class="{ 'is-active': monitorTab === 'raw' }" type="button" @click="monitorTab = 'raw'">原料监控</button>
+            <button :class="{ 'is-active': monitorTab === 'finished' }" type="button" @click="monitorTab = 'finished'">成品监控</button>
+          </div>
+          <div class="segmented-control" v-if="monitorTab === 'raw'">
+            <button :class="{ 'is-active': rawMonitorMode === 'amount' }" type="button" @click="rawMonitorMode = 'amount'">金额</button>
+            <button :class="{ 'is-active': rawMonitorMode === 'quantity' }" type="button" @click="rawMonitorMode = 'quantity'">数量</button>
+          </div>
+          <div class="segmented-control" v-else>
+            <button :class="{ 'is-active': finishedMonitorMode === 'quantity' }" type="button" @click="finishedMonitorMode = 'quantity'">件数</button>
+            <button :class="{ 'is-active': finishedMonitorMode === 'amount' }" type="button" @click="finishedMonitorMode = 'amount'">金额</button>
+          </div>
+        </div>
+
+        <template v-if="monitorTab === 'raw'">
           <div class="chart-placeholder chart-placeholder--large">
             <div class="chart-legend chart-legend--top">
               <span><i class="legend-dot legend-dot--blue"></i>{{ rawLegend.inbound }}</span>
@@ -76,11 +73,9 @@
                   </span>
                   <span class="bar-item__label">{{ bar.label }}</span>
                 </span>
-                <div class="chart-line chart-line--raw"></div>
               </div>
             </div>
           </div>
-
           <div class="detail-grid">
             <div class="table-card">
               <div class="table-card__title">原料预警排行</div>
@@ -106,7 +101,6 @@
               </table>
               <RouterLink to="/inventory" class="table-link">查看全部原料预警</RouterLink>
             </div>
-
             <div class="summary-stack">
               <div v-for="item in rawSummaryCards" :key="item.label" class="summary-mini-card">
                 <span class="summary-mini-card__label">{{ item.label }}</span>
@@ -115,20 +109,9 @@
               </div>
             </div>
           </div>
-        </article>
+        </template>
 
-        <article class="card-surface section-card section-card--chart">
-          <div class="section-card__header section-card__header--tight">
-            <div>
-              <h2>成品监控</h2>
-              <p>成品产销趋势</p>
-            </div>
-            <div class="segmented-control">
-              <button :class="{ 'is-active': finishedMonitorMode === 'quantity' }" type="button" @click="finishedMonitorMode = 'quantity'">件数</button>
-              <button :class="{ 'is-active': finishedMonitorMode === 'amount' }" type="button" @click="finishedMonitorMode = 'amount'">库存金额</button>
-            </div>
-          </div>
-
+        <template v-else>
           <div class="chart-placeholder chart-placeholder--large">
             <div class="chart-legend chart-legend--top">
               <span><i class="legend-dot legend-dot--blue"></i>{{ finishedLegend.production }}</span>
@@ -155,11 +138,9 @@
                   </span>
                   <span class="bar-item__label">{{ bar.label }}</span>
                 </span>
-                <div class="chart-line chart-line--finished"></div>
               </div>
             </div>
           </div>
-
           <div class="detail-grid">
             <div class="ranking-card">
               <div class="table-card__title">热销成品 Top5（按销售出库件数）</div>
@@ -175,7 +156,6 @@
               </div>
               <RouterLink to="/inventory" class="table-link">查看全部成品排行</RouterLink>
             </div>
-
             <div class="summary-stack">
               <div v-for="item in finishedSummaryCards" :key="item.label" class="summary-mini-card">
                 <span class="summary-mini-card__label">{{ item.label }}</span>
@@ -184,8 +164,8 @@
               </div>
             </div>
           </div>
-        </article>
-      </section>
+        </template>
+      </article>
 
       <section class="profit-section card-surface section-card">
         <div class="section-card__header section-card__header--tight">
@@ -232,7 +212,6 @@
                   </span>
                   <span class="bar-item__label">{{ bar.label }}</span>
                 </span>
-                <div class="chart-line chart-line--finished"></div>
               </div>
             </div>
           </div>
@@ -370,6 +349,7 @@ type ChartType = 'raw' | 'finished' | 'profit'
 const router = useRouter()
 const rawMonitorMode = ref<'amount' | 'quantity'>('amount')
 const finishedMonitorMode = ref<'quantity' | 'amount'>('quantity')
+const monitorTab = ref<'raw' | 'finished'>('raw')
 const dashboardData = ref<InventoryDashboard | null>(null)
 const overviewLoading = ref(false)
 const chartTooltip = reactive({
@@ -382,40 +362,34 @@ const chartTooltip = reactive({
   align: 'middle' as 'middle' | 'top'
 })
 
-const overviewMetrics = computed(() => {
-  const overview = dashboardData.value?.todayBusinessOverview
+const attentionCards = computed(() => {
+  const ov = dashboardData.value?.todayBusinessOverview
+  const warningCount = rawMaterialWarnings.value.length
+  const margin = profitOverview.value?.grossMargin ?? null
   return [
     {
-      title: '今日入库',
-      value: overviewLoading.value ? '加载中' : `${formatNumber(overview?.inboundRecordCount)} / ${formatNumber(overview?.inboundQuantity)}`,
-      subtitle: '单数 / 数量',
-      change: overviewLoading.value ? '--' : '实时',
-      themeClass: 'theme-blue',
-      trendClass: 'trend-up'
+      key: 'pending',
+      label: '待发货订单',
+      value: overviewLoading.value ? '--' : `${formatNumber(ov?.pendingSalesOrderCount)} 单`,
+      hint: '点击处理',
+      urgent: !overviewLoading.value && (ov?.pendingSalesOrderCount ?? 0) > 0,
+      route: '/sales'
     },
     {
-      title: '今日出库',
-      value: overviewLoading.value ? '加载中' : `${formatNumber(overview?.outboundRecordCount)} / ${formatNumber(overview?.outboundQuantity)}`,
-      subtitle: '单数 / 数量',
-      change: overviewLoading.value ? '--' : '实时',
-      themeClass: 'theme-orange',
-      trendClass: 'trend-up'
+      key: 'warning',
+      label: '原料预警',
+      value: overviewLoading.value ? '--' : `${warningCount} 项`,
+      hint: '查看库存',
+      urgent: !overviewLoading.value && warningCount > 0,
+      route: '/inventory'
     },
     {
-      title: '生产损耗',
-      value: overviewLoading.value ? '加载中' : `${formatNumber(overview?.lossRecordCount)} / ${formatNumber(overview?.lossQuantity)}`,
-      subtitle: '笔数 / 数量',
-      change: overviewLoading.value ? '--' : '实时',
-      themeClass: 'theme-green',
-      trendClass: 'trend-up'
-    },
-    {
-      title: '待发货订单',
-      value: overviewLoading.value ? '加载中' : `${formatNumber(overview?.pendingSalesOrderCount)}单`,
-      subtitle: '销售待处理',
-      change: overviewLoading.value ? '--' : '实时',
-      themeClass: 'theme-purple',
-      trendClass: 'trend-up'
+      key: 'margin',
+      label: '近 7 日毛利率',
+      value: overviewLoading.value ? '--' : (margin ?? '--'),
+      hint: '查看利润',
+      urgent: false,
+      route: null
     }
   ]
 })
@@ -428,8 +402,6 @@ const quickActions: Array<{ label: string; icon: typeof ShoppingCartIcon; iconCl
   { label: '盘点', icon: ClipboardDocumentCheckIcon, iconClass: 'is-cyan', action: 'inventoryCheck' },
   { label: '报损', icon: ExclamationTriangleIcon, iconClass: 'is-red', action: 'stockLoss' }
 ]
-
-const topMetrics = computed(() => dashboardData.value?.topMetrics ?? [])
 
 const rawMaterialBars = computed(() => dashboardData.value?.rawMaterialBars ?? [])
 const rawMaterialWarnings = computed(() => dashboardData.value?.rawMaterialWarnings ?? [])
@@ -709,70 +681,103 @@ onMounted(() => {
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
 }
 
-.dashboard-hero {
-  padding: 14px 16px;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-}
-
-.hero-badge-row {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.hero-badge {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: #eef2f7;
-  color: #475569;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.hero-badge--primary {
-  background: #e8f1ff;
-  color: #2563eb;
-}
-
-.eyebrow {
-  margin: 0 0 6px;
-  font-size: 13px;
-  color: #64748b;
-}
-
-.page-title {
-  margin: 0;
-  font-size: 30px;
-  line-height: 1.15;
-  color: #0f172a;
-}
-
-.page-description {
-  margin: 6px 0 0;
-  max-width: 860px;
-  color: #64748b;
-  line-height: 1.55;
-}
-
-.top-panels,
-.metric-grid,
-.split-grid {
+.attention-strip {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
-.top-panels {
-  grid-template-columns: 1fr;
-  align-items: start;
+.attention-card {
+  display: grid;
+  gap: 6px;
+  padding: 18px 20px;
+  background: #fff;
+  border: 1px solid #e6ecf5;
+  border-radius: 16px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+  text-align: left;
+  cursor: default;
+  transition: box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.attention-card[onclick],
+.attention-card:not([disabled]) {
+  cursor: pointer;
+}
+
+.attention-card:hover {
+  border-color: #bfdbfe;
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.1);
+}
+
+.attention-card--urgent {
+  border-color: #fed7aa;
+  background: linear-gradient(180deg, #fffbf5 0%, #fff 100%);
+}
+
+.attention-card--urgent:hover {
+  border-color: #fb923c;
+}
+
+.attention-card__label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.attention-card__value {
+  font-size: clamp(22px, 2.5vw, 32px);
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.attention-card--urgent .attention-card__value {
+  color: #ea580c;
+}
+
+.attention-card__hint {
+  font-size: 12px;
+  color: #94a3b8;
 }
 
 .panel-card,
-.section-card,
-.metric-card {
+.section-card {
   padding: 12px;
+}
+
+.section-card--chart {
+  min-height: 480px;
+}
+
+.monitor-tab-bar {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  background: #f1f5f9;
+  border-radius: 10px;
+}
+
+.monitor-tab-bar button {
+  height: 32px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.monitor-tab-bar button.is-active {
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
 }
 
 .panel-header,
@@ -796,190 +801,6 @@ onMounted(() => {
   margin: 6px 0 0;
   font-size: 13px;
   color: #64748b;
-}
-
-.overview-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.overview-card {
-  min-width: 0;
-  min-height: 112px;
-  padding: 14px 12px;
-  border-radius: 12px;
-  border: 1px solid #edf2f7;
-  display: grid;
-  align-content: start;
-  overflow: hidden;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
-}
-
-.theme-blue {
-  background: linear-gradient(180deg, #f4f8ff 0%, #ffffff 100%);
-  border-color: #d7e7ff;
-}
-
-.theme-orange {
-  background: linear-gradient(180deg, #fff8ef 0%, #ffffff 100%);
-  border-color: #fde7c5;
-}
-
-.theme-green {
-  background: linear-gradient(180deg, #f1fff7 0%, #ffffff 100%);
-  border-color: #d3f3df;
-}
-
-.theme-purple {
-  background: linear-gradient(180deg, #faf5ff 0%, #ffffff 100%);
-  border-color: #ead9ff;
-}
-
-.overview-card__title {
-  font-size: 12px;
-  font-weight: 700;
-  color: #475569;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.overview-card__value {
-  margin-top: 8px;
-  font-size: clamp(20px, 2vw, 28px);
-  line-height: 1.12;
-  font-weight: 700;
-  color: #0f172a;
-  letter-spacing: -0.04em;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.overview-card__subtitle {
-  margin-top: 7px;
-  font-size: 11px;
-  color: #64748b;
-}
-
-.overview-card__change {
-  margin-top: 9px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: #64748b;
-}
-
-.metric-grid {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-}
-
-.metric-grid--top {
-  order: 2;
-}
-
-.metric-card {
-  min-width: 0;
-  display: grid;
-  gap: 10px;
-  min-height: 116px;
-  padding: 16px 16px 14px;
-  overflow: hidden;
-}
-
-.metric-title-row,
-.metric-value-row {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.metric-mini-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 24px;
-  width: 24px;
-  height: 24px;
-  border-radius: 999px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.metric-title {
-  min-width: 0;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.metric-value {
-  min-width: 0;
-  flex: 1;
-  font-size: clamp(22px, 2vw, 30px);
-  font-weight: 700;
-  color: #0f172a;
-  line-height: 1.08;
-  letter-spacing: -0.035em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.metric-subtitle {
-  color: #94a3b8;
-  font-size: 11px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.metric-change-chip,
-.trend-up,
-.trend-down {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  max-width: 58px;
-  min-height: 22px;
-  padding: 0 6px;
-  border-radius: 999px;
-  font-size: 10px;
-  line-height: 1;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.metric-progress {
-  height: 6px;
-  background: #eef2f7;
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.metric-progress i {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-}
-
-.trend-up {
-  color: #16a34a;
-  background: #f0fdf4;
-}
-
-.trend-down {
-  color: #ef4444;
-  background: #fef2f2;
 }
 
 .quick-grid {
@@ -1054,10 +875,6 @@ onMounted(() => {
 
 .split-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.section-card--chart {
-  min-height: 640px;
 }
 
 .section-card__header--tight {
@@ -1313,24 +1130,6 @@ onMounted(() => {
   box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.16);
 }
 
-.chart-line {
-  position: absolute;
-  left: 6%;
-  right: 6%;
-  top: 62px;
-  bottom: 44px;
-  z-index: 1;
-  border-top: 3px solid #22c55e;
-  opacity: 0.65;
-}
-
-.chart-line--raw {
-  clip-path: polygon(0 52%, 14% 48%, 28% 20%, 42% 38%, 56% 40%, 70% 50%, 84% 48%, 100% 46%, 100% 54%, 84% 56%, 70% 58%, 56% 48%, 42% 46%, 28% 28%, 14% 56%, 0 60%);
-}
-
-.chart-line--finished {
-  clip-path: polygon(0 58%, 14% 52%, 28% 78%, 42% 44%, 56% 68%, 70% 38%, 84% 26%, 100% 62%, 100% 70%, 84% 34%, 70% 46%, 56% 74%, 42% 50%, 28% 84%, 14% 58%, 0 64%);
-}
 
 .bar-item__label {
   font-size: 12px;
@@ -1601,31 +1400,12 @@ onMounted(() => {
 }
 
 @media (max-width: 1500px) {
-  .top-panels,
   .split-grid {
     grid-template-columns: 1fr;
-  }
-
-  .overview-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 1400px) {
-  .metric-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 1024px) {
-  .overview-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .metric-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .quick-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -1641,8 +1421,7 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
-  .overview-grid,
-  .metric-grid,
+  .attention-strip,
   .quick-grid,
   .profit-metric-grid {
     grid-template-columns: 1fr;
@@ -1651,10 +1430,6 @@ onMounted(() => {
   .panel-header h2,
   .section-card h2 {
     font-size: 20px;
-  }
-
-  .page-title {
-    font-size: 24px;
   }
 
   .bar-item__column {

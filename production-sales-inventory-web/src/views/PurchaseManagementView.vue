@@ -2,16 +2,7 @@
   <div class="purchase-page">
     <div class="page-header">
       <div>
-        <p class="page-eyebrow">采购管理</p>
         <h1>原材料采购</h1>
-      </div>
-      <div class="header-search">
-        <input
-          v-model="filters.query"
-          type="search"
-          placeholder="搜索采购单号、供应商或备注"
-          @keyup.enter="loadOrders(true)"
-        />
       </div>
       <div class="header-actions">
         <button type="button" class="secondary-button" @click="goSuppliers()">供应商配置</button>
@@ -19,8 +10,6 @@
         <button type="button" class="primary-button" @click="openPurchaseModal()">新增采购单</button>
       </div>
     </div>
-
-    <p v-if="message" class="operation-message">{{ message }}</p>
 
     <div class="purchase-layout">
       <div class="orders-column">
@@ -78,7 +67,15 @@
                   <td colspan="7" class="empty-cell">正在加载采购单...</td>
                 </tr>
                 <tr v-else-if="orders.length === 0">
-                  <td colspan="7" class="empty-cell">暂无采购单</td>
+                  <td colspan="7">
+                    <EmptyState
+                      size="compact"
+                      title="还没有采购单"
+                      description="新增第一张采购单，跟踪到货并自动入库。"
+                      action-label="新增采购单"
+                      @action="openPurchaseModal()"
+                    />
+                  </td>
                 </tr>
                 <tr v-for="order in orders" v-else :key="order.id">
                   <td>
@@ -96,9 +93,7 @@
                   </td>
                   <td class="money-cell">{{ formatMoney(order.totalAmount) }}</td>
                   <td>
-                    <span class="status-pill" :class="`status-pill--${order.status.toLowerCase()}`">
-                      {{ order.statusText }}
-                    </span>
+                    <StatusPill :semantic="toStatusSemantic(order.status)" :label="order.statusText" />
                   </td>
                   <td>{{ order.expectedArrivalDate || '未填写' }}</td>
                   <td>
@@ -293,6 +288,11 @@ import {
   type SupplierMaterial
 } from '@/api/production'
 import { supplierApi, type Supplier } from '@/api/supplier'
+import { useToast } from '@/composables/useToast'
+import { useConfirm } from '@/composables/useConfirm'
+import EmptyState from '@/components/common/EmptyState.vue'
+import StatusPill from '@/components/common/StatusPill.vue'
+import { toStatusSemantic } from '@/utils/statusSemantic'
 
 interface PurchaseFormItem {
   uid: string
@@ -311,6 +311,8 @@ interface PurchaseForm {
 }
 
 const router = useRouter()
+const toast = useToast()
+const confirm = useConfirm()
 const orders = ref<PurchaseOrder[]>([])
 const products = ref<Product[]>([])
 const suppliers = ref<Supplier[]>([])
@@ -322,7 +324,6 @@ const planningLoading = ref(false)
 const purchaseModalOpen = ref(false)
 const purchaseSubmitting = ref(false)
 const suggestionTab = ref<'purchase' | 'production'>('purchase')
-const message = ref('')
 const filters = reactive({
   query: '',
   status: 'all'
@@ -334,7 +335,6 @@ const orderPage = reactive({
   totalPages: 0
 })
 const purchaseForm = reactive<PurchaseForm>(createEmptyPurchaseForm())
-let messageTimer: number | undefined
 let orderSearchTimer: number | undefined
 
 const rawMaterialProducts = computed(() => products.value.filter(product => product.type === 'RAW_MATERIAL'))
@@ -379,7 +379,7 @@ async function loadOrders(resetPage = false) {
     orderPage.totalElements = result.totalElements
     orderPage.totalPages = result.totalPages
   } catch (error) {
-    showMessage(getErrorMessage(error, '加载采购单失败'))
+    toast.error(getErrorMessage(error, '加载采购单失败'))
   } finally {
     ordersLoading.value = false
   }
@@ -390,7 +390,7 @@ async function loadSuppliers() {
     const result = await supplierApi.getSuppliers(0, 200)
     suppliers.value = result.content
   } catch (error) {
-    showMessage(getErrorMessage(error, '加载供应商失败'))
+    toast.error(getErrorMessage(error, '加载供应商失败'))
   }
 }
 
@@ -399,7 +399,7 @@ async function loadProducts() {
     const result = await productApi.getAllProducts(0, 300)
     products.value = result.content
   } catch (error) {
-    showMessage(getErrorMessage(error, '加载商品失败'))
+    toast.error(getErrorMessage(error, '加载商品失败'))
   }
 }
 
@@ -415,7 +415,7 @@ async function loadPlanningData() {
     productionSuggestions.value = productionResult
     purchaseSuggestionGroups.value = purchaseResult
   } catch (error) {
-    showMessage(getErrorMessage(error, '加载生产采购建议失败'))
+    toast.error(getErrorMessage(error, '加载生产采购建议失败'))
   } finally {
     planningLoading.value = false
   }
@@ -503,7 +503,7 @@ function syncItemPrice(item: PurchaseFormItem) {
 async function submitPurchaseOrder() {
   const validationMessage = validatePurchaseForm()
   if (validationMessage) {
-    showMessage(validationMessage)
+    toast.warning(validationMessage)
     return
   }
 
@@ -523,43 +523,52 @@ async function submitPurchaseOrder() {
 
     if (purchaseForm.id) {
       await purchaseApi.updateOrder(purchaseForm.id, payload)
-      showMessage('采购单已更新。')
+      toast.success('采购单已更新。')
     } else {
       await purchaseApi.createOrder(payload)
-      showMessage('采购单已创建。')
+      toast.success('采购单已创建。')
     }
     closePurchaseModal()
     await Promise.all([loadOrders(true), loadPlanningData()])
   } catch (error) {
-    showMessage(getErrorMessage(error, '保存采购单失败'))
+    toast.error(getErrorMessage(error, '保存采购单失败'))
   } finally {
     purchaseSubmitting.value = false
   }
 }
 
 async function confirmInbound(order: PurchaseOrder) {
-  const confirmed = window.confirm(`确认采购单 ${order.orderNo} 已到货并入库吗？`)
-  if (!confirmed) return
+  const ok = await confirm({
+    title: '确认入库',
+    message: `确认采购单 ${order.orderNo} 已到货并入库吗？`,
+    confirmText: '确认入库'
+  })
+  if (!ok) return
 
   try {
     await purchaseApi.inbound(order.id)
-    showMessage('采购入库成功，库存已更新。')
+    toast.success('采购入库成功，库存已更新。')
     await Promise.all([loadOrders(), loadPlanningData()])
   } catch (error) {
-    showMessage(getErrorMessage(error, '采购入库失败'))
+    toast.error(getErrorMessage(error, '采购入库失败'))
   }
 }
 
 async function cancelOrder(order: PurchaseOrder) {
-  const confirmed = window.confirm(`确认取消采购单 ${order.orderNo} 吗？`)
-  if (!confirmed) return
+  const ok = await confirm({
+    title: '取消采购单',
+    message: `确认取消采购单 ${order.orderNo} 吗？`,
+    confirmText: '取消采购单',
+    tone: 'danger'
+  })
+  if (!ok) return
 
   try {
     await purchaseApi.cancel(order.id)
-    showMessage('采购单已取消。')
+    toast.success('采购单已取消。')
     await Promise.all([loadOrders(), loadPlanningData()])
   } catch (error) {
-    showMessage(getErrorMessage(error, '取消采购单失败'))
+    toast.error(getErrorMessage(error, '取消采购单失败'))
   }
 }
 
@@ -662,14 +671,6 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback
 }
 
-function showMessage(value: string) {
-  message.value = value
-  window.clearTimeout(messageTimer)
-  messageTimer = window.setTimeout(() => {
-    message.value = ''
-  }, 2800)
-}
-
 function resetPurchaseForm() {
   Object.assign(purchaseForm, createEmptyPurchaseForm())
 }
@@ -721,13 +722,6 @@ function createUid() {
   margin-bottom: 16px;
 }
 
-.page-eyebrow {
-  margin: 0 0 6px;
-  color: #2563eb;
-  font-size: 13px;
-  font-weight: 700;
-}
-
 .page-header h1 {
   margin: 0;
   color: #0f172a;
@@ -741,11 +735,6 @@ function createUid() {
   color: #64748b;
 }
 
-.header-search {
-  flex: 1 1 420px;
-  max-width: 520px;
-  min-width: 260px;
-}
 
 .header-actions,
 .table-actions,
@@ -787,20 +776,6 @@ function createUid() {
 .text-button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
-}
-
-.operation-message {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  z-index: 80;
-  margin: 0;
-  border: 1px solid #bfdbfe;
-  border-radius: 10px;
-  padding: 12px 16px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  box-shadow: 0 16px 36px rgba(37, 99, 235, 0.14);
 }
 
 .purchase-layout {
@@ -953,31 +928,6 @@ textarea:focus {
   font-size: 13px;
 }
 
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  padding: 4px 10px;
-  background: #f1f5f9;
-  color: #475569;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.status-pill--pending_inbound {
-  background: #eff6ff;
-  color: #1d4ed8;
-}
-
-.status-pill--inbounded {
-  background: #ecfdf5;
-  color: #047857;
-}
-
-.status-pill--cancelled {
-  background: #fef2f2;
-  color: #b91c1c;
-}
 
 .text-button {
   border: 0;
